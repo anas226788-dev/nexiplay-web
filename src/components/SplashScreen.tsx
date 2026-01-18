@@ -32,11 +32,11 @@ export default function SplashScreen() {
         // Set flag
         sessionStorage.setItem('nexiplay_splash_shown', 'true');
 
-        // Hide after animation (3.5s total)
+        // Hide after animation (1.5s for better performance)
         const timer = setTimeout(() => {
             setVisible(false);
-            setTimeout(() => setShow(false), 500); // Wait for fade out
-        }, 3500);
+            setTimeout(() => setShow(false), 300); // Faster fade out
+        }, 1500);
 
         return () => clearTimeout(timer);
     }, []);

@@ -4,7 +4,11 @@ import './globals.css';
 
 import AdSpot from '@/components/AdSpot';
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({
+    subsets: ['latin'],
+    display: 'swap', // Prevents font blocking
+    preload: true,
+});
 
 // Constants... (metadata)
 export const metadata: Metadata = {

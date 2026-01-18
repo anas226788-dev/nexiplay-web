@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import AdSpot from '@/components/AdSpot';
 import { supabase } from '@/lib/supabase';
 import { Movie, Category } from '@/lib/types';
@@ -109,11 +110,14 @@ export default async function HomePage() {
                                     <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-dark-700">
                                         {/* Poster */}
                                         {movie.poster_url ? (
-                                            <img
+                                            <Image
                                                 src={movie.poster_url}
                                                 alt={movie.title}
-                                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                                                loading="lazy"
+                                                fill
+                                                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
+                                                className="object-cover transition-transform duration-500 group-hover:scale-110"
+                                                priority={index < 6}
+                                                unoptimized
                                             />
                                         ) : (
                                             <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-dark-600 to-dark-800">
