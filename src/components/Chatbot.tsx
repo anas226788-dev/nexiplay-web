@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ChatbotSettings, FAQ } from '@/lib/types';
 import Link from 'next/link';
@@ -33,7 +33,7 @@ export default function Chatbot() {
     const [settings, setSettings] = useState<ChatbotSettings | null>(null);
     const [faqs, setFaqs] = useState<FAQ[]>([]);
     type ChatMessage = {
-        text: string | JSX.Element;
+        text: string | React.ReactNode;
         isBot: boolean;
         isTranslated?: boolean;
         originalText?: string;

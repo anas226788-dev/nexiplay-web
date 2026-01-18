@@ -155,12 +155,13 @@ export interface EpisodeDownloadLink {
 export interface FAQ {
     question: string;
     answer: string;
+    keywords: string;
 }
 
 export interface ChatbotSettings {
     id: number;
     welcome_message: string;
     faqs: FAQ[];
-    is_active: boolean;
+    is_enabled: boolean;
     updated_at: string;
 }
