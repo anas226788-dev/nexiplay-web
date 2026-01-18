@@ -13,6 +13,9 @@ export const metadata: Metadata = {
         default: 'Nexiplay - Download Movies, Series & Anime',
     },
     description: 'Your ultimate destination for downloading high-quality movies, series, and anime.',
+    verification: {
+        google: 'jvLQjTLiIH_oAJPYsTyeKWYb1HlqXpjAcO_kk-0Tm8g',
+    },
 };
 
 export const viewport = {
