@@ -1,0 +1,38 @@
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
+
+import AdSpot from '@/components/AdSpot';
+
+const inter = Inter({ subsets: ['latin'] });
+
+// Constants... (metadata)
+export const metadata: Metadata = {
+    title: {
+        template: '%s | Nexiplay',
+        default: 'Nexiplay - Download Movies, Series & Anime',
+    },
+    description: 'Your ultimate destination for downloading high-quality movies, series, and anime.',
+};
+
+export const viewport = {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+};
+
+export default function RootLayout({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
+    return (
+        <html lang="en" suppressHydrationWarning>
+            <body className={`${inter.className} gradient-bg min-h-screen`} suppressHydrationWarning>
+                <AdSpot placement="popup_global" />
+                {children}
+            </body>
+        </html>
+    );
+}

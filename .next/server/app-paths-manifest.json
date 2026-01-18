@@ -1,0 +1,6 @@
+{
+  "/(site)/series/page": "app/(site)/series/page.js",
+  "/(site)/anime/page": "app/(site)/anime/page.js",
+  "/(site)/page": "app/(site)/page.js",
+  "/(site)/[type]/[slug]/page": "app/(site)/[type]/[slug]/page.js"
+}
