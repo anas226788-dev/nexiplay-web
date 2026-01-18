@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Use environment variable for domain, fallback to localhost or user's example
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://nexiplay.com';
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://nexiplay.vercel.app';
 
     // Fetch all movies/series/anime
     // Fetch only needed fields to be lightweight
