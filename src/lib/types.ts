@@ -151,3 +151,16 @@ export interface EpisodeDownloadLink {
     link_status?: Record<string, 'ACTIVE' | 'EXPIRED'>;
     created_at?: string;
 }
+
+export interface FAQ {
+    question: string;
+    answer: string;
+}
+
+export interface ChatbotSettings {
+    id: number;
+    welcome_message: string;
+    faqs: FAQ[];
+    is_active: boolean;
+    updated_at: string;
+}
