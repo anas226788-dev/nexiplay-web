@@ -12,14 +12,26 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         .select('slug, type, updated_at')
         .order('updated_at', { ascending: false });
 
+    // Fetch categories/genres
+    const { data: categories } = await supabase
+        .from('categories')
+        .select('slug');
+
     const contentUrls = (movies || []).map((movie) => {
-        // Determine path based on type
-        // Ensure type matches the folder [type] expectations (movie, series, anime)
         return {
             url: `${baseUrl}/${movie.type}/${movie.slug}`,
             lastModified: movie.updated_at ? new Date(movie.updated_at) : new Date(),
             changeFrequency: 'weekly' as const,
             priority: 0.8,
+        };
+    });
+
+    const categoryUrls = (categories || []).map((cat) => {
+        return {
+            url: `${baseUrl}/genre/${cat.slug}`,
+            lastModified: new Date(),
+            changeFrequency: 'weekly' as const,
+            priority: 0.6,
         };
     });
 
@@ -31,5 +43,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             priority: 1,
         },
         ...contentUrls,
+        ...categoryUrls,
     ];
+
+
 }

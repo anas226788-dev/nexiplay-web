@@ -20,7 +20,6 @@ export default function MovieCard({ movie }: MovieCardProps) {
                         fill
                         className="object-cover transition-transform duration-500 group-hover:scale-110"
                         sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-                        unoptimized
                     />
                 ) : (
                     <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-dark-600 to-dark-800">

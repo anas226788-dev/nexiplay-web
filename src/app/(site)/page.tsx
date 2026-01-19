@@ -117,7 +117,6 @@ export default async function HomePage() {
                                                 sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
                                                 className="object-cover transition-transform duration-500 group-hover:scale-110"
                                                 priority={index < 6}
-                                                unoptimized
                                             />
                                         ) : (
                                             <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-dark-600 to-dark-800">
