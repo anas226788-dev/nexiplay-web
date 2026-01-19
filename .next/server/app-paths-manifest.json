@@ -1,4 +1,7 @@
 {
   "/icon.png/route": "app/icon.png/route.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/dmca/page": "app/dmca/page.js",
+  "/terms/page": "app/terms/page.js",
   "/(site)/page": "app/(site)/page.js"
 }

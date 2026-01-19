@@ -16,7 +16,7 @@ export default function Footer() {
             { href: '/genre/horror', label: 'Horror' },
         ],
         legal: [
-            { href: '/privacy', label: 'Privacy Policy' },
+            { href: '/privacy-policy', label: 'Privacy Policy' },
             { href: '/terms', label: 'Terms of Service' },
             { href: '/dmca', label: 'DMCA' },
             { href: '/contact', label: 'Contact' },
