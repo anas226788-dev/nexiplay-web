@@ -276,6 +276,7 @@ export default async function MovieDetailPage({ params }: PageProps) {
                         <DownloadPanel downloadLinks={movieData.download_links || []} />
                     )}
                 </div>
+                <AdSpot placement="download_bottom" className="mt-8" />
             </div>
             {/* Related Posts */}
             <div className="container mx-auto px-4 max-w-6xl mt-12 md:mt-20">

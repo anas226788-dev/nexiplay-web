@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import Image from 'next/image';
+import ScriptAd from './ScriptAd';
 
 interface Ad {
     id: string;
     title: string;
-    placement: 'home_top' | 'home_bottom' | 'movie_sidebar' | 'popup_global';
+    placement: 'home_top' | 'home_bottom' | 'movie_sidebar' | 'popup_global' | 'download_bottom' | 'episode_list';
     ad_type: 'image' | 'script';
     image_url: string | null;
     script_code: string | null;
@@ -25,28 +26,37 @@ export default function AdSpot({ placement, className = '' }: AdSpotProps) {
     const [isVisible, setIsVisible] = useState(true);
 
     useEffect(() => {
+        let isMounted = true;
+
         async function fetchAd() {
             // Fetch a random active ad for this placement
             const { data } = await supabase
                 .from('ads')
                 .select('*')
                 .eq('placement', placement)
-                .eq('is_active', true)
-                .limit(1); // For now just take one. Later could randomize if multiple.
+                .eq('is_active', true);
 
-            if (data && data.length > 0) {
-                // If multiple ads exist for same spot, we could pick random here
-                // const randomAd = data[Math.floor(Math.random() * data.length)];
-                setAd(data[0]);
+            if (isMounted && data && data.length > 0) {
+                // Pick a random ad to vary impressions
+                const randomAd = data[Math.floor(Math.random() * data.length)];
+                setAd(randomAd as Ad);
             }
         }
 
         fetchAd();
+
+        return () => { isMounted = false; };
     }, [placement]);
 
     if (!ad || !isVisible) return null;
 
     if (placement === 'popup_global') {
+        // If it's a script ad (e.g. Adsterra Popunder), just render the script invisibly
+        if (ad.ad_type === 'script') {
+            return <ScriptAd scriptCode={ad.script_code || ''} />;
+        }
+
+        // Custom Modal for Image Ads
         return (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
                 <div className="relative max-w-lg w-full bg-dark-800 rounded-2xl overflow-hidden shadow-2xl border border-white/10">
@@ -59,7 +69,7 @@ export default function AdSpot({ placement, className = '' }: AdSpotProps) {
                         </svg>
                     </button>
                     <div className="p-1">
-                        {ad.ad_type === 'image' && ad.image_url ? (
+                        {ad.image_url ? (
                             <a href={ad.destination_url || '#'} target="_blank" rel="noopener noreferrer" className="block relative aspect-video">
                                 <Image
                                     src={ad.image_url}
@@ -68,12 +78,7 @@ export default function AdSpot({ placement, className = '' }: AdSpotProps) {
                                     className="object-cover rounded-xl"
                                 />
                             </a>
-                        ) : (
-                            <div
-                                className="ad-script-container"
-                                dangerouslySetInnerHTML={{ __html: ad.script_code || '' }}
-                            />
-                        )}
+                        ) : null}
                     </div>
                 </div>
             </div>
@@ -105,10 +110,9 @@ export default function AdSpot({ placement, className = '' }: AdSpotProps) {
             ) : (
                 <div className="text-center w-full overflow-hidden">
                     <span className="block text-[10px] text-gray-600 uppercase mb-1">Advertisement</span>
-                    <div
-                        className="ad-script-container inline-block"
-                        dangerouslySetInnerHTML={{ __html: ad.script_code || '' }}
-                    />
+                    <div className="inline-block">
+                        <ScriptAd scriptCode={ad.script_code || ''} />
+                    </div>
                 </div>
             )}
         </div>
