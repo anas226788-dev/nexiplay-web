@@ -7,6 +7,8 @@ import MovieGrid from '@/components/MovieGrid';
 import SearchBar from '@/components/SearchBar';
 import CategoryMenu, { TypeTabs } from '@/components/CategoryMenu';
 
+export const dynamic = 'force-dynamic';
+
 async function getHomeContent(): Promise<{
     latestMovies: Movie[];
     latestSeries: Movie[];

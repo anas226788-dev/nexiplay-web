@@ -12,6 +12,9 @@ export interface Movie {
     format?: string;
     subtitle?: string;
     trailer_url?: string;
+    is_running?: boolean;
+    last_episode?: number;
+    next_episode?: number;
     created_at: string;
 }
 

@@ -8,6 +8,8 @@ export const metadata: Metadata = {
     description: 'Browse and download the latest TV series in HD quality. Free series downloads available.',
 };
 
+export const dynamic = 'force-dynamic';
+
 async function getSeries(): Promise<Movie[]> {
     const { data, error } = await supabase
         .from('movies')

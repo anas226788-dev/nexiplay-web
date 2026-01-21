@@ -8,6 +8,8 @@ export const metadata: Metadata = {
     description: 'Browse and download the latest anime in HD quality. Free anime downloads available.',
 };
 
+export const dynamic = 'force-dynamic';
+
 async function getAnime(): Promise<Movie[]> {
     const { data, error } = await supabase
         .from('movies')
