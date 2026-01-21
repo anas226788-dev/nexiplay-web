@@ -1,6 +1,6 @@
 {
+  "/_not-found/page": "app/_not-found/page.js",
   "/icon.png/route": "app/icon.png/route.js",
-  "/dmca/page": "app/dmca/page.js",
-  "/terms/page": "app/terms/page.js",
-  "/(site)/page": "app/(site)/page.js"
+  "/(site)/page": "app/(site)/page.js",
+  "/(site)/[type]/[slug]/page": "app/(site)/[type]/[slug]/page.js"
 }

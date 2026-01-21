@@ -4,6 +4,8 @@ import './globals.css';
 
 import AdSpot from '@/components/AdSpot';
 
+import NoticeSystem from '@/components/NoticeSystem';
+
 const inter = Inter({
     subsets: ['latin'],
     display: 'swap', // Prevents font blocking
@@ -37,6 +39,7 @@ export default function RootLayout({
     return (
         <html lang="en" suppressHydrationWarning>
             <body className={`${inter.className} gradient-bg min-h-screen`} suppressHydrationWarning>
+                <NoticeSystem />
                 <AdSpot placement="popup_global" />
                 {children}
             </body>

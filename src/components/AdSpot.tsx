@@ -13,6 +13,7 @@ interface Ad {
     image_url: string | null;
     script_code: string | null;
     destination_url: string | null;
+    device_target: 'desktop' | 'mobile' | 'both';
     is_active: boolean;
 }
 
@@ -29,7 +30,7 @@ export default function AdSpot({ placement, className = '' }: AdSpotProps) {
         let isMounted = true;
 
         async function fetchAd() {
-            // Fetch a random active ad for this placement
+            // Fetch active ads for this placement
             const { data } = await supabase
                 .from('ads')
                 .select('*')
@@ -37,15 +38,32 @@ export default function AdSpot({ placement, className = '' }: AdSpotProps) {
                 .eq('is_active', true);
 
             if (isMounted && data && data.length > 0) {
-                // Pick a random ad to vary impressions
-                const randomAd = data[Math.floor(Math.random() * data.length)];
-                setAd(randomAd as Ad);
+                // Filter by device target
+                const isMobile = window.innerWidth <= 768;
+                const filteredAds = data.filter((ad: Ad) => {
+                    const target = ad.device_target || 'both';
+                    if (target === 'both') return true;
+                    if (target === 'mobile' && isMobile) return true;
+                    if (target === 'desktop' && !isMobile) return true;
+                    return false;
+                });
+
+                if (filteredAds.length > 0) {
+                    // Pick a random ad to vary impressions
+                    const randomAd = filteredAds[Math.floor(Math.random() * filteredAds.length)];
+                    setAd(randomAd as Ad);
+                }
             }
         }
 
+        // Add resize listener to re-evaluate if needed
+        window.addEventListener('resize', fetchAd);
         fetchAd();
 
-        return () => { isMounted = false; };
+        return () => {
+            isMounted = false;
+            window.removeEventListener('resize', fetchAd);
+        };
     }, [placement]);
 
     if (!ad || !isVisible) return null;

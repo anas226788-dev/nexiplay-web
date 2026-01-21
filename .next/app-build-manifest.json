@@ -26,25 +26,15 @@
       "static/chunks/main-app.js",
       "static/chunks/app/(site)/page.js"
     ],
-    "/dmca/page": [
+    "/(site)/[type]/[slug]/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/dmca/page.js"
+      "static/chunks/app/(site)/[type]/[slug]/page.js"
     ],
-    "/contact/page": [
+    "/_not-found/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/contact/page.js"
-    ],
-    "/privacy-policy/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/privacy-policy/page.js"
-    ],
-    "/terms/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/terms/page.js"
+      "static/chunks/app/_not-found/page.js"
     ]
   }
 }

@@ -373,14 +373,17 @@ export default function Chatbot() {
             {!isOpen && (
                 <button
                     onClick={() => setIsOpen(true)}
-                    className="fixed bottom-20 md:bottom-6 right-6 z-50 p-0 w-14 h-14 bg-red-600 hover:bg-red-700 rounded-full shadow-lg shadow-red-900/40 transition-all hover:scale-110 active:scale-95 animate-bounce-slow flex items-center justify-center group overflow-hidden"
+                    className="fixed bottom-20 md:bottom-6 right-6 z-50 p-0 w-16 h-16 bg-red-600 hover:bg-red-700 rounded-full shadow-lg shadow-red-900/40 transition-transform hover:scale-110 active:scale-95 flex items-center justify-center group overflow-hidden animate-[bounce_2s_infinite]"
                 >
                     <div className="absolute inset-0 bg-gradient-to-tr from-red-600 to-orange-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <svg className="w-7 h-7 text-white relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+
+                    {/* Animated Phone/Bot Icon */}
+                    <svg className="w-8 h-8 text-white relative z-10 animate-[wiggle_1s_ease-in-out_infinite]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
                     </svg>
+
                     {/* Notification Dot */}
-                    <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-green-400 border-2 border-red-600 rounded-full z-20 animate-pulse"></span>
+                    <span className="absolute top-3 right-4 w-3 h-3 bg-green-400 border-2 border-red-600 rounded-full z-20 animate-pulse"></span>
                 </button>
             )}
 
@@ -397,7 +400,7 @@ export default function Chatbot() {
                                 🤖
                             </div>
                             <div>
-                                <h3 className="font-bold text-white text-sm tracking-wide">NexiBot</h3>
+                                <h3 className="font-bold text-white text-sm tracking-wide">{settings?.bot_name || 'NexiBot'}</h3>
                                 {/* Animated Status Text */}
                                 <div className="flex items-center gap-1.5 h-4">
                                     <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.6)]"></span>
