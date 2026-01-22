@@ -15,7 +15,12 @@ export interface Movie {
     is_running?: boolean;
     last_episode?: number;
     next_episode?: number;
+    is_trending?: boolean;
+    trending_rank?: number;
+    banner_url_desktop?: string;
+    banner_url_mobile?: string;
     created_at: string;
+    updated_at?: string;
 }
 
 export interface Download {

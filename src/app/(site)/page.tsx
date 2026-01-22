@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import AdSpot from '@/components/AdSpot';
+import HeroSlider from '@/components/HeroSlider';
 import { supabase } from '@/lib/supabase';
 import { Movie, Category } from '@/lib/types';
 import MovieGrid from '@/components/MovieGrid';
@@ -14,8 +15,9 @@ async function getHomeContent(): Promise<{
     latestSeries: Movie[];
     latestAnime: Movie[];
     categories: Category[];
+    trendingMovies: Movie[];
 }> {
-    const [moviesRes, seriesRes, animeRes, categoriesRes] = await Promise.all([
+    const [moviesRes, seriesRes, animeRes, categoriesRes, trendingRes] = await Promise.all([
         supabase
             .from('movies')
             .select('*')
@@ -38,6 +40,12 @@ async function getHomeContent(): Promise<{
             .from('categories')
             .select('*')
             .order('name', { ascending: true }),
+        supabase
+            .from('movies')
+            .select('*')
+            .eq('is_trending', true)
+            .order('trending_rank', { ascending: true })
+            .limit(10),
     ]);
 
     return {
@@ -45,52 +53,59 @@ async function getHomeContent(): Promise<{
         latestSeries: seriesRes.data || [],
         latestAnime: animeRes.data || [],
         categories: categoriesRes.data || [],
+        trendingMovies: trendingRes.data || [],
     };
 }
 
 export default async function HomePage() {
-    const { latestMovies, latestSeries, latestAnime, categories } = await getHomeContent();
+    const { latestMovies, latestSeries, latestAnime, categories, trendingMovies } = await getHomeContent();
     const allLatest = [...latestMovies, ...latestSeries, ...latestAnime]
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         .slice(0, 18);
 
     return (
         <div className="min-h-screen">
-            {/* Hero Section - Compact */}
-            <section className="relative py-8 md:py-12">
-                <div className="absolute inset-0 bg-gradient-to-b from-red-900/10 via-transparent to-transparent" />
-
-                <div className="container mx-auto px-4 relative">
-                    {/* Logo & Tagline */}
-                    <div className="text-center mb-8">
-                        <h1 className="text-3xl md:text-4xl font-bold mb-2">
-                            <span className="bg-gradient-to-r from-red-500 to-red-600 bg-clip-text text-transparent">
-                                Nexiplay
-                            </span>
-                        </h1>
-                        <p className="text-gray-400 text-sm md:text-base">
-                            Download Movies, Series & Anime in HD
-                        </p>
-                    </div>
-
-                    {/* Search Bar */}
-                    <div className="max-w-2xl mx-auto mb-8">
-                        <SearchBar />
-                    </div>
-
-                    {/* Type Tabs */}
-                    <div className="flex justify-center mb-6">
-                        <TypeTabs activeType="all" />
-                    </div>
-
-                    {/* Categories */}
-                    {categories.length > 0 && (
-                        <div className="mb-8">
-                            <CategoryMenu categories={categories} />
+            {/* Hero Slider (Trending) */}
+            {trendingMovies.length > 0 ? (
+                <HeroSlider movies={trendingMovies} />
+            ) : (
+                /* Fallback Hero if no trending content */
+                <section className="relative py-8 md:py-12">
+                    <div className="absolute inset-0 bg-gradient-to-b from-red-900/10 via-transparent to-transparent" />
+                    <div className="container mx-auto px-4 relative">
+                        <div className="text-center mb-8">
+                            <h1 className="text-3xl md:text-4xl font-bold mb-2">
+                                <span className="bg-gradient-to-r from-red-500 to-red-600 bg-clip-text text-transparent">
+                                    Nexiplay
+                                </span>
+                            </h1>
+                            <p className="text-gray-400 text-sm md:text-base">
+                                Download Movies, Series & Anime in HD
+                            </p>
                         </div>
-                    )}
+                    </div>
+                </section>
+            )}
+
+            {/* Search Bar & Categories - Moved below slider */}
+            <div className="container mx-auto px-4 -mt-8 relative z-20 mb-12">
+                {/* Search Bar */}
+                <div className="max-w-2xl mx-auto mb-8">
+                    <SearchBar />
                 </div>
-            </section>
+
+                {/* Type Tabs */}
+                <div className="flex justify-center mb-6">
+                    <TypeTabs activeType="all" />
+                </div>
+
+                {/* Categories */}
+                {categories.length > 0 && (
+                    <div className="mb-8">
+                        <CategoryMenu categories={categories} />
+                    </div>
+                )}
+            </div>
 
             {/* Content */}
             <div className="container mx-auto px-4 pb-12">

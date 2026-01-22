@@ -22,6 +22,11 @@ export const metadata: Metadata = {
     verification: {
         google: 'jvLQjTLiIH_oAJPYsTyeKWYb1HlqXpjAcO_kk-0Tm8g',
     },
+    icons: {
+        icon: '/favicon.png',
+        shortcut: '/favicon.png',
+        apple: '/favicon.png',
+    },
 };
 
 export const viewport = {
