@@ -5,6 +5,7 @@ import { Season, Episode, EpisodeDownloadLink } from '@/lib/types';
 
 interface EpisodeListProps {
     seasons: Season[];
+    running_status?: 'Ongoing' | 'Completed' | 'Hiatus';
 }
 
 const RESOLUTIONS = ['360p', '480p', '720p', '1080p'] as const;
@@ -20,7 +21,7 @@ const PROVIDER_CONFIG = {
 
 type ProviderKey = keyof typeof PROVIDER_CONFIG;
 
-export default function EpisodeList({ seasons }: EpisodeListProps) {
+export default function EpisodeList({ seasons, running_status }: EpisodeListProps) {
     const [activeSeason, setActiveSeason] = useState(seasons[0]?.season_number || 1);
     const [activeEpisode, setActiveEpisode] = useState<string | null>(null);
     const [activeResolution, setActiveResolution] = useState<string | null>(null);
@@ -169,8 +170,13 @@ export default function EpisodeList({ seasons }: EpisodeListProps) {
                                                         {episode.episode_number}
                                                     </div>
                                                     <div>
-                                                        <h4 className="font-medium text-white">
+                                                        <h4 className="font-medium text-white flex items-center gap-2">
                                                             Episode {episode.episode_number}
+                                                            {running_status === 'Ongoing' && episode.episode_number === Math.max(...episodes.map(e => e.episode_number)) && (
+                                                                <span className="px-1.5 py-0.5 bg-red-600/20 text-red-500 text-[10px] font-bold rounded border border-red-500/20 animate-pulse">
+                                                                    NEW
+                                                                </span>
+                                                            )}
                                                             {episode.episode_title && (
                                                                 <span className="text-gray-400 font-normal ml-2">
                                                                     - {episode.episode_title}

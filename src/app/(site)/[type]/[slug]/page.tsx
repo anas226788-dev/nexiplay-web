@@ -270,8 +270,24 @@ export default async function MovieDetailPage({ params }: PageProps) {
                         {isSeriesOrAnime ? 'Episodes' : 'Download Links'}
                     </h2>
 
+                    {/* Per-Content Notice System (Strict) */}
+                    {movieData.notice_enabled && movieData.notice_text && (
+                        <div className="mb-8 p-6 rounded-2xl bg-gradient-to-r from-red-600/20 to-orange-600/20 border border-red-500/40 flex items-start gap-5 shadow-lg shadow-red-900/10">
+                            <span className="text-3xl animate-pulse">📢</span>
+                            <div>
+                                <h4 className="font-black text-red-500 text-base uppercase tracking-widest mb-2 flex items-center gap-2">
+                                    IMPORTANT NOTICE
+                                    <span className="h-px flex-1 bg-red-500/20"></span>
+                                </h4>
+                                <p className="text-white text-lg md:text-xl font-bold leading-relaxed drop-shadow-sm">
+                                    {movieData.notice_text}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
                     {isSeriesOrAnime ? (
-                        <EpisodeList seasons={seasons} />
+                        <EpisodeList seasons={seasons} running_status={movieData.running_status} />
                     ) : (
                         <DownloadPanel downloadLinks={movieData.download_links || []} />
                     )}
