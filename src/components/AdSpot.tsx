@@ -116,7 +116,7 @@ export default function AdSpot({ placement, className = '' }: AdSpotProps) {
                     {/* "Ad" Label */}
                     <span className="absolute top-0 right-0 bg-white/10 text-[10px] text-gray-400 px-1.5 py-0.5 z-10">Ad</span>
 
-                    <div className="relative w-full aspect-[970/250] md:aspect-[970/90]">
+                    <div className="relative w-full h-[250px] md:h-auto md:aspect-[970/90]">
                         <Image
                             src={ad.image_url}
                             alt={ad.title}

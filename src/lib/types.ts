@@ -26,6 +26,8 @@ export interface Movie {
     // Per-Content Notice System
     notice_enabled?: boolean;
     notice_text?: string;
+    // Dual Action Click System
+    ad_link?: string;
     created_at: string;
     updated_at?: string;
 }

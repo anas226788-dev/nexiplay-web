@@ -7,6 +7,7 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay, EffectFade, Pagination, Navigation } from 'swiper/modules';
 import { Movie, AppSettings } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
+import { getContentUrl } from '@/lib/urlUtils';
 
 import 'swiper/css';
 import 'swiper/css/effect-fade';
@@ -30,31 +31,44 @@ export default function HeroSlider({ movies }: HeroSliderProps) {
         fetchSettings();
     }, []);
 
-    const handleBannerClick = (e: React.MouseEvent, movieSlug: string, type: string, releaseYear: number) => {
-        // Construct standard URL
-        const movieUrl = `/${type === 'series' ? 'series' : type === 'anime' ? 'anime' : 'movies'}/${movieSlug}-${releaseYear}`;
+    const handleBannerClick = (e: React.MouseEvent, movie: Movie) => {
+        // Construct content URL
+        const contentUrl = getContentUrl(movie);
 
-        // Standard link behavior if no ads enabled or already seen
-        if (!settings?.is_ads_enabled || !settings?.popunder_url) {
-            return; // Let Link handle it
+        // Check if this movie has a per-content ad link
+        if (movie.ad_link) {
+            // Prevent default Link behavior
+            e.preventDefault();
+
+            // Check session storage to prevent spam (once per movie per session)
+            const adKey = `ad_seen_${movie.id}`;
+            const hasSeenAd = sessionStorage.getItem(adKey);
+
+            if (!hasSeenAd) {
+                // Open ad in new tab (MUST be first, directly in click handler for mobile compatibility)
+                window.open(movie.ad_link, '_blank');
+                sessionStorage.setItem(adKey, 'true');
+            }
+
+            // Navigate to content in same tab
+            window.location.href = contentUrl;
+            return;
         }
 
-        // Check session storage
-        const hasSeenAd = sessionStorage.getItem('trending_ad_seen');
+        // Fallback: Global ad system (if no per-content ad)
+        if (settings?.is_ads_enabled && settings?.popunder_url) {
+            const hasSeenGlobalAd = sessionStorage.getItem('trending_ad_seen');
 
-        if (!hasSeenAd && !adTriggeredRef.current) {
-            e.preventDefault(); // Stop immediate navigation
-            adTriggeredRef.current = true;
-            sessionStorage.setItem('trending_ad_seen', 'true');
+            if (!hasSeenGlobalAd && !adTriggeredRef.current) {
+                e.preventDefault();
+                adTriggeredRef.current = true;
+                sessionStorage.setItem('trending_ad_seen', 'true');
 
-            // 1. Open Ad in New Tab
-            window.open(settings.popunder_url, '_blank');
-
-            // 2. Navigate to content in current tab after small delay
-            setTimeout(() => {
-                window.location.href = movieUrl;
-            }, 100);
+                window.open(settings.popunder_url, '_blank');
+                window.location.href = contentUrl;
+            }
         }
+        // If no ad configured, Link handles navigation normally
     };
 
     if (!movies || movies.length === 0) return null;
@@ -135,8 +149,8 @@ export default function HeroSlider({ movies }: HeroSliderProps) {
                                         {/* Actions */}
                                         <div className="flex items-center gap-4 pt-4">
                                             <Link
-                                                href={`/${movie.type === 'series' ? 'series' : movie.type === 'anime' ? 'anime' : 'movies'}/${movie.slug}-${movie.release_year}`}
-                                                onClick={(e) => handleBannerClick(e, movie.slug, movie.type, movie.release_year || 0)}
+                                                href={getContentUrl(movie)}
+                                                onClick={(e) => handleBannerClick(e, movie)}
                                                 className="px-8 py-3.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl flex items-center gap-2 transition-all hover:scale-105 hover:shadow-lg hover:shadow-red-600/30 group/btn"
                                             >
                                                 <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
@@ -146,7 +160,7 @@ export default function HeroSlider({ movies }: HeroSliderProps) {
                                             </Link>
 
                                             <Link
-                                                href={`/${movie.type === 'series' ? 'series' : movie.type === 'anime' ? 'anime' : 'movies'}/${movie.slug}-${movie.release_year}`}
+                                                href={getContentUrl(movie)}
                                                 className="px-8 py-3.5 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white font-bold rounded-xl flex items-center gap-2 transition-all hover:scale-105 border border-white/10"
                                             >
                                                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

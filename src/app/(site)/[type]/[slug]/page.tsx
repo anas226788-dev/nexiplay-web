@@ -22,17 +22,30 @@ interface PageProps {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-    const { type, slug } = await params;
+    const { type, slug: rawSlug } = await params;
 
-    // Clean slug to remove year if present for search (optional, depends on your logic)
-    // For now searching exact slug is safer if you store full slug
+    // Parse slug-year format (e.g., "solo-leveling-2024" -> slug: "solo-leveling", year: 2024)
+    const slugParts = rawSlug.match(/^(.+)-(\d{4})$/);
+    const actualSlug = slugParts ? slugParts[1] : rawSlug;
+    const releaseYear = slugParts ? parseInt(slugParts[2]) : null;
 
-    const { data: movie } = await supabase
+    let dbType = 'movie';
+    if (type === 'anime') dbType = 'anime';
+    else if (type === 'series') dbType = 'series';
+    else if (type === 'movie' || type === 'movies') dbType = 'movie';
+
+    let query = supabase
         .from('movies')
         .select('*')
-        .eq('slug', slug)
-        .eq('type', type === 'movie' ? 'movie' : type === 'series' ? 'series' : 'anime')
-        .maybeSingle();
+        .eq('type', dbType);
+
+    if (releaseYear) {
+        query = query.eq('slug', actualSlug).eq('release_year', releaseYear);
+    } else {
+        query = query.eq('slug', rawSlug);
+    }
+
+    const { data: movie } = await query.maybeSingle();
 
     if (!movie) {
         return {
@@ -41,7 +54,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     }
 
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://nexiplay.com';
-    const canonicalUrl = `${baseUrl}/${type}/${slug}`;
+    const canonicalUrl = `${baseUrl}/${type}/${rawSlug}`;
 
     return {
         title: `Download ${movie.title} (${movie.release_year || 'N/A'}) ${movie.language || ''} ${movie.type === 'movie' ? 'Movie' : movie.type} | Nexiplay`,
@@ -66,10 +79,23 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function MovieDetailPage({ params }: PageProps) {
-    const { type, slug } = await params;
+    const { type, slug: rawSlug } = await params;
 
-    // Fetch movie with downloads and download_links
-    const { data: movie, error } = await supabase
+    // Parse slug-year format (e.g., "solo-leveling-2024" -> slug: "solo-leveling", year: 2024)
+    const slugParts = rawSlug.match(/^(.+)-(\d{4})$/);
+    const actualSlug = slugParts ? slugParts[1] : rawSlug;
+    const releaseYear = slugParts ? parseInt(slugParts[2]) : null;
+
+    // Determine correct type
+    // Handles both singular (preferred) and plural (legacy) URL segments
+    let dbType = 'movie'; // Default
+    if (type === 'anime') dbType = 'anime';
+    else if (type === 'series') dbType = 'series';
+    else if (type === 'movie' || type === 'movies') dbType = 'movie';
+
+    // 1. Try Exact Slug Match First (Most reliable)
+    // This handles cases where slug already contains the year (e.g. "movie-2024")
+    let { data: movie, error } = await supabase
         .from('movies')
         .select(`
             *,
@@ -80,9 +106,41 @@ export default async function MovieDetailPage({ params }: PageProps) {
                 categories (*)
             )
         `)
-        .eq('slug', slug)
-        .eq('type', type === 'movie' ? 'movie' : type === 'series' ? 'series' : 'anime')
+        .eq('slug', rawSlug) // Try exact match first
+        .eq('type', dbType)
         .maybeSingle();
+
+    // 2. Fallback: Parse slug-year format if exact match failed
+    if (!movie) {
+        // Parse slug-year format (e.g., "solo-leveling-2024" -> slug: "solo-leveling", year: 2024)
+        const slugParts = rawSlug.match(/^(.+)-(\d{4})$/);
+
+        if (slugParts) {
+            const actualSlug = slugParts[1];
+            const releaseYear = parseInt(slugParts[2]);
+
+            const { data: fallbackMovie, error: fallbackError } = await supabase
+                .from('movies')
+                .select(`
+                    *,
+                    downloads (*),
+                    download_links (*),
+                    screenshots:movie_screenshots (*),
+                    movie_categories (
+                        categories (*)
+                    )
+                `)
+                .eq('slug', actualSlug) // Try without year
+                .eq('release_year', releaseYear) // Enforce year match
+                .eq('type', dbType)
+                .maybeSingle();
+
+            if (fallbackMovie) {
+                movie = fallbackMovie;
+                error = fallbackError;
+            }
+        }
+    }
 
     if (error) {
         console.error('Movie fetch error:', JSON.stringify(error, null, 2));
@@ -318,7 +376,7 @@ export default async function MovieDetailPage({ params }: PageProps) {
                             name: actor.trim()
                         })) : undefined,
                         genre: categories,
-                        url: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://nexiplay.com'}/${type}/${slug}`,
+                        url: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://nexiplay.com'}/${type}/${rawSlug}`,
                         aggregateRating: {
                             '@type': 'AggregateRating',
                             ratingValue: '4.8',

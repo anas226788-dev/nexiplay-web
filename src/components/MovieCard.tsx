@@ -6,8 +6,10 @@ interface MovieCardProps {
     movie: Movie;
 }
 
+import { getContentUrl } from '@/lib/urlUtils';
+
 export default function MovieCard({ movie }: MovieCardProps) {
-    const detailUrl = `/${movie.type}/${movie.slug}`;
+    const detailUrl = getContentUrl(movie);
 
     return (
         <Link href={detailUrl} className="movie-card block group perspective-1000 active:scale-95 transition-transform duration-100">

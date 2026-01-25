@@ -5,28 +5,18 @@ import { supabase } from '@/lib/supabase';
 import { ChatbotSettings, FAQ } from '@/lib/types';
 import Link from 'next/link';
 import Image from 'next/image';
+import {
+    Language,
+    detectLanguage,
+    getDictionaryPhrase,
+    cleanSearchQuery,
+    isGreeting,
+    isTrendingRequest,
+    TRANSLATION_DICTIONARY
+} from '@/lib/translate';
 
 // --- TYPES & INTERFACES ---
 
-type Language = 'en' | 'bn' | 'banglish';
-
-const DICTIONARY: Record<string, Record<Language, string>> = {
-    found: {
-        en: "Yes! Found match for",
-        bn: "হ্যাঁ! খুঁজে পেয়েছি:",
-        banglish: "Ji! Khuje peyechi:"
-    },
-    notFound: {
-        en: "Currently unavailable. Added request for",
-        bn: "এটা এখনো নেই, রিকোয়েস্ট পাঠিয়েছি ✅",
-        banglish: "Eta ekhono nai, request pathiyechi ✅"
-    },
-    error: {
-        en: "Something went wrong.",
-        bn: "কিছু সমস্যা হয়েছে।",
-        banglish: "Kichu shomossha hoyeche."
-    }
-};
 
 export default function Chatbot() {
     const [isOpen, setIsOpen] = useState(false);
@@ -91,19 +81,7 @@ export default function Chatbot() {
         if (faqsData) setFaqs(faqsData);
     };
 
-    const detectLanguage = (text: string): Language => {
-        // 1. Bengali Char Detection
-        const bengaliRegex = /[\u0980-\u09FF]/;
-        if (bengaliRegex.test(text)) return 'bn';
-
-        // 2. Banglish Keyword Detection
-        const banglishKeywords = ['ache', 'ase', 'chai', 'pabo', 'lagbe', 'ni', 'nai', 'kobe', 'ashbe', 'kivabe', 'kemne', 'kothay', 'ki', 'khuje'];
-        const lowerText = text.toLowerCase();
-        if (banglishKeywords.some(w => lowerText.includes(w))) return 'banglish';
-
-        // 3. Default English
-        return 'en';
-    };
+    // Language detection is now imported from translate.ts
 
     const mockTranslate = (text: string): string => {
         // Simple Mock Translation Logic
@@ -220,15 +198,23 @@ export default function Chatbot() {
         setInputText('');
         setIsTyping(true);
 
-        // 1. RECOMMENDATION CHECK (Async)
-        const trendingKeywords = ['ki ki ache', 'what movies are available', 'recommend', 'suggestion', 'ki ki ase'];
-        if (trendingKeywords.some(k => userMessage.toLowerCase().includes(k))) {
+        // 1. GREETING CHECK - Always reply in English for greetings
+        if (isGreeting(userMessage)) {
+            setTimeout(() => {
+                setMessages(prev => [...prev, { text: getDictionaryPhrase('greeting', 'en'), isBot: true }]);
+                setIsTyping(false);
+            }, 500);
+            return;
+        }
+
+        // 2. RECOMMENDATION/TRENDING CHECK
+        if (isTrendingRequest(userMessage)) {
             await handleTrendingRequest();
             return;
         }
 
-        // 2. Check Local FAQs/Greets first (Instant)
-        const localResponse = getLocalIntent(userMessage);
+        // 3. Check Local FAQs first (Instant)
+        const localResponse = getLocalIntent(userMessage, userLang);
 
         if (localResponse) {
             setTimeout(() => {
@@ -238,13 +224,13 @@ export default function Chatbot() {
             return;
         }
 
-        // 3. If no local match, treat as SMART CONTENT SEARCH (Async)
+        // 4. If no local match, treat as SMART CONTENT SEARCH (Async)
         await handleContentSearch(userMessage, userLang);
     };
 
     // ----- SMART LOGIC UNIT -----
 
-    const getLocalIntent = (input: string): string | null => {
+    const getLocalIntent = (input: string, lang: Language): string | null => {
         const lowerInput = input.toLowerCase();
 
         // 🇧🇩 Bangla Intent Mapping
@@ -258,12 +244,18 @@ export default function Chatbot() {
             'telegram': 'telegram',
             'group': 'telegram',
             'channel': 'telegram',
-            'join': 'telegram'
+            'join': 'telegram',
+            'download': 'downloadHelp',
+            'kivabe download': 'downloadHelp'
         };
 
-        // Check Greetings - English Reply Only
-        if (['hi', 'hello', 'hey', 'salam', 'assalamualaikum', 'oi'].some(w => lowerInput.includes(w)) && lowerInput.length < 15) {
-            return `Hello! 👋 How can I assist you today?`;
+        // Check for specific intents and return language-appropriate responses
+        if (lowerInput.includes('telegram') || lowerInput.includes('group') || lowerInput.includes('channel')) {
+            return getDictionaryPhrase('telegram', lang);
+        }
+
+        if (lowerInput.includes('download') && (lowerInput.includes('kivabe') || lowerInput.includes('how'))) {
+            return getDictionaryPhrase('downloadHelp', lang);
         }
 
         // Check FAQs with Mapping
@@ -317,7 +309,7 @@ export default function Chatbot() {
             const responseContent = (
                 <div className="flex flex-col gap-3">
                     <span className="font-medium text-green-400">
-                        {DICTIONARY.found[lang]} "{searchQuery}":
+                        {TRANSLATION_DICTIONARY.found[lang]} "{searchQuery}":
                     </span>
                     {movies.map(m => (
                         <Link
@@ -355,10 +347,10 @@ export default function Chatbot() {
 
             if (error) {
                 console.error('Request Error:', error);
-                setMessages(prev => [...prev, { text: DICTIONARY.error[lang], isBot: true }]);
+                setMessages(prev => [...prev, { text: TRANSLATION_DICTIONARY.error[lang], isBot: true }]);
             } else {
                 // Use Dictionary for Not Found
-                const notFoundMsg = DICTIONARY.notFound[lang];
+                const notFoundMsg = TRANSLATION_DICTIONARY.notFound[lang];
                 setMessages(prev => [...prev, { text: notFoundMsg, isBot: true }]);
             }
         }
