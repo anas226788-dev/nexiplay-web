@@ -7,7 +7,7 @@ import { Movie } from '@/lib/types';
  * - series -> /series/{slug}
  * - anime -> /anime/{slug}
  */
-export function getContentUrl(movie: { type: string; slug: string; release_year?: number }): string {
+export function getContentUrl(movie: { type: string; slug: string; release_year?: number | null }): string {
     // Map plural 'movies' to singular 'movie'
     const typeSegment = movie.type === 'movies' ? 'movie' : movie.type;
 

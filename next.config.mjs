@@ -2,7 +2,6 @@
 const nextConfig = {
     compress: true, // Enable Gzip compression
     reactStrictMode: true,
-    swcMinify: true, // Use SWC minifier
     experimental: {
         optimizePackageImports: ['lucide-react', 'date-fns', 'lodash'], // Optimize imports
     },
