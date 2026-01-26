@@ -4,6 +4,7 @@ import './globals.css';
 
 import AdSpot from '@/components/AdSpot';
 import NoticeSystem from '@/components/NoticeSystem';
+import Script from 'next/script';
 
 const inter = Inter({
     subsets: ['latin'],
@@ -45,6 +46,21 @@ export default function RootLayout({
             <body className={`${inter.className} gradient-bg min-h-screen`} suppressHydrationWarning>
                 <NoticeSystem />
                 <AdSpot placement="popup_global" />
+
+                {/* Google Analytics 4 */}
+                <Script
+                    src="https://www.googletagmanager.com/gtag/js?id=G-697MJ5V5CL"
+                    strategy="afterInteractive"
+                />
+                <Script id="google-analytics" strategy="afterInteractive">
+                    {`
+                        window.dataLayer = window.dataLayer || [];
+                        function gtag(){dataLayer.push(arguments);}
+                        gtag('js', new Date());
+                        gtag('config', 'G-697MJ5V5CL');
+                    `}
+                </Script>
+
                 {children}
             </body>
         </html>
