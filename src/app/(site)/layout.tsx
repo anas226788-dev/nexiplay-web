@@ -4,7 +4,7 @@ import Footer from '@/components/Footer';
 import SplashScreen from '@/components/SplashScreen';
 import AdManager from '@/components/AdManager';
 import AnimatedTelegramCTA from '@/components/AnimatedTelegramCTA';
-import Chatbot from '@/components/Chatbot';
+import ClientChatbot from '@/components/ClientChatbot';
 
 export const metadata: Metadata = {
     title: 'Nexiplay - Download Movies, Series & Anime',
@@ -31,7 +31,7 @@ export default function SiteLayout({
             <main className="flex-1">
                 {children}
             </main>
-            <Chatbot />
+            <ClientChatbot />
             <Footer />
         </div>
     );

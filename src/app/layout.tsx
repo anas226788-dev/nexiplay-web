@@ -3,7 +3,6 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 
 import AdSpot from '@/components/AdSpot';
-
 import NoticeSystem from '@/components/NoticeSystem';
 
 const inter = Inter({

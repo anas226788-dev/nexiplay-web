@@ -28,12 +28,13 @@ export default function AdSpot({ placement, className = '' }: AdSpotProps) {
 
     useEffect(() => {
         let isMounted = true;
+        let idleCallbackId: any;
 
         async function fetchAd() {
             // Fetch active ads for this placement
             const { data } = await supabase
                 .from('ads')
-                .select('*')
+                .select('id, title, placement, ad_type, image_url, script_code, destination_url, device_target, is_active') // Select specific fields
                 .eq('placement', placement)
                 .eq('is_active', true);
 
@@ -56,13 +57,28 @@ export default function AdSpot({ placement, className = '' }: AdSpotProps) {
             }
         }
 
+        // Use requestIdleCallback to load ads only when browser is idle
+        // Fallback to setTimeout for browsers without support
+        const loadAds = () => {
+            if ('requestIdleCallback' in window) {
+                idleCallbackId = (window as any).requestIdleCallback(() => fetchAd(), { timeout: 2000 });
+            } else {
+                idleCallbackId = setTimeout(fetchAd, 500);
+            }
+        };
+
         // Add resize listener to re-evaluate if needed
-        window.addEventListener('resize', fetchAd);
-        fetchAd();
+        window.addEventListener('resize', loadAds);
+        loadAds();
 
         return () => {
             isMounted = false;
-            window.removeEventListener('resize', fetchAd);
+            window.removeEventListener('resize', loadAds);
+            if ('cancelIdleCallback' in window && idleCallbackId) {
+                (window as any).cancelIdleCallback(idleCallbackId);
+            } else {
+                clearTimeout(idleCallbackId);
+            }
         };
     }, [placement]);
 

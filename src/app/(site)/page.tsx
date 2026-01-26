@@ -1,13 +1,22 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import AdSpot from '@/components/AdSpot';
-import HeroSlider from '@/components/HeroSlider';
+import dynamicImport from 'next/dynamic';
 import { supabase } from '@/lib/supabase';
 import { Movie, Category } from '@/lib/types';
 import MovieGrid from '@/components/MovieGrid';
 import SearchBar from '@/components/SearchBar';
 import CategoryMenu, { TypeTabs } from '@/components/CategoryMenu';
+import ClientAdSpot from '@/components/ClientAdSpot';
 
+// Dynamic Imports for Performance
+const HeroSlider = dynamicImport(() => import('@/components/HeroSlider'), {
+    ssr: true, // Keep SSR for SEO (above fold)
+    loading: () => <div className="w-full aspect-[21/9] bg-dark-800 animate-pulse" />
+});
+
+
+
+// Force dynamic rendering
 export const dynamic = 'force-dynamic';
 
 async function getHomeContent(): Promise<{
@@ -17,22 +26,28 @@ async function getHomeContent(): Promise<{
     categories: Category[];
     trendingMovies: Movie[];
 }> {
+    // Optimized Query: Select only needed fields for cards
+    const cardFields = 'id, title, slug, type, poster_url, release_year, created_at';
+
+    // Slider needs banners
+    const sliderFields = 'id, title, slug, type, poster_url, release_year, banner_url_desktop, banner_url_mobile, description, ad_link';
+
     const [moviesRes, seriesRes, animeRes, categoriesRes, trendingRes] = await Promise.all([
         supabase
             .from('movies')
-            .select('*')
+            .select(cardFields)
             .eq('type', 'movie')
             .order('created_at', { ascending: false })
             .limit(12),
         supabase
             .from('movies')
-            .select('*')
+            .select(cardFields)
             .eq('type', 'series')
             .order('created_at', { ascending: false })
             .limit(12),
         supabase
             .from('movies')
-            .select('*')
+            .select(cardFields)
             .eq('type', 'anime')
             .order('created_at', { ascending: false })
             .limit(12),
@@ -42,18 +57,18 @@ async function getHomeContent(): Promise<{
             .order('name', { ascending: true }),
         supabase
             .from('movies')
-            .select('*')
+            .select(sliderFields)
             .eq('is_trending', true)
             .order('trending_rank', { ascending: true })
             .limit(10),
     ]);
 
     return {
-        latestMovies: moviesRes.data || [],
-        latestSeries: seriesRes.data || [],
-        latestAnime: animeRes.data || [],
+        latestMovies: (moviesRes.data as Movie[]) || [],
+        latestSeries: (seriesRes.data as Movie[]) || [],
+        latestAnime: (animeRes.data as Movie[]) || [],
         categories: categoriesRes.data || [],
-        trendingMovies: trendingRes.data || [],
+        trendingMovies: (trendingRes.data as Movie[]) || [],
     };
 }
 
@@ -109,7 +124,7 @@ export default async function HomePage() {
 
             {/* Content */}
             <div className="container mx-auto px-4 pb-12">
-                <AdSpot placement="home_top" />
+                <ClientAdSpot placement="home_top" />
                 {/* Latest Additions - Combined Grid */}
                 {allLatest.length > 0 && (
                     <section className="mb-12">
@@ -218,7 +233,7 @@ export default async function HomePage() {
                     />
                 )}
 
-                <AdSpot placement="home_bottom" />
+                <ClientAdSpot placement="home_bottom" />
 
                 {/* Empty State */}
                 {allLatest.length === 0 && (
