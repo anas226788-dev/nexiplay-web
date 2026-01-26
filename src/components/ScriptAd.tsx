@@ -4,13 +4,16 @@ import { useEffect, useRef } from 'react';
 
 interface ScriptAdProps {
     scriptCode: string;
+    id?: string;
+    className?: string;
 }
 
-export default function ScriptAd({ scriptCode }: ScriptAdProps) {
+export default function ScriptAd({ scriptCode, id, className = '' }: ScriptAdProps) {
     const containerRef = useRef<HTMLDivElement>(null);
+    const hasRun = useRef(false);
 
     useEffect(() => {
-        if (!containerRef.current || !scriptCode) return;
+        if (!containerRef.current || !scriptCode || hasRun.current) return;
 
         const container = containerRef.current;
         container.innerHTML = ''; // Clear previous
@@ -32,17 +35,32 @@ export default function ScriptAd({ scriptCode }: ScriptAdProps) {
         // Execute scripts properly
         scripts.forEach((oldScript) => {
             const newScript = document.createElement('script');
+            // Copy attributes
             Array.from(oldScript.attributes).forEach((attr) => {
                 newScript.setAttribute(attr.name, attr.value);
             });
-            newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+            // Copy content
+            if (oldScript.innerHTML) {
+                newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+            }
+
+            // Mark as async to prevent blocking
+            newScript.async = true;
+
             container.appendChild(newScript);
         });
 
+        hasRun.current = true; // Prevent duplicate execution in Strict Mode
+
         return () => {
+            // Cleanup: We intentionally DON'T clear sticky global ads (like social bar)
+            // But for container-based ads, we should.
+            // If the script modified body, we can't easily undo it.
+            // For safety in SPAs, we clear the container we own.
             if (container) container.innerHTML = '';
+            hasRun.current = false; // Reset on unmount
         };
     }, [scriptCode]);
 
-    return <div ref={containerRef} className="ad-script-container" />;
+    return <div id={id} ref={containerRef} className={`ad-script-container ${className}`} />;
 }
