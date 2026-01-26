@@ -5,6 +5,7 @@ import SplashScreen from '@/components/SplashScreen';
 import AdManager from '@/components/AdManager';
 import AnimatedTelegramCTA from '@/components/AnimatedTelegramCTA';
 import ClientChatbot from '@/components/ClientChatbot';
+import { AdClickProvider } from '@/context/AdClickContext';
 
 export const metadata: Metadata = {
     title: 'Nexiplay - Download Movies, Series & Anime',
@@ -23,16 +24,18 @@ export default function SiteLayout({
     children: React.ReactNode;
 }) {
     return (
-        <div className="flex flex-col min-h-screen">
-            <AdManager />
-            <SplashScreen />
-            <Header />
-            <AnimatedTelegramCTA />
-            <main className="flex-1">
-                {children}
-            </main>
-            <ClientChatbot />
-            <Footer />
-        </div>
+        <AdClickProvider>
+            <div className="flex flex-col min-h-screen">
+                <AdManager />
+                <SplashScreen />
+                <Header />
+                <AnimatedTelegramCTA />
+                <main className="flex-1">
+                    {children}
+                </main>
+                <ClientChatbot />
+                <Footer />
+            </div>
+        </AdClickProvider>
     );
 }

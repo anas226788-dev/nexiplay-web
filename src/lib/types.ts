@@ -53,6 +53,7 @@ export interface AppSettings {
     is_ads_enabled: boolean;
     popunder_url: string;
     direct_link_url: string;
+    ad_frequency_session: number;
     updated_at: string;
 }
 

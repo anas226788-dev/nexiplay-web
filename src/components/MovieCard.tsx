@@ -1,18 +1,23 @@
+'use client';
+
 import Image from 'next/image';
-import Link from 'next/link';
 import { Movie } from '@/lib/types';
+import { getContentUrl } from '@/lib/urlUtils';
+import { useAdClick } from '@/context/AdClickContext';
 
 interface MovieCardProps {
     movie: Movie;
 }
 
-import { getContentUrl } from '@/lib/urlUtils';
-
 export default function MovieCard({ movie }: MovieCardProps) {
     const detailUrl = getContentUrl(movie);
+    const { onAdClick } = useAdClick();
 
     return (
-        <Link href={detailUrl} className="movie-card block group perspective-1000 active:scale-95 transition-transform duration-100">
+        <div
+            onClick={(e) => onAdClick(e, detailUrl)}
+            className="movie-card block group perspective-1000 active:scale-95 transition-transform duration-100 cursor-pointer"
+        >
             <div className="relative aspect-[2/3] rounded-xl overflow-hidden bg-dark-700 movie-card-3d shadow-xl" suppressHydrationWarning>
                 {/* Poster Image */}
                 {movie.poster_url ? (
@@ -73,7 +78,7 @@ export default function MovieCard({ movie }: MovieCardProps) {
                     <p className="text-xs text-gray-500 mt-1">{movie.release_year}</p>
                 )}
             </div>
-        </Link>
+        </div>
     );
 }
 
