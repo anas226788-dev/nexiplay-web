@@ -1,0 +1,5 @@
+-- Add new columns for Running Tasks System upgrade
+ALTER TABLE public.movies 
+ADD COLUMN IF NOT EXISTS admin_note TEXT DEFAULT NULL,
+ADD COLUMN IF NOT EXISTS notify_admin BOOLEAN DEFAULT FALSE,
+ADD COLUMN IF NOT EXISTS next_episode_date TIMESTAMP WITH TIME ZONE DEFAULT NULL;

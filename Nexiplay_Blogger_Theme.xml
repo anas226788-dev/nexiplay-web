@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html>
+<html b:css='false' b:defaultwidgetversion='2' b:layoutsVersion='3' b:responsive='true' expr:dir='data:blog.languageDirection' xmlns='http://www.w3.org/1999/xhtml' xmlns:b='http://www.google.com/2005/gml/b' xmlns:data='http://www.google.com/2005/gml/data' xmlns:expr='http://www.google.com/2005/gml/expr'>
+<head>
+  <b:include data='blog' name='all-head-content'/>
+  <title><data:blog.pageTitle/></title>
+  <meta content='width=device-width, initial-scale=1' name='viewport'/>
+
+  <b:skin><![CDATA[
+    /* CSS Reset */
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+    body { background-color: #050505 !important; color: #f3f4f6 !important; line-height: 1.6; }
+    a { color: #ef4444 !important; text-decoration: none; transition: 0.3s; }
+    a:hover { color: #dc2626 !important; text-decoration: underline !important; }
+    
+    /* Layout */
+    .body-fauxcolumn-outer { background: transparent !important; }
+    .content-outer, .content-inner, .main-inner, .columns { max-width: 900px !important; margin: 0 auto !important; background: transparent !important; padding: 0 !important; border: none !important; box-shadow: none !important; }
+    
+    /* HIDE ALL BLOGGER JUNK & SVGs (Fixes the ugly massive icons) */
+    .sidebar, .footer-outer, .blog-pager, .post-feeds, .widget.Profile, .widget.Header, .widget-content.PopularPosts { display: none !important; }
+    .post-share-buttons, .post-bottom, .post-footer, .feed-links, .addthis_toolbox, .byline, .post-author { display: none !important; visibility: hidden !important; opacity: 0 !important; height: 0 !important; margin: 0 !important; padding: 0 !important;}
+    svg, span[role="button"] { display: none !important; width: 0 !important; height: 0 !important; }
+    
+    /* Posts */
+    .date-outer { margin-bottom: 40px !important; }
+    .post-outer { background: rgba(255, 255, 255, 0.03) !important; border: 1px solid rgba(255, 255, 255, 0.05) !important; border-radius: 16px !important; padding: 30px !important; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important; backdrop-filter: blur(10px) !important; margin-bottom: 30px !important; }
+    .post-title { font-size: 2rem !important; margin-bottom: 15px !important; color: #ffffff !important; font-weight: 900 !important; line-height: 1.2 !important; }
+    .date-header { color: #ef4444 !important; font-size: 0.9rem !important; font-weight: bold !important; text-transform: uppercase !important; margin-bottom: 15px !important; display: block !important; }
+    .post-body { color: #d1d5db !important; font-size: 1.1rem !important; overflow: hidden !important; }
+    
+    /* Fix images in post body */
+    .post-body img { max-width: 100% !important; height: auto !important; border-radius: 12px !important; display: block !important; border: 1px solid rgba(255, 255, 255, 0.1) !important; margin: 20px 0 !important; }
+    .post-body .separator { text-align: left !important; display: block !important; }
+    .post-body a { color: #ef4444 !important; font-weight: bold !important; }
+    
+    /* Custom Appended Header */
+    .custom-nexiplay-header { text-align: center; padding: 50px 20px; font-size: 3.5rem; font-weight: 900; background: linear-gradient(to right, #ef4444, #b91c1c); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  ]]></b:skin>
+
+  <b:template-skin><![CDATA[
+    body { background: #050505; }
+  ]]></b:template-skin>
+</head>
+
+<body>
+  <div class="custom-nexiplay-header">NEXIPLAY BLOG</div>
+  <!-- Using Auto Generate to ensure Posts ALWAYS show -->
+  <b:section class='main' id='main' showaddelement='yes'>
+    <b:widget id='Blog1' locked='false' title='Blog Posts' type='Blog' version='2'/>
+  </b:section>
+</body>
+</html>
