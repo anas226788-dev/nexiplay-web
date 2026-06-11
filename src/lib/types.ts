@@ -27,12 +27,18 @@ export interface Movie {
     // Per-Content Notice System
     notice_enabled?: boolean;
     notice_text?: string;
+    allow_global_notices?: boolean;
     // Dual Action Click System
     ad_link?: string;
     // Adult Content
     is_adult?: boolean;
     created_at: string;
     updated_at?: string;
+    // Streaming service integration
+    tmdb_id?: string;
+    imdb_id?: string;
+    mal_id?: string;
+    streaming_url?: string;
 }
 
 export interface Upcoming {
@@ -128,8 +134,10 @@ export interface Notice {
     id: string;
     content: string;
     image_url?: string;
-    type: 'top_bar' | 'popup' | 'inline';
-    pages: 'all' | 'home' | 'movie';
+    video_url?: string;
+    type: 'top_bar' | 'popup' | 'inline' | 'toast' | 'bottom_bar' | 'fullscreen' | 'marquee' | 'marquee_bottom';
+    pages: 'all' | 'home' | 'movie' | 'specific';
+    movie_id?: string;
     is_active: boolean;
     bg_color: string;
     text_color: string;
@@ -193,6 +201,7 @@ export interface Episode {
     episode_number: number;
     episode_title?: string;
     download_links?: EpisodeDownloadLink[];
+    streaming_url?: string;
     created_at?: string;
 }
 
