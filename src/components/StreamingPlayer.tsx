@@ -149,7 +149,7 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
                                     : 'bg-dark-850 text-gray-400 hover:bg-dark-750 hover:text-white'
                             }`}
                         >
-                            👑 Custom Server (Direct)
+                            🤖 Server Agent
                         </button>
                     )}
                     {availableServers.map((srv) => {
