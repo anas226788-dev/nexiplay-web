@@ -1,19 +1,74 @@
 'use client';
 
+import { useState } from 'react';
 import { Download } from '@/lib/types';
-import { useMonetization } from '@/hooks/useMonetization';
+import { useAdSettings } from '@/hooks/useAdSettings';
+import AdVerificationPopup from './AdVerificationPopup';
+
+// ── localStorage helpers for download verification ──
+const checkDownloadVerified = (contentId: string, contentType: string): boolean => {
+    if (typeof window === 'undefined') return false;
+    try {
+        const raw = localStorage.getItem('nexiplay_download_verification');
+        if (!raw) return false;
+        const records = JSON.parse(raw);
+        const record = records[contentId];
+        if (!record) return false;
+        const now = Date.now();
+        if (contentType === 'movie') {
+            return now - record.verifiedAt < 24 * 60 * 60 * 1000;
+        } else {
+            return now - record.verifiedAt < 25 * 60 * 1000;
+        }
+    } catch { return false; }
+};
+
+const saveDownloadVerification = (contentId: string, contentType: string) => {
+    if (typeof window === 'undefined') return;
+    try {
+        const raw = localStorage.getItem('nexiplay_download_verification') || '{}';
+        const records = JSON.parse(raw);
+        records[contentId] = { verifiedAt: Date.now(), contentType };
+        localStorage.setItem('nexiplay_download_verification', JSON.stringify(records));
+    } catch {}
+};
 
 interface DownloadButtonProps {
     download: Download;
+    contentId: string;
+    contentType: string;
 }
 
-export default function DownloadButton({ download }: DownloadButtonProps) {
-    const { handleDownloadClick } = useMonetization();
+export default function DownloadButton({ download, contentId, contentType }: DownloadButtonProps) {
+    const [showVerification, setShowVerification] = useState(false);
+    const { settings: adSettings } = useAdSettings();
 
     // Format: [ 720p – 800MB ]
     const buttonText = download.file_size
         ? `${download.quality} – ${download.file_size}`
         : download.quality;
+
+    const handleClick = (e: React.MouseEvent) => {
+        const verificationEnabled = adSettings?.isDownloadVerificationEnabled ?? false;
+        if (!verificationEnabled) return; // allow direct download
+
+        const verified = checkDownloadVerified(contentId, contentType);
+        if (verified) return; // allow direct download
+
+        // Block and show verification
+        e.preventDefault();
+        e.stopPropagation();
+        setShowVerification(true);
+    };
+
+    const handleVerificationComplete = () => {
+        saveDownloadVerification(contentId, contentType);
+        setShowVerification(false);
+        // Auto-open the download
+        if (download.file_url) {
+            window.open(download.file_url, '_blank', 'noopener,noreferrer');
+        }
+    };
 
     if (!download.file_url) {
         return (
@@ -31,30 +86,43 @@ export default function DownloadButton({ download }: DownloadButtonProps) {
     }
 
     return (
-        <a
-            href={download.file_url}
-            onClick={(e) => handleDownloadClick(download.file_url!, e)}
-            className="download-btn inline-flex items-center justify-center gap-3 px-6 py-4 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 border border-red-500/30 shadow-lg shadow-red-900/30 transition-all duration-300 hover:shadow-red-900/50 hover:scale-[1.02] w-full md:w-auto group"
-        >
-            <svg
-                className="w-5 h-5 text-white transition-transform group-hover:translate-y-0.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+        <>
+            {showVerification && (
+                <AdVerificationPopup
+                    onVerified={handleVerificationComplete}
+                    adUrl1={adSettings?.downloadAdUrl1 || adSettings?.directLinkUrl || 'https://nexiplay.live'}
+                    adUrl2={adSettings?.downloadAdUrl2 || adSettings?.popunderUrl || 'https://nexiplay.live'}
+                />
+            )}
+            <a
+                href={download.file_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={handleClick}
+                className="download-btn inline-flex items-center justify-center gap-3 px-6 py-4 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 border border-red-500/30 shadow-lg shadow-red-900/30 transition-all duration-300 hover:shadow-red-900/50 hover:scale-[1.02] w-full md:w-auto group"
             >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            <span className="font-bold text-white text-lg">[ {buttonText} ]</span>
-        </a>
+                <svg
+                    className="w-5 h-5 text-white transition-transform group-hover:translate-y-0.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                <span className="font-bold text-white text-lg">[ {buttonText} ]</span>
+            </a>
+        </>
     );
 }
 
 // Download section component
 interface DownloadSectionProps {
     downloads: Download[];
+    contentId: string;
+    contentType: string;
 }
 
-export function DownloadSection({ downloads }: DownloadSectionProps) {
+export function DownloadSection({ downloads, contentId, contentType }: DownloadSectionProps) {
     // Sort by quality: 1080p first, then 720p, then 480p
     const sortedDownloads = [...downloads].sort((a, b) => {
         const order: Record<string, number> = { '1080p': 0, '720p': 1, '480p': 2 };
@@ -73,7 +141,7 @@ export function DownloadSection({ downloads }: DownloadSectionProps) {
             {sortedDownloads.length > 0 ? (
                 <div className="flex flex-wrap gap-3">
                     {sortedDownloads.map((download) => (
-                        <DownloadButton key={download.id} download={download} />
+                        <DownloadButton key={download.id} download={download} contentId={contentId} contentType={contentType} />
                     ))}
                 </div>
             ) : (

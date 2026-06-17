@@ -21,8 +21,12 @@ export interface CachedAppSettings {
     social_aboutme?: string | null;
     social_instagram?: string | null;
     social_threads?: string | null;
-    gplink_url?: string | null;
-    smartlink_url?: string | null;
+    is_verification_enabled?: boolean;
+    verification_ad_url_1?: string | null;
+    verification_ad_url_2?: string | null;
+    is_download_verification_enabled?: boolean;
+    download_ad_url_1?: string | null;
+    download_ad_url_2?: string | null;
 }
 
 export interface CachedTelegramSettings {
@@ -33,7 +37,7 @@ export interface CachedTelegramSettings {
 
 // ── Constants ──────────────────────────────────────────────
 const TTL_MS = 5 * 60 * 1000; // 5 minutes
-const APP_SETTINGS_KEY = 'nexiplay_app_settings';
+const APP_SETTINGS_KEY = 'nexiplay_app_settings_v3';
 const TELEGRAM_SETTINGS_KEY = 'nexiplay_telegram_settings';
 
 // ── Module-level memory cache ──────────────────────────────
@@ -94,7 +98,7 @@ export async function getAppSettings(): Promise<CachedAppSettings | null> {
         try {
             const { data, error } = await supabase
                 .from('app_settings')
-                .select('is_ads_enabled, popunder_url, direct_link_url, ad_frequency_session, ad_enabled_pages, ad_enabled_devices, native_ad_code, social_bar_code, social_pinterest, social_twitter, social_facebook, social_youtube, social_reddit, social_tumblr, social_aboutme, social_instagram, social_threads, gplink_url, smartlink_url')
+                .select('is_ads_enabled, popunder_url, direct_link_url, ad_frequency_session, ad_enabled_pages, ad_enabled_devices, native_ad_code, social_bar_code, social_pinterest, social_twitter, social_facebook, social_youtube, social_reddit, social_tumblr, social_aboutme, social_instagram, social_threads, is_verification_enabled, verification_ad_url_1, verification_ad_url_2, is_download_verification_enabled, download_ad_url_1, download_ad_url_2')
                 .eq('id', 1)
                 .single();
 
@@ -118,8 +122,12 @@ export async function getAppSettings(): Promise<CachedAppSettings | null> {
                 social_aboutme: data.social_aboutme ?? null,
                 social_instagram: data.social_instagram ?? null,
                 social_threads: data.social_threads ?? null,
-                gplink_url: data.gplink_url ?? null,
-                smartlink_url: data.smartlink_url ?? null,
+                is_verification_enabled: data.is_verification_enabled ?? false,
+                verification_ad_url_1: data.verification_ad_url_1 ?? null,
+                verification_ad_url_2: data.verification_ad_url_2 ?? null,
+                is_download_verification_enabled: data.is_download_verification_enabled ?? false,
+                download_ad_url_1: data.download_ad_url_1 ?? null,
+                download_ad_url_2: data.download_ad_url_2 ?? null,
             };
 
             appSettingsCache = { data: settings, ts: Date.now() };

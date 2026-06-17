@@ -32,6 +32,15 @@ export interface Movie {
     ad_link?: string;
     // Adult Content
     is_adult?: boolean;
+    // Scraper Source Configuration
+    scraper_source?: 'rareanimes' | 'bollyflix' | 'movielink' | 'animerulz' | 'toonplay';
+    // Multi-scraper concurrent configurations
+    animerulz_url?: string;
+    animerulz_season?: number;
+    animerulz_resolution?: '360p' | '480p' | '720p' | '1080p';
+    toonplay_url?: string;
+    toonplay_season?: number;
+    toonplay_resolution?: '360p' | '480p' | '720p' | '1080p';
     created_at: string;
     updated_at?: string;
     // Streaming service integration
@@ -39,6 +48,8 @@ export interface Movie {
     imdb_id?: string;
     mal_id?: string;
     streaming_url?: string;
+    streaming_url_animerulz?: string;
+    streaming_url_toonplay?: string;
 }
 
 export interface Upcoming {
@@ -202,6 +213,8 @@ export interface Episode {
     episode_title?: string;
     download_links?: EpisodeDownloadLink[];
     streaming_url?: string;
+    streaming_url_animerulz?: string;
+    streaming_url_toonplay?: string;
     created_at?: string;
 }
 

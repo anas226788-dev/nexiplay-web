@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Movie, Season, Episode } from '@/lib/types';
+import { useAdSettings } from '@/hooks/useAdSettings';
 
 interface StreamingPlayerProps {
     movie: Movie;
@@ -65,6 +66,197 @@ const SERVERS: Server[] = [
     }
 ];
 
+function HLSVideoPlayer({ src }: { src: string }) {
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const hlsRef = useRef<any>(null);
+    const [hlsLoaded, setHlsLoaded] = useState(false);
+    const [audioTracks, setAudioTracks] = useState<any[]>([]);
+    const [currentTrackIndex, setCurrentTrackIndex] = useState<number>(-1);
+
+    useEffect(() => {
+        if ((window as any).Hls) {
+            setHlsLoaded(true);
+            return;
+        }
+
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.8/dist/hls.min.js';
+        script.async = true;
+        script.onload = () => setHlsLoaded(true);
+        document.body.appendChild(script);
+    }, []);
+
+    useEffect(() => {
+        setAudioTracks([]);
+        setCurrentTrackIndex(-1);
+
+        if (!hlsLoaded || !videoRef.current) return;
+
+        const video = videoRef.current;
+        const Hls = (window as any).Hls;
+
+        if (hlsRef.current) {
+            hlsRef.current.destroy();
+            hlsRef.current = null;
+        }
+
+        if (Hls.isSupported()) {
+            const hls = new Hls({
+                maxMaxBufferLength: 30,
+                enableWorker: true,
+                lowLatencyMode: true
+            });
+            hlsRef.current = hls;
+            hls.loadSource(src);
+            hls.attachMedia(video);
+            
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                const tracks = hls.audioTracks || [];
+                setAudioTracks(tracks);
+                setCurrentTrackIndex(hls.audioTrack);
+                
+                if (tracks.length > 0) {
+                    const hindiIdx = tracks.findIndex((t: any) => 
+                        t.name.toLowerCase().includes('hindi') || 
+                        t.name.toLowerCase().includes('hin') ||
+                        t.lang?.toLowerCase().startsWith('hi')
+                    );
+                    if (hindiIdx !== -1) {
+                        console.log(`[HLSPlayer] Auto-switched to Hindi audio track (index ${hindiIdx})`);
+                        hls.audioTrack = hindiIdx;
+                        setCurrentTrackIndex(hindiIdx);
+                    }
+                }
+            });
+
+            hls.on(Hls.Events.AUDIO_TRACK_SWITCHED, (event: any, data: any) => {
+                setCurrentTrackIndex(data.id);
+            });
+
+            hls.on(Hls.Events.ERROR, function (event: any, data: any) {
+                if (data.fatal) {
+                    switch (data.type) {
+                        case Hls.ErrorTypes.NETWORK_ERROR:
+                            hls.startLoad();
+                            break;
+                        case Hls.ErrorTypes.MEDIA_ERROR:
+                            hls.recoverMediaError();
+                            break;
+                        default:
+                            hls.destroy();
+                            break;
+                    }
+                }
+            });
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = src;
+        }
+
+        const handleLoadedMetadata = () => {
+            const nativeTracks = (video as any).audioTracks;
+            if (nativeTracks && nativeTracks.length > 0) {
+                const tracksList = [];
+                let activeIdx = 0;
+                let hasHindi = false;
+                let hindiIdx = -1;
+
+                for (let i = 0; i < nativeTracks.length; i++) {
+                    const track = nativeTracks[i];
+                    tracksList.push({
+                        name: track.label || track.language || `Track ${i + 1}`,
+                        lang: track.language,
+                        id: i
+                    });
+
+                    const isHindi = track.language?.toLowerCase().startsWith('hi') ||
+                                    track.label?.toLowerCase().includes('hindi') ||
+                                    track.label?.toLowerCase().includes('hin');
+                    
+                    if (isHindi) {
+                        hasHindi = true;
+                        hindiIdx = i;
+                    }
+
+                    if (track.enabled) {
+                        activeIdx = i;
+                    }
+                }
+
+                if (hasHindi && hindiIdx !== -1) {
+                    for (let i = 0; i < nativeTracks.length; i++) {
+                        nativeTracks[i].enabled = (i === hindiIdx);
+                    }
+                    activeIdx = hindiIdx;
+                    console.log(`[HLSPlayer] Native audio auto-switched to Hindi track`);
+                }
+
+                setAudioTracks(tracksList);
+                setCurrentTrackIndex(activeIdx);
+            }
+        };
+        video.addEventListener('loadedmetadata', handleLoadedMetadata);
+        
+        return () => {
+            video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+            if (hlsRef.current) {
+                hlsRef.current.destroy();
+                hlsRef.current = null;
+            }
+        };
+    }, [src, hlsLoaded]);
+
+    const handleAudioTrackChange = (index: number) => {
+        if (hlsRef.current) {
+            hlsRef.current.audioTrack = index;
+            setCurrentTrackIndex(index);
+        } else if (videoRef.current && (videoRef.current as any).audioTracks) {
+            const nativeTracks = (videoRef.current as any).audioTracks;
+            for (let i = 0; i < nativeTracks.length; i++) {
+                nativeTracks[i].enabled = (i === index);
+            }
+            setCurrentTrackIndex(index);
+        }
+    };
+
+    return (
+        <div className="absolute inset-0 w-full h-full bg-black flex flex-col justify-between">
+            <div className="relative w-full flex-grow">
+                <video
+                    ref={videoRef}
+                    controls
+                    className="absolute inset-0 w-full h-full object-contain"
+                    autoPlay
+                    playsInline
+                />
+            </div>
+            {audioTracks.length > 1 && (
+                <div className="absolute bottom-16 left-4 right-4 z-50 bg-black/85 backdrop-blur-md p-3 rounded-xl border border-white/10 shadow-2xl flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm">🎧</span>
+                        <span className="text-xs font-bold text-gray-300 uppercase tracking-wider">Audio Tracks:</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 justify-end">
+                        {audioTracks.map((track, idx) => (
+                            <button
+                                key={idx}
+                                onClick={() => handleAudioTrackChange(idx)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1 ${
+                                    currentTrackIndex === idx
+                                        ? 'bg-gradient-to-r from-red-600 to-orange-600 text-white shadow-lg shadow-red-900/20 scale-105'
+                                        : 'bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white'
+                                }`}
+                            >
+                                <span>{currentTrackIndex === idx ? '🟢' : '⚪'}</span>
+                                <span>{track.name || `Track ${idx + 1}`}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayerProps) {
     const isSeriesOrAnime = movie.type === 'series' || movie.type === 'anime';
 
@@ -89,6 +281,14 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
 
     const customUrl = getCustomUrl();
 
+    const { settings: adSettings } = useAdSettings();
+
+    const isServerEnabled = (serverId: string) => {
+        if (!adSettings || !adSettings.socialBarCode) return true;
+        const enabledList = adSettings.socialBarCode.split(',').map(s => s.trim().toLowerCase());
+        return enabledList.includes(serverId.toLowerCase());
+    };
+
     // Available Servers list
     const availableServers = SERVERS.filter(srv => {
         if (srv.animeOnly && movie.type !== 'anime') return false;
@@ -98,12 +298,20 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
 
     // Auto-select server on mount or when custom link changes
     useEffect(() => {
-        if (customUrl) {
+        const customServerId = movie.scraper_source === 'toonplay' ? 'toonplay' : 'custom';
+        if (customUrl && isServerEnabled(customServerId)) {
             setActiveServerId('custom');
-        } else if (availableServers.length > 0) {
-            setActiveServerId(availableServers[0].id);
+        } else {
+            const firstEnabled = availableServers.find(srv => isServerEnabled(srv.id));
+            if (firstEnabled) {
+                setActiveServerId(firstEnabled.id);
+            } else if (customUrl && isServerEnabled(customServerId)) {
+                setActiveServerId('custom');
+            } else {
+                setActiveServerId('');
+            }
         }
-    }, [customUrl, movie.id, currentEpisodeNum, currentSeasonNum]);
+    }, [customUrl, movie.id, currentEpisodeNum, currentSeasonNum, adSettings]);
 
     // Build the final iframe src
     const getEmbedUrl = (): string => {
@@ -119,6 +327,13 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
     };
 
     const embedUrl = getEmbedUrl();
+
+    const isM3U8 = customUrl ? (
+        customUrl.toLowerCase().includes('.m3u8') || 
+        customUrl.toLowerCase().includes('google-proxy') || 
+        customUrl.toLowerCase().includes('streamindia') ||
+        customUrl.toLowerCase().includes('fallback.streamindia.co.in/sources')
+    ) : false;
 
     // Check if we can play this content (needs either IDs or custom URL)
     const hasIdentifiers = movie.tmdb_id || movie.imdb_id || movie.mal_id || customUrl;
@@ -140,19 +355,20 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
                 {/* Server Switcher */}
                 <div className="flex flex-wrap gap-2 items-center">
                     <span className="text-xs font-bold text-gray-500 uppercase tracking-wider mr-2">Servers:</span>
-                    {customUrl && (
+                    {customUrl && isServerEnabled(movie.scraper_source === 'toonplay' ? 'toonplay' : 'custom') && (
                         <button
                             onClick={() => setActiveServerId('custom')}
                             className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
                                 activeServerId === 'custom'
-                                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/30'
+                                    ? 'bg-red-600 text-white shadow-lg shadow-red-900/30'
                                     : 'bg-dark-850 text-gray-400 hover:bg-dark-750 hover:text-white'
                             }`}
                         >
-                            🤖 Server Agent
+                            <span>{movie.scraper_source === 'toonplay' ? '🔒' : '⭐'}</span>
+                            <span>{movie.scraper_source === 'toonplay' ? 'Nexiplay Private Server' : 'Server Nexiplay'}</span>
                         </button>
                     )}
-                    {availableServers.map((srv) => {
+                    {availableServers.filter(srv => isServerEnabled(srv.id)).map((srv) => {
                         const url = isSeriesOrAnime 
                             ? srv.getUrl(movie.id, movie.tmdb_id || undefined, movie.imdb_id || undefined, movie.mal_id || undefined, currentSeasonNum, currentEpisodeNum)
                             : srv.getUrl(movie.id, movie.tmdb_id || undefined, movie.imdb_id || undefined, movie.mal_id || undefined);
@@ -166,7 +382,7 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
                                     activeServerId === srv.id
                                         ? 'bg-red-600 text-white shadow-lg shadow-red-900/30'
                                         : 'bg-dark-850 text-gray-400 hover:bg-dark-750 hover:text-white'
-                                }`}
+                                    }`}
                             >
                                 <span>{srv.icon}</span>
                                 <span>{srv.name}</span>
@@ -194,21 +410,25 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
                 )}
             </div>
 
-            {/* Video Container (Responsive Iframe) */}
+            {/* Video Container (Responsive Iframe or Native HLS Player) */}
             <div className="relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/10 group">
                 {embedUrl ? (
-                    <iframe
-                        src={embedUrl}
-                        className="absolute inset-0 w-full h-full"
-                        allowFullScreen
-                        // If sandboxMode is enabled, exclude allow-popups and allow-top-navigation to block ads
-                        sandbox={
-                            sandboxMode && activeServerId !== 'custom'
-                                ? "allow-scripts allow-same-origin allow-forms"
-                                : undefined
-                        }
-                        referrerPolicy="no-referrer"
-                    />
+                    activeServerId === 'custom' && isM3U8 ? (
+                        <HLSVideoPlayer src={`/api/proxy-stream?url=${encodeURIComponent(embedUrl)}`} />
+                    ) : (
+                        <iframe
+                            src={embedUrl}
+                            className="absolute inset-0 w-full h-full"
+                            allowFullScreen
+                            // If sandboxMode is enabled, exclude allow-popups and allow-top-navigation to block ads
+                            sandbox={
+                                sandboxMode && activeServerId !== 'custom'
+                                    ? "allow-scripts allow-same-origin allow-forms"
+                                    : undefined
+                            }
+                            referrerPolicy="no-referrer"
+                        />
+                    )
                 ) : (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 p-6">
                         <span className="text-3xl animate-bounce mb-2">🎞️</span>

@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { AdBanner, NativeAd } from '@/components/ads';
@@ -11,7 +11,6 @@ import dynamicImport from 'next/dynamic';
 import { buildPageMetadata } from '@/lib/metadata';
 import AdultGateGuard from '@/components/AdultGateGuard';
 import ActiveMovieSetter from '@/components/ActiveMovieSetter';
-import StreamingPlayer from '@/components/StreamingPlayer';
 
 const ScreenshotGallery = dynamicImport(() => import('@/components/ScreenshotGallery'), {
     loading: () => <div className="h-64 bg-dark-800 animate-pulse rounded-xl my-8" />
@@ -127,6 +126,10 @@ export default async function MovieDetailPage({ params, searchParams }: PageProp
     const { type, slug: rawSlug } = await params;
     const { tab } = await searchParams;
     const activeTab = tab || 'download';
+
+    if (activeTab === 'watch') {
+        redirect(`/watch/${type}/${rawSlug}`);
+    }
 
     // Parse slug-year format (e.g., "solo-leveling-2024" -> slug: "solo-leveling", year: 2024)
     const slugParts = rawSlug.match(/^(.+)-(\d{4})$/);
@@ -341,10 +344,10 @@ export default async function MovieDetailPage({ params, searchParams }: PageProp
                             </div>
 
                             <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                                {(movieData.tmdb_id || movieData.imdb_id || movieData.mal_id || movieData.streaming_url) && (
+                                {((movieData.tmdb_id || movieData.imdb_id || movieData.mal_id || movieData.streaming_url) && movieData.streaming_url !== 'disabled') && (
                                     <Link
-                                        href={`/${type}/${rawSlug}?tab=watch#downloads`}
-                                        className="px-8 py-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-red-900/30 flex items-center justify-center gap-2 group"
+                                        href={`/watch/${type}/${rawSlug}`}
+                                        className="px-8 py-4 bg-gradient-to-r from-red-600 via-red-500 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-extrabold rounded-xl transition-all scale-105 hover:scale-110 shadow-[0_0_25px_rgba(239,68,68,0.55)] hover:shadow-[0_0_35px_rgba(239,68,68,0.85)] border border-red-500/20 flex items-center justify-center gap-2 group duration-300"
                                     >
                                         <svg className="w-6 h-6 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
@@ -390,74 +393,38 @@ export default async function MovieDetailPage({ params, searchParams }: PageProp
 
             {/* Downloads / Episodes Section */}
             <div id="downloads" className="container mx-auto px-4 max-w-4xl mt-12 md:mt-20">
-                {/* Tabs selection */}
-                <div className="flex border-b border-white/10 mb-6 gap-2">
-                    <Link
-                        href={`/${type}/${rawSlug}?tab=download#downloads`}
-                        className={`px-6 py-3 font-bold text-base transition-all border-b-2 ${
-                            activeTab === 'download'
-                                ? 'border-red-600 text-white'
-                                : 'border-transparent text-gray-400 hover:text-white'
-                        }`}
-                    >
-                        📥 Download Links
-                    </Link>
-                    {(movieData.tmdb_id || movieData.imdb_id || movieData.mal_id || movieData.streaming_url) && (
-                        <Link
-                            href={`/${type}/${rawSlug}?tab=watch#downloads`}
-                            className={`px-6 py-3 font-bold text-base transition-all border-b-2 ${
-                                activeTab === 'watch'
-                                    ? 'border-red-600 text-white'
-                                    : 'border-transparent text-gray-400 hover:text-white'
-                            }`}
-                        >
-                            🎬 Watch Online (Free)
-                        </Link>
-                    )}
-                </div>
-
                 <div className="glass p-6 sm:p-8 rounded-3xl border border-white/5 relative overflow-hidden">
                     {/* Glossy effect */}
                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-red-500/50 to-transparent opacity-50"></div>
 
-                    {activeTab === 'watch' ? (
-                        <div>
-                            <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-                                <span className="w-1 h-8 bg-red-600 rounded-full"></span>
-                                Streaming Player
-                            </h2>
-                            <StreamingPlayer movie={movieData} seasons={seasons} />
-                        </div>
-                    ) : (
-                        <div>
-                            <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-                                <span className="w-1 h-8 bg-red-600 rounded-full"></span>
-                                {isSeriesOrAnime ? 'Episodes' : 'Download Links'}
-                            </h2>
+                    <div>
+                        <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+                            <span className="w-1 h-8 bg-red-600 rounded-full"></span>
+                            {isSeriesOrAnime ? 'Episodes' : 'Download Links'}
+                        </h2>
 
-                            {/* Per-Content Notice System (Strict) */}
-                            {movieData.notice_enabled && movieData.notice_text && (
-                                <div className="mb-8 p-6 rounded-2xl bg-gradient-to-r from-red-600/20 to-orange-600/20 border border-red-500/40 flex items-start gap-5 shadow-lg shadow-red-900/10">
-                                    <span className="text-3xl animate-pulse">📢</span>
-                                    <div>
-                                        <h4 className="font-black text-red-500 text-base uppercase tracking-widest mb-2 flex items-center gap-2">
-                                            IMPORTANT NOTICE
-                                            <span className="h-px flex-1 bg-red-500/20"></span>
-                                        </h4>
-                                        <p className="text-white text-lg md:text-xl font-bold leading-relaxed drop-shadow-sm">
-                                            {movieData.notice_text}
-                                        </p>
-                                    </div>
+                        {/* Per-Content Notice System (Strict) */}
+                        {movieData.notice_enabled && movieData.notice_text && (
+                            <div className="mb-8 p-6 rounded-2xl bg-gradient-to-r from-red-600/20 to-orange-600/20 border border-red-500/40 flex items-start gap-5 shadow-lg shadow-red-900/10">
+                                <span className="text-3xl animate-pulse">📢</span>
+                                <div>
+                                    <h4 className="font-black text-red-500 text-base uppercase tracking-widest mb-2 flex items-center gap-2">
+                                        IMPORTANT NOTICE
+                                        <span className="h-px flex-1 bg-red-500/20"></span>
+                                    </h4>
+                                    <p className="text-white text-lg md:text-xl font-bold leading-relaxed drop-shadow-sm">
+                                        {movieData.notice_text}
+                                    </p>
                                 </div>
-                            )}
+                            </div>
+                        )}
 
-                            {isSeriesOrAnime ? (
-                                <EpisodeList seasons={seasons} running_status={movieData.running_status} />
-                            ) : (
-                                <DownloadPanel downloadLinks={movieData.download_links || []} />
-                            )}
-                        </div>
-                    )}
+                        {isSeriesOrAnime ? (
+                            <EpisodeList seasons={seasons} running_status={movieData.running_status} contentId={movieData.id} contentType={movieData.type} />
+                        ) : (
+                            <DownloadPanel downloadLinks={movieData.download_links || []} contentId={movieData.id} contentType={movieData.type} />
+                        )}
+                    </div>
                 </div>
                 <NativeAd placement="download_bottom" className="mt-8" />
             </div>

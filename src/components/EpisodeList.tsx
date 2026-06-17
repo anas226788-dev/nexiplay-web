@@ -2,12 +2,43 @@
 
 import { useState } from 'react';
 import { Season, Episode, EpisodeDownloadLink } from '@/lib/types';
-import { useMonetization } from '@/hooks/useMonetization';
+import { useAdSettings } from '@/hooks/useAdSettings';
 import { useTutorial } from '@/context/TutorialContext';
+import AdVerificationPopup from './AdVerificationPopup';
+
+// ── Download verification helpers ──
+const checkDownloadVerified = (contentId: string, contentType: string): boolean => {
+    if (typeof window === 'undefined') return false;
+    try {
+        const raw = localStorage.getItem('nexiplay_download_verification');
+        if (!raw) return false;
+        const records = JSON.parse(raw);
+        const record = records[contentId];
+        if (!record) return false;
+        const now = Date.now();
+        if (contentType === 'movie') {
+            return now - record.verifiedAt < 24 * 60 * 60 * 1000;
+        } else {
+            return now - record.verifiedAt < 25 * 60 * 1000;
+        }
+    } catch { return false; }
+};
+
+const saveDownloadVerification = (contentId: string, contentType: string) => {
+    if (typeof window === 'undefined') return;
+    try {
+        const raw = localStorage.getItem('nexiplay_download_verification') || '{}';
+        const records = JSON.parse(raw);
+        records[contentId] = { verifiedAt: Date.now(), contentType };
+        localStorage.setItem('nexiplay_download_verification', JSON.stringify(records));
+    } catch {}
+};
 
 interface EpisodeListProps {
     seasons: Season[];
     running_status?: 'Ongoing' | 'Completed' | 'Hiatus';
+    contentId?: string;
+    contentType?: string;
 }
 
 const RESOLUTIONS = ['360p', '480p', '720p', '1080p'] as const;
@@ -23,12 +54,34 @@ const PROVIDER_CONFIG = {
 
 type ProviderKey = keyof typeof PROVIDER_CONFIG;
 
-export default function EpisodeList({ seasons, running_status }: EpisodeListProps) {
+export default function EpisodeList({ seasons, running_status, contentId = '', contentType = 'anime' }: EpisodeListProps) {
     const [activeSeason, setActiveSeason] = useState(seasons[0]?.season_number || 1);
     const [activeEpisode, setActiveEpisode] = useState<string | null>(null);
     const [activeResolution, setActiveResolution] = useState<string | null>(null);
-    const { handleDownloadClick } = useMonetization();
+    const [showVerification, setShowVerification] = useState(false);
+    const [pendingDownloadUrl, setPendingDownloadUrl] = useState<string | null>(null);
+    const { settings: adSettings } = useAdSettings();
     const { hasTutorial, openTutorial } = useTutorial();
+
+    const handleDownloadClick = (url: string, e: React.MouseEvent) => {
+        const verificationEnabled = adSettings?.isDownloadVerificationEnabled ?? false;
+        if (!verificationEnabled) return;
+        const verified = checkDownloadVerified(contentId, contentType);
+        if (verified) return;
+        e.preventDefault();
+        e.stopPropagation();
+        setPendingDownloadUrl(url);
+        setShowVerification(true);
+    };
+
+    const handleVerificationComplete = () => {
+        saveDownloadVerification(contentId, contentType);
+        setShowVerification(false);
+        if (pendingDownloadUrl) {
+            window.open(pendingDownloadUrl, '_blank', 'noopener,noreferrer');
+            setPendingDownloadUrl(null);
+        }
+    };
 
     const currentSeason = seasons.find(s => s.season_number === activeSeason);
     const episodes = currentSeason?.episodes?.sort((a, b) => a.episode_number - b.episode_number) || [];
@@ -88,6 +141,14 @@ export default function EpisodeList({ seasons, running_status }: EpisodeListProp
 
     return (
         <div className="space-y-6">
+            {/* Download Verification Popup */}
+            {showVerification && (
+                <AdVerificationPopup
+                    onVerified={handleVerificationComplete}
+                    adUrl1={adSettings?.downloadAdUrl1 || adSettings?.directLinkUrl || 'https://nexiplay.live'}
+                    adUrl2={adSettings?.downloadAdUrl2 || adSettings?.popunderUrl || 'https://nexiplay.live'}
+                />
+            )}
             {/* Season Tabs */}
             <div className="flex flex-wrap gap-2">
                 <span className="text-white font-medium py-2 mr-2">Season:</span>

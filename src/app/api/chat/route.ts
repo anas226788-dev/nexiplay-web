@@ -142,17 +142,73 @@ function createSSEStream() {
 }
 
 // ============================================================
-// AI CALL — Groq with OpenRouter fallback
+// AI CALL — OpenRouter models (from DB) with Groq fallback
+// Returns { content, agent } where agent indicates which model responded
 // ============================================================
+interface AIResponse {
+    content: string;
+    agent: string;
+}
+
 async function fetchAI(
     messages: { role: string; content: string }[],
     maxTokens = 512,
-    temperature = 0.7
-): Promise<string> {
-    const groqKey = process.env.GROQ_API_KEY;
+    temperature = 0.7,
+    openRouterModels: string[] = []
+): Promise<AIResponse> {
     const openRouterKey = process.env.OPENROUTER_API_KEY;
+    const groqKey = process.env.GROQ_API_KEY;
 
-    // Try Groq first
+    // Try each OpenRouter model in order
+    if (openRouterKey && openRouterModels.length > 0) {
+        for (const model of openRouterModels) {
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+                const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        Authorization: `Bearer ${openRouterKey}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model,
+                        messages,
+                        temperature,
+                        max_tokens: maxTokens,
+                        stream: false,
+                    }),
+                    signal: controller.signal,
+                });
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    const errBody = await response.text();
+                    throw new Error(`OpenRouter (${model}) HTTP ${response.status}: ${errBody}`);
+                }
+
+                const data = await response.json();
+                const content = data?.choices?.[0]?.message?.content?.trim();
+                if (!content) throw new Error(`Empty response from OpenRouter (${model})`);
+
+                // Extract the actual model used (OpenRouter may reroute)
+                const usedModel = data?.model || model;
+                let shortName = usedModel.split('/').pop() || usedModel;
+                shortName = shortName
+                    .replace(/:free$/i, '')
+                    .replace(/-free$/i, '')
+                    .replace(/\s*\(free\)$/i, '');
+                console.log(`[Chat API] ✅ OpenRouter success: ${usedModel}`);
+                return { content, agent: `OpenRouter (${shortName})` };
+            } catch (err) {
+                console.log(`[Chat API] OpenRouter model "${model}" failed:`, err instanceof Error ? err.message : err);
+                // Continue to next model
+            }
+        }
+    }
+
+    // Fallback: Groq
     try {
         if (!groqKey) throw new Error('Missing GROQ_API_KEY');
 
@@ -185,67 +241,31 @@ async function fetchAI(
         const data = await response.json();
         const content = data?.choices?.[0]?.message?.content?.trim();
         if (!content) throw new Error('Empty response from Groq');
-        return content;
+        console.log('[Chat API] ✅ Groq fallback success');
+        return { content, agent: 'Groq (llama-3.3-70b)' };
     } catch (groqError) {
-        console.log('[Chat API] Groq failed, trying OpenRouter');
-        console.error('[Chat API] Groq error:', groqError instanceof Error ? groqError.message : groqError);
-
-        // Fallback: OpenRouter
-        try {
-            if (!openRouterKey) throw new Error('Missing OPENROUTER_API_KEY');
-
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${openRouterKey}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    model: 'openrouter/auto',
-                    messages,
-                    temperature,
-                    max_tokens: maxTokens,
-                    stream: false,
-                }),
-                signal: controller.signal,
-            });
-            clearTimeout(timeoutId);
-
-            if (!response.ok) {
-                const errBody = await response.text();
-                throw new Error(`OpenRouter HTTP ${response.status}: ${errBody}`);
-            }
-
-            const data = await response.json();
-            const content = data?.choices?.[0]?.message?.content?.trim();
-            if (!content) throw new Error('Empty response from OpenRouter');
-            return content;
-        } catch (openRouterError) {
-            console.error('[Chat API] OpenRouter error:', openRouterError instanceof Error ? openRouterError.message : openRouterError);
-            throw new Error('AI_UNAVAILABLE');
-        }
+        console.error('[Chat API] Groq fallback also failed:', groqError instanceof Error ? groqError.message : groqError);
+        throw new Error('AI_UNAVAILABLE');
     }
 }
 
 // ============================================================
 // STEP 1: AI INTENT DETECTION
 // ============================================================
-async function detectIntentWithAI(message: string): Promise<IntentResult> {
+async function detectIntentWithAI(message: string, openRouterModels: string[] = []): Promise<IntentResult> {
     try {
-        const response = await fetchAI(
+        const aiResponse = await fetchAI(
             [
                 { role: 'system', content: INTENT_PROMPT },
                 { role: 'user', content: message },
             ],
             150,
-            0.1 // Low temperature for classification accuracy
+            0.1, // Low temperature for classification accuracy
+            openRouterModels
         );
 
         // Parse JSON from AI response
-        const jsonMatch = response.match(/\{[\s\S]*?\}/);
+        const jsonMatch = aiResponse.content.match(/\{[\s\S]*?\}/);
         if (jsonMatch) {
             const parsed = JSON.parse(jsonMatch[0]);
             return {
@@ -380,13 +400,13 @@ async function searchContent(title: string): Promise<ContentResult[]> {
 // ============================================================
 // STEP 3: TMDB VERIFICATION — Is this a real movie/anime/series?
 // ============================================================
-async function verifyWithTMDB(title: string): Promise<TMDBResult> {
+async function verifyWithTMDB(title: string, openRouterModels: string[] = []): Promise<TMDBResult> {
     const tmdbKey = process.env.TMDB_API_KEY;
 
     if (!tmdbKey) {
         console.warn('[Chat API] No TMDB_API_KEY — skipping verification');
         // Without TMDB key, use AI to verify instead
-        return await verifyWithAI(title);
+        return await verifyWithAI(title, openRouterModels);
     }
 
     try {
@@ -435,14 +455,14 @@ async function verifyWithTMDB(title: string): Promise<TMDBResult> {
     } catch (err) {
         console.error('[Chat API] TMDB error:', err);
         // Fallback to AI verification
-        return await verifyWithAI(title);
+        return await verifyWithAI(title, openRouterModels);
     }
 }
 
 // AI-based verification fallback (when TMDB key is not available)
-async function verifyWithAI(title: string): Promise<TMDBResult> {
+async function verifyWithAI(title: string, openRouterModels: string[] = []): Promise<TMDBResult> {
     try {
-        const response = await fetchAI(
+        const aiResponse = await fetchAI(
             [
                 {
                     role: 'system',
@@ -458,10 +478,11 @@ Rules:
                 { role: 'user', content: `Is "${title}" a real movie, anime, or TV series?` },
             ],
             100,
-            0.1
+            0.1,
+            openRouterModels
         );
 
-        const jsonMatch = response.match(/\{[\s\S]*?\}/);
+        const jsonMatch = aiResponse.content.match(/\{[\s\S]*?\}/);
         if (jsonMatch) {
             const parsed = JSON.parse(jsonMatch[0]);
             return {
@@ -529,8 +550,9 @@ async function submitRequest(title: string, tmdbInfo?: TMDBResult): Promise<bool
 async function getAIResponse(
     message: string,
     history: { role: string; content: string }[],
-    context?: string
-): Promise<string> {
+    context?: string,
+    openRouterModels: string[] = []
+): Promise<AIResponse> {
     const systemContent = context ? `${SYSTEM_PROMPT}\n\nAdditional context: ${context}` : SYSTEM_PROMPT;
 
     const messages = [
@@ -542,7 +564,7 @@ async function getAIResponse(
         { role: 'user', content: message },
     ];
 
-    return await fetchAI(messages, 512, 0.7);
+    return await fetchAI(messages, 512, 0.7, openRouterModels);
 }
 
 // ============================================================
@@ -581,11 +603,26 @@ export async function POST(request: NextRequest) {
 
         const userMessage = message.trim();
 
+        // Fetch OpenRouter models from DB
+        let openRouterModels: string[] = [];
+        try {
+            const dbClient = getSupabase();
+            if (dbClient) {
+                const { data: chatSettings } = await dbClient.from('chatbot_settings').select('openrouter_models').single();
+                if (chatSettings?.openrouter_models) {
+                    openRouterModels = chatSettings.openrouter_models.split(',').map((m: string) => m.trim()).filter(Boolean);
+                }
+            }
+        } catch (err) {
+            console.warn('[Chat API] Could not fetch openrouter_models from DB:', err);
+        }
+        console.log('[Chat API] OpenRouter models:', openRouterModels);
+
         // ============================================================
         // NON-STREAMING MODE (backward compatible)
         // ============================================================
         if (!streaming) {
-            return handleNonStreaming(userMessage, history);
+            return handleNonStreaming(userMessage, history, openRouterModels);
         }
 
         // ============================================================
@@ -603,7 +640,7 @@ export async function POST(request: NextRequest) {
 
                 await delay(800); // Let user see "Thinking" step
 
-                const intentResult = await detectIntentWithAI(userMessage);
+                const intentResult = await detectIntentWithAI(userMessage, openRouterModels);
                 console.log('Intent:', intentResult.intent, '| Title:', intentResult.title, '| Confidence:', intentResult.confidence);
 
                 // CHAT INTENT → Normal AI reply
@@ -611,9 +648,10 @@ export async function POST(request: NextRequest) {
                     send('status', { step: 'generating', message: '💬 Generating response...' });
                     await delay(600);
 
-                    const aiReply = await getAIResponse(userMessage, history);
+                    const aiReply = await getAIResponse(userMessage, history, undefined, openRouterModels);
                     send('result', {
-                        reply: aiReply,
+                        reply: aiReply.content,
+                        agent: aiReply.agent,
                         intent: 'general',
                     });
                     close();
@@ -651,7 +689,7 @@ export async function POST(request: NextRequest) {
                 send('status', { step: 'verifying_online', message: '🌐 Verifying online if this is a real title...' });
                 await delay(1200); // Let user see "Verifying online" step
 
-                const tmdbResult = await verifyWithTMDB(extractedTitle);
+                const tmdbResult = await verifyWithTMDB(extractedTitle, openRouterModels);
 
                 if (tmdbResult.verified) {
                     // STEP 4: TMDB verified → Submit request
@@ -666,17 +704,21 @@ export async function POST(request: NextRequest) {
                         ? `The user searched for "${verifiedTitle}" (${tmdbResult.tmdb_type || 'content'}, ${tmdbResult.tmdb_year || 'unknown year'}). It's a real title verified online but NOT available on Nexiplay yet. Their request has been sent to the admin. Politely inform them with the verified info. Be warm and friendly. IMPORTANT: Detect the user's language from their message "${userMessage}" and reply in that EXACT same language. If they wrote in Bangla/Banglish, reply in Bangla/Banglish. NEVER reply in English if user didn't write in English.`
                         : `The user searched for "${verifiedTitle}" but it's not on Nexiplay yet. Inform them politely. IMPORTANT: Detect the user's language from their message "${userMessage}" and reply in that EXACT same language. NEVER default to English.`;
 
-                    let aiReply: string;
+                    let aiReply: AIResponse;
                     try {
-                        aiReply = await getAIResponse(userMessage, history, context);
+                        aiReply = await getAIResponse(userMessage, history, context, openRouterModels);
                     } catch {
-                        aiReply = requestSubmitted
-                            ? `"${verifiedTitle}" is not on Nexiplay yet, but it's a real ${tmdbResult.tmdb_type || 'title'}! Your request has been sent to the admin. We'll try to add it soon! 🙏`
-                            : `"${verifiedTitle}" is not available on Nexiplay right now. Please try again later! 🙏`;
+                        aiReply = {
+                            content: requestSubmitted
+                                ? `"${verifiedTitle}" is not on Nexiplay yet, but it's a real ${tmdbResult.tmdb_type || 'title'}! Your request has been sent to the admin. We'll try to add it soon! 🙏`
+                                : `"${verifiedTitle}" is not available on Nexiplay right now. Please try again later! 🙏`,
+                            agent: 'Groq (fallback)'
+                        };
                     }
 
                     send('result', {
-                        reply: aiReply,
+                        reply: aiReply.content,
+                        agent: aiReply.agent,
                         intent: 'search',
                         found: false,
                         requestSubmitted,
@@ -694,15 +736,19 @@ export async function POST(request: NextRequest) {
 
                     const context = `The user typed "${extractedTitle}" which was NOT verified as a real movie, anime, or TV series. Politely tell them this doesn't appear to be a valid content title. Ask them to double-check the name and try again with the correct title. Be friendly. IMPORTANT: Detect the user's language from their message "${userMessage}" and reply in that EXACT same language. If Bangla/Banglish, reply in Bangla/Banglish. NEVER default to English.`;
 
-                    let aiReply: string;
+                    let aiReply: AIResponse;
                     try {
-                        aiReply = await getAIResponse(userMessage, history, context);
+                        aiReply = await getAIResponse(userMessage, history, context, openRouterModels);
                     } catch {
-                        aiReply = `Sorry, I couldn't verify "${extractedTitle}" as a real movie, anime, or series. Please check the name and try again! 🙏`;
+                        aiReply = {
+                            content: `Sorry, I couldn't verify "${extractedTitle}" as a real movie, anime, or series. Please check the name and try again! 🙏`,
+                            agent: 'Groq (fallback)'
+                        };
                     }
 
                     send('result', {
-                        reply: aiReply,
+                        reply: aiReply.content,
+                        agent: aiReply.agent,
                         intent: 'search',
                         found: false,
                         requestSubmitted: false,
@@ -746,19 +792,20 @@ export async function POST(request: NextRequest) {
 // ============================================================
 async function handleNonStreaming(
     userMessage: string,
-    history: { role: string; content: string }[]
+    history: { role: string; content: string }[],
+    openRouterModels: string[] = []
 ) {
     console.log('\n=== CHAT API (NON-STREAMING) ===');
     console.log('Message:', userMessage);
 
     // Step 1: AI Intent Detection
-    const intentResult = await detectIntentWithAI(userMessage);
+    const intentResult = await detectIntentWithAI(userMessage, openRouterModels);
     console.log('Intent:', intentResult.intent, '| Title:', intentResult.title);
 
     // Chat intent
     if (intentResult.intent === 'chat') {
-        const aiReply = await getAIResponse(userMessage, history);
-        return new Response(JSON.stringify({ reply: aiReply, intent: 'general' }), {
+        const aiReply = await getAIResponse(userMessage, history, undefined, openRouterModels);
+        return new Response(JSON.stringify({ reply: aiReply.content, agent: aiReply.agent, intent: 'general' }), {
             headers: { 'Content-Type': 'application/json' },
         });
     }
@@ -788,26 +835,30 @@ async function handleNonStreaming(
     }
 
     // Verify with TMDB
-    const tmdbResult = await verifyWithTMDB(extractedTitle);
+    const tmdbResult = await verifyWithTMDB(extractedTitle, openRouterModels);
 
     if (tmdbResult.verified) {
         const verifiedTitle = tmdbResult.tmdb_title || extractedTitle;
         const requestSubmitted = await submitRequest(verifiedTitle, tmdbResult);
 
         const context = requestSubmitted
-            ? `The user searched for "${verifiedTitle}" but it's not on Nexiplay yet. Request sent to admin. IMPORTANT: Detect the user's language from their message "${userMessage}" and reply in that EXACT same language. NEVER default to English.`
-            : `The user searched for "${verifiedTitle}" but it's not on Nexiplay. IMPORTANT: Detect the user's language from their message "${userMessage}" and reply in that EXACT same language. NEVER default to English.`;
+            ? `The user searched for "${verifiedTitle}" (${tmdbResult.tmdb_type || 'content'}, ${tmdbResult.tmdb_year || 'unknown year'}). It's a real title verified online but NOT available on Nexiplay yet. Their request has been sent to the admin. Politely inform them with the verified info. Be warm and friendly. IMPORTANT: Detect the user's language from their message "${userMessage}" and reply in that EXACT same language. If they wrote in Bangla/Banglish, reply in Bangla/Banglish. NEVER reply in English if user didn't write in English.`
+            : `The user searched for "${verifiedTitle}" but it's not on Nexiplay yet. Inform them politely. IMPORTANT: Detect the user's language from their message "${userMessage}" and reply in that EXACT same language. NEVER default to English.`;
 
-        let aiReply: string;
+        let aiReply: AIResponse;
         try {
-            aiReply = await getAIResponse(userMessage, history, context);
+            aiReply = await getAIResponse(userMessage, history, context, openRouterModels);
         } catch {
-            aiReply = `"${verifiedTitle}" is not on Nexiplay yet. Your request has been submitted! 🙏`;
+            aiReply = {
+                content: `"${verifiedTitle}" is not on Nexiplay yet. Your request has been submitted! 🙏`,
+                agent: 'Groq (fallback)'
+            };
         }
 
         return new Response(
             JSON.stringify({
-                reply: aiReply,
+                reply: aiReply.content,
+                agent: aiReply.agent,
                 intent: 'search',
                 found: false,
                 requestSubmitted,
@@ -824,17 +875,21 @@ async function handleNonStreaming(
     }
 
     // Not verified
-    let aiReply: string;
+    let aiReply: AIResponse;
     try {
         const context = `"${extractedTitle}" is NOT a real movie/anime/series. Ask user to check the name. IMPORTANT: Detect the user's language from their message "${userMessage}" and reply in that EXACT same language. NEVER default to English.`;
-        aiReply = await getAIResponse(userMessage, history, context);
+        aiReply = await getAIResponse(userMessage, history, context, openRouterModels);
     } catch {
-        aiReply = `Sorry, "${extractedTitle}" doesn't appear to be a valid title. Please check the name! 🙏`;
+        aiReply = {
+            content: `Sorry, "${extractedTitle}" doesn't appear to be a valid title. Please check the name! 🙏`,
+            agent: 'Groq (fallback)'
+        };
     }
 
     return new Response(
         JSON.stringify({
-            reply: aiReply,
+            reply: aiReply.content,
+            agent: aiReply.agent,
             intent: 'search',
             found: false,
             requestSubmitted: false,

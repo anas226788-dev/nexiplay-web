@@ -12,6 +12,12 @@ export interface AdSettings {
     enabledDevices: 'all' | 'desktop' | 'mobile';
     nativeAdCode: string | null;
     socialBarCode: string | null;
+    isVerificationEnabled: boolean;
+    verificationAdUrl1: string | null;
+    verificationAdUrl2: string | null;
+    isDownloadVerificationEnabled: boolean;
+    downloadAdUrl1: string | null;
+    downloadAdUrl2: string | null;
 }
 
 interface UseAdSettingsReturn {
@@ -37,6 +43,12 @@ const DEFAULT_SETTINGS: AdSettings = {
     enabledDevices: 'all',
     nativeAdCode: null,
     socialBarCode: null,
+    isVerificationEnabled: false,
+    verificationAdUrl1: null,
+    verificationAdUrl2: null,
+    isDownloadVerificationEnabled: false,
+    downloadAdUrl1: null,
+    downloadAdUrl2: null,
 };
 
 /**
@@ -56,6 +68,12 @@ function mapToAdSettings(data: CachedAppSettings): AdSettings {
         enabledDevices: data.ad_enabled_devices ?? 'all',
         nativeAdCode: data.native_ad_code ?? null,
         socialBarCode: data.social_bar_code ?? null,
+        isVerificationEnabled: data.is_verification_enabled ?? false,
+        verificationAdUrl1: data.verification_ad_url_1 ?? null,
+        verificationAdUrl2: data.verification_ad_url_2 ?? null,
+        isDownloadVerificationEnabled: data.is_download_verification_enabled ?? false,
+        downloadAdUrl1: data.download_ad_url_1 ?? null,
+        downloadAdUrl2: data.download_ad_url_2 ?? null,
     };
 }
 

@@ -25,12 +25,21 @@ interface ChatMessage {
     isBot: boolean;
     role?: 'user' | 'assistant';
     plainText?: string;
+    agent?: string;
 }
 
 interface StreamStatus {
     step: string;
     message: string;
 }
+
+const formatAgentName = (name?: string | null): string => {
+    if (!name) return '';
+    return name
+        .replace(/:free$/i, '')
+        .replace(/-free$/i, '')
+        .replace(/\s*\(free\)$/i, '');
+};
 
 export default function Chatbot() {
     const [isOpen, setIsOpen] = useState(false);
@@ -40,6 +49,7 @@ export default function Chatbot() {
     const [isTyping, setIsTyping] = useState(false);
     const [currentSteps, setCurrentSteps] = useState<StreamStatus[]>([]);
     const [headerText, setHeaderText] = useState('Ask me anything ✨');
+    const [activeAgent, setActiveAgent] = useState<string | null>(null);
 
     const headerTexts = ["Ask me anything ✨", "Powered by AI 🧠", "Any language 🌍", "Download help 📥", "Movies & Anime 🎬"];
     const [textIndex, setTextIndex] = useState(0);
@@ -288,6 +298,7 @@ export default function Chatbot() {
         results?: ContentResult[]; requestSubmitted?: boolean;
         tmdbVerified?: boolean; tmdbInfo?: { title?: string; type?: string; year?: string; poster?: string };
         error?: string;
+        agent?: string;
     }) => {
         if (data.error) {
             setMessages(prev => [...prev, {
@@ -296,17 +307,23 @@ export default function Chatbot() {
             return;
         }
 
+        if (data.agent) {
+            setActiveAgent(data.agent);
+        }
+
         // Search with results found
         if (data.intent === 'search' && data.found && data.results && data.results.length > 0) {
             setMessages(prev => [...prev, {
                 text: renderResultCards(data.results!),
                 isBot: true, role: 'assistant',
-                plainText: `Found on Nexiplay: ${data.results!.map(r => r.title).join(', ')}`
+                plainText: `Found on Nexiplay: ${data.results!.map(r => r.title).join(', ')}`,
+                agent: data.agent
             }]);
             if (data.reply) {
                 setMessages(prev => [...prev, {
                     text: <span className="whitespace-pre-line">{data.reply}</span>,
-                    isBot: true, role: 'assistant', plainText: data.reply
+                    isBot: true, role: 'assistant', plainText: data.reply,
+                    agent: data.agent
                 }]);
             }
         }
@@ -329,14 +346,16 @@ export default function Chatbot() {
             );
             setMessages(prev => [...prev, {
                 text: replyContent, isBot: true, role: 'assistant',
-                plainText: data.reply || "Content not found."
+                plainText: data.reply || "Content not found.",
+                agent: data.agent
             }]);
         }
         // General chat
         else {
             setMessages(prev => [...prev, {
                 text: <span className="whitespace-pre-line">{data.reply}</span>,
-                isBot: true, role: 'assistant', plainText: data.reply
+                isBot: true, role: 'assistant', plainText: data.reply,
+                agent: data.agent
             }]);
         }
     };
@@ -348,6 +367,7 @@ export default function Chatbot() {
                 text: <span className="whitespace-pre-line">{welcome}</span>,
                 isBot: true, role: 'assistant', plainText: welcome
             }]);
+            setActiveAgent(null);
             localStorage.removeItem('nexiplay_chat_history');
         }
     };
@@ -388,7 +408,9 @@ export default function Chatbot() {
                                 </h3>
                                 <div className="flex items-center gap-1.5 h-4">
                                     <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.6)]"></span>
-                                    <span className="text-[11px] text-white/90 font-medium animate-fade-in">{headerText}</span>
+                                    <span className="text-[11px] text-white/90 font-medium animate-fade-in">
+                                        {activeAgent ? `Connected: ${formatAgentName(activeAgent)}` : headerText}
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -412,6 +434,12 @@ export default function Chatbot() {
                                         : 'bg-red-600 text-white rounded-tr-sm shadow-red-900/20 shadow-lg'}`}>
                                         {msg.text}
                                     </div>
+                                    {msg.isBot && msg.agent && (
+                                        <div className="text-[10px] text-gray-500 mt-1 ml-1 flex items-center gap-1">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>
+                                            <span>Active Agent: {formatAgentName(msg.agent)}</span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         ))}

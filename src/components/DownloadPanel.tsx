@@ -2,11 +2,54 @@
 
 import { useState } from 'react';
 import { DownloadLink } from '@/lib/types';
-import { useMonetization } from '@/hooks/useMonetization';
+import { useAdSettings } from '@/hooks/useAdSettings';
 import { useTutorial } from '@/context/TutorialContext';
+import AdVerificationPopup from './AdVerificationPopup';
+
+// ── localStorage helpers for download verification ──
+const checkDownloadVerified = (contentId: string, contentType: string): boolean => {
+    if (typeof window === 'undefined') return false;
+    try {
+        const raw = localStorage.getItem('nexiplay_download_verification');
+        if (!raw) return false;
+        const records = JSON.parse(raw);
+        const record = records[contentId];
+        if (!record) return false;
+
+        const now = Date.now();
+        const verifiedAt = record.verifiedAt;
+
+        if (contentType === 'movie') {
+            // Movies: 24 hour cooldown
+            return now - verifiedAt < 24 * 60 * 60 * 1000;
+        } else {
+            // Series/Anime: 25 minute cooldown
+            return now - verifiedAt < 25 * 60 * 1000;
+        }
+    } catch {
+        return false;
+    }
+};
+
+const saveDownloadVerification = (contentId: string, contentType: string) => {
+    if (typeof window === 'undefined') return;
+    try {
+        const raw = localStorage.getItem('nexiplay_download_verification') || '{}';
+        const records = JSON.parse(raw);
+        records[contentId] = {
+            verifiedAt: Date.now(),
+            contentType,
+        };
+        localStorage.setItem('nexiplay_download_verification', JSON.stringify(records));
+    } catch (e) {
+        console.error('Failed to save download verification:', e);
+    }
+};
 
 interface DownloadPanelProps {
     downloadLinks: DownloadLink[];
+    contentId: string;
+    contentType: string;
 }
 
 const RESOLUTIONS = ['360p', '480p', '720p', '1080p'] as const;
@@ -22,9 +65,12 @@ const PROVIDER_CONFIG = {
 
 type ProviderKey = keyof typeof PROVIDER_CONFIG;
 
-export default function DownloadPanel({ downloadLinks }: DownloadPanelProps) {
+export default function DownloadPanel({ downloadLinks, contentId, contentType }: DownloadPanelProps) {
     const [activeResolution, setActiveResolution] = useState<string | null>(null);
-    const { handleDownloadClick } = useMonetization();
+    const [showVerification, setShowVerification] = useState(false);
+    const [pendingDownloadUrl, setPendingDownloadUrl] = useState<string | null>(null);
+    const [isVerified, setIsVerified] = useState(() => checkDownloadVerified(contentId, contentType));
+    const { settings: adSettings } = useAdSettings();
     const { hasTutorial, openTutorial } = useTutorial();
 
     // Group links by resolution
@@ -60,6 +106,40 @@ export default function DownloadPanel({ downloadLinks }: DownloadPanelProps) {
             }));
     };
 
+    const handleDownloadClick = (url: string, e: React.MouseEvent) => {
+        const verificationEnabled = adSettings?.isDownloadVerificationEnabled ?? false;
+        
+        if (!verificationEnabled) {
+            // Verification disabled — allow direct download
+            return;
+        }
+
+        const verified = checkDownloadVerified(contentId, contentType);
+        if (verified) {
+            // Already verified — allow direct download
+            setIsVerified(true);
+            return;
+        }
+
+        // Not verified — block and show popup
+        e.preventDefault();
+        e.stopPropagation();
+        setPendingDownloadUrl(url);
+        setShowVerification(true);
+    };
+
+    const handleVerificationComplete = () => {
+        saveDownloadVerification(contentId, contentType);
+        setIsVerified(true);
+        setShowVerification(false);
+
+        // Auto-open the pending download
+        if (pendingDownloadUrl) {
+            window.open(pendingDownloadUrl, '_blank', 'noopener,noreferrer');
+            setPendingDownloadUrl(null);
+        }
+    };
+
     if (availableResolutions.length === 0) {
         return (
             <div className="text-center py-8 text-gray-400">
@@ -70,6 +150,15 @@ export default function DownloadPanel({ downloadLinks }: DownloadPanelProps) {
 
     return (
         <div className="space-y-4">
+            {/* Verification Popup */}
+            {showVerification && (
+                <AdVerificationPopup
+                    onVerified={handleVerificationComplete}
+                    adUrl1={adSettings?.downloadAdUrl1 || adSettings?.directLinkUrl || 'https://nexiplay.live'}
+                    adUrl2={adSettings?.downloadAdUrl2 || adSettings?.popunderUrl || 'https://nexiplay.live'}
+                />
+            )}
+
             {/* Resolution Buttons */}
             <div className="flex flex-wrap gap-2 sm:gap-3">
                 {RESOLUTIONS.map((resolution) => {
@@ -133,6 +222,8 @@ export default function DownloadPanel({ downloadLinks }: DownloadPanelProps) {
                                             {/* Download Button */}
                                             <a
                                                 href={isExpired ? '#' : provider.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
                                                 onClick={(e) => {
                                                     if (isExpired) {
                                                         e.preventDefault();
