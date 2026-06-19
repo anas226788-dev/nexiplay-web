@@ -148,6 +148,42 @@ body {
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
+/* Mobile iframe fullscreen fallback for third-party players */
+.nexiplay-player-shell:fullscreen,
+.nexiplay-player-shell:-webkit-full-screen {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  aspect-ratio: auto !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #000 !important;
+}
+
+.nexiplay-player-shell:fullscreen .nexiplay-player-frame,
+.nexiplay-player-shell:-webkit-full-screen .nexiplay-player-frame,
+.nexiplay-player-shell:fullscreen video,
+.nexiplay-player-shell:-webkit-full-screen video {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  background: #000 !important;
+}
+
+.nexiplay-player-shell:fullscreen .nexiplay-fullscreen-assist,
+.nexiplay-player-shell:-webkit-full-screen .nexiplay-fullscreen-assist {
+  display: none !important;
+}
+
+@supports (height: 100dvh) {
+  .nexiplay-player-shell:fullscreen,
+  .nexiplay-player-shell:-webkit-full-screen {
+    height: 100dvh !important;
+  }
+}
+
 /* Adult Gate Modal Animations */
 @keyframes adultGateBackdropIn {
   from { opacity: 0; }

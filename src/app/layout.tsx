@@ -3,6 +3,7 @@ import Script from 'next/script';
 import './globals.css';
 
 import NoticeSystem from '@/components/NoticeSystem';
+import AntiAdBlockGate from '@/components/AntiAdBlockGate';
 import { PopunderAd, SocialBarAd } from '@/components/ads';
 import { AdProvider } from '@/context/AdProvider';
 import { TutorialProvider } from '@/context/TutorialContext';
@@ -38,6 +39,7 @@ export default function RootLayout({
                             <NoticeSystem />
                             <PopunderAd />
                             <SocialBarAd />
+                            <AntiAdBlockGate />
 
                             <Script
                                 src="https://www.googletagmanager.com/gtag/js?id=G-697MJ5V5CL"

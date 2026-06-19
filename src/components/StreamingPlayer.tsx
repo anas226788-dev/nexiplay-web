@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Movie, Season, Episode } from '@/lib/types';
 import { useAdSettings } from '@/hooks/useAdSettings';
+import { canRequestPlayerFullscreen, FULLSCREEN_IFRAME_ATTRS, requestPlayerFullscreen } from '@/lib/playerFullscreen';
 
 interface StreamingPlayerProps {
     movie: Movie;
@@ -18,7 +19,7 @@ interface Server {
     movieOnly?: boolean;
 }
 
-const SERVERS: Server[] = [
+const BUILT_IN_SERVERS: Server[] = [
     {
         id: 'vidsrc_to',
         name: 'Server VidSrc (Pro)',
@@ -31,17 +32,6 @@ const SERVERS: Server[] = [
         }
     },
     {
-        id: 'embed_su',
-        name: 'Server Embed.su',
-        icon: '💿',
-        getUrl: (id, tmdb, imdb, mal, s, e) => {
-            if (!tmdb) return null;
-            return s !== undefined && e !== undefined
-                ? `https://embed.su/embed/tv/${tmdb}/${s}/${e}`
-                : `https://embed.su/embed/movie/${tmdb}`;
-        }
-    },
-    {
         id: 'vidsrc_me',
         name: 'Server VidSrc.me',
         icon: '🚀',
@@ -51,20 +41,49 @@ const SERVERS: Server[] = [
                 ? `https://vidsrc.me/embed/tv?tmdb=${tmdb}&season=${s}&episode=${e}`
                 : `https://vidsrc.me/embed/movie?tmdb=${tmdb}`;
         }
-    },
-    {
-        id: 'vidsrc_anime',
-        name: 'Server AnimeSrc',
-        icon: '🌸',
-        animeOnly: true,
-        getUrl: (id, tmdb, imdb, mal, s, e) => {
-            if (!mal) return null;
-            return s !== undefined && e !== undefined
-                ? `https://anime.vidsrc.to/embed/anime/${mal}/${s}/${e}`
-                : `https://anime.vidsrc.to/embed/anime/${mal}`;
-        }
     }
 ];
+
+const SERVERS: Server[] = BUILT_IN_SERVERS;
+
+function getYouTubeVideoId(urlOrId: string): string | null {
+    const input = urlOrId.trim();
+    if (/^[a-zA-Z0-9_-]{11}$/.test(input)) return input;
+
+    try {
+        const parsed = new URL(input);
+        const host = parsed.hostname.replace(/^www\./, '').toLowerCase();
+
+        if (host === 'youtu.be') {
+            const id = parsed.pathname.split('/').filter(Boolean)[0];
+            return id && /^[a-zA-Z0-9_-]{11}$/.test(id) ? id : null;
+        }
+
+        if (host.endsWith('youtube.com') || host.endsWith('youtube-nocookie.com')) {
+            const watchId = parsed.searchParams.get('v');
+            if (watchId && /^[a-zA-Z0-9_-]{11}$/.test(watchId)) return watchId;
+
+            const parts = parsed.pathname.split('/').filter(Boolean);
+            const marker = ['embed', 'shorts', 'live'].find(part => parts.includes(part));
+            if (marker) {
+                const id = parts[parts.indexOf(marker) + 1];
+                return id && /^[a-zA-Z0-9_-]{11}$/.test(id) ? id : null;
+            }
+        }
+    } catch {
+        const match = input.match(/(?:v=|youtu\.be\/|embed\/|shorts\/|live\/)([a-zA-Z0-9_-]{11})/);
+        if (match) return match[1];
+    }
+
+    return null;
+}
+
+function normalizePlayerUrl(url: string): string {
+    const cleanUrl = url.trim();
+    const youtubeId = getYouTubeVideoId(cleanUrl);
+    if (!youtubeId) return cleanUrl;
+    return `https://www.youtube-nocookie.com/embed/${youtubeId}?rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&fs=1`;
+}
 
 function HLSVideoPlayer({ src }: { src: string }) {
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -259,17 +278,24 @@ function HLSVideoPlayer({ src }: { src: string }) {
 
 export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayerProps) {
     const isSeriesOrAnime = movie.type === 'series' || movie.type === 'anime';
+    const playerShellRef = useRef<HTMLDivElement>(null);
+    const playerIframeRef = useRef<HTMLIFrameElement>(null);
 
     // Stream state
     const [currentSeasonNum, setCurrentSeasonNum] = useState<number>(1);
     const [currentEpisodeNum, setCurrentEpisodeNum] = useState<number>(1);
     const [activeServerId, setActiveServerId] = useState<string>('');
     const [sandboxMode, setSandboxMode] = useState<boolean>(true);
+    const [canUseFullscreenAssist, setCanUseFullscreenAssist] = useState(false);
 
     const sortedSeasons = [...seasons].sort((a, b) => a.season_number - b.season_number);
     const activeSeason = sortedSeasons.find(s => s.season_number === currentSeasonNum) || sortedSeasons[0];
     const episodes = activeSeason?.episodes?.sort((a, b) => a.episode_number - b.episode_number) || [];
     const activeEpisode = episodes.find(e => e.episode_number === currentEpisodeNum) || episodes[0];
+
+    useEffect(() => {
+        setCanUseFullscreenAssist(canRequestPlayerFullscreen());
+    }, []);
 
     // Determine if there is a custom override link
     const getCustomUrl = (): string | null => {
@@ -316,14 +342,15 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
     // Build the final iframe src
     const getEmbedUrl = (): string => {
         if (activeServerId === 'custom') {
-            return customUrl || '';
+            return normalizePlayerUrl(customUrl || '');
         }
         const server = availableServers.find(s => s.id === activeServerId);
         if (!server) return '';
 
-        return isSeriesOrAnime
+        const serverUrl = isSeriesOrAnime
             ? server.getUrl(movie.id, movie.tmdb_id || undefined, movie.imdb_id || undefined, movie.mal_id || undefined, currentSeasonNum, currentEpisodeNum) || ''
             : server.getUrl(movie.id, movie.tmdb_id || undefined, movie.imdb_id || undefined, movie.mal_id || undefined) || '';
+        return normalizePlayerUrl(serverUrl);
     };
 
     const embedUrl = getEmbedUrl();
@@ -334,6 +361,12 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
         customUrl.toLowerCase().includes('streamindia') ||
         customUrl.toLowerCase().includes('fallback.streamindia.co.in/sources')
     ) : false;
+    const isYouTubeActive = embedUrl ? !!getYouTubeVideoId(embedUrl) : false;
+    const isIframePlayerActive = !!embedUrl && !(activeServerId === 'custom' && isM3U8);
+
+    const handlePlayerFullscreenRequest = () => {
+        requestPlayerFullscreen(playerShellRef.current, playerIframeRef.current);
+    };
 
     // Check if we can play this content (needs either IDs or custom URL)
     const hasIdentifiers = movie.tmdb_id || movie.imdb_id || movie.mal_id || customUrl;
@@ -411,22 +444,27 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
             </div>
 
             {/* Video Container (Responsive Iframe or Native HLS Player) */}
-            <div className="relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/10 group">
+            <div
+                ref={playerShellRef}
+                className="nexiplay-player-shell relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/10 group"
+            >
                 {embedUrl ? (
                     activeServerId === 'custom' && isM3U8 ? (
                         <HLSVideoPlayer src={`/api/proxy-stream?url=${encodeURIComponent(embedUrl)}`} />
                     ) : (
                         <iframe
+                            ref={playerIframeRef}
                             src={embedUrl}
-                            className="absolute inset-0 w-full h-full"
-                            allowFullScreen
+                            title="Streaming player"
+                            className="nexiplay-player-frame absolute inset-0 w-full h-full"
+                            {...FULLSCREEN_IFRAME_ATTRS}
                             // If sandboxMode is enabled, exclude allow-popups and allow-top-navigation to block ads
                             sandbox={
                                 sandboxMode && activeServerId !== 'custom'
                                     ? "allow-scripts allow-same-origin allow-forms"
                                     : undefined
                             }
-                            referrerPolicy="no-referrer"
+                            referrerPolicy={isYouTubeActive ? 'strict-origin-when-cross-origin' : 'no-referrer'}
                         />
                     )
                 ) : (
@@ -434,6 +472,15 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
                         <span className="text-3xl animate-bounce mb-2">🎞️</span>
                         <p className="font-bold">Select Server or Episode to start playback</p>
                     </div>
+                )}
+                {isIframePlayerActive && canUseFullscreenAssist && (
+                    <button
+                        type="button"
+                        aria-label="Fullscreen"
+                        onClick={handlePlayerFullscreenRequest}
+                        className="nexiplay-fullscreen-assist absolute bottom-0 right-0 z-20 h-16 w-16 bg-transparent opacity-0 md:hidden"
+                        style={{ WebkitTapHighlightColor: 'transparent' }}
+                    />
                 )}
             </div>
 

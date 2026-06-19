@@ -37,7 +37,7 @@ export interface CachedTelegramSettings {
 
 // ── Constants ──────────────────────────────────────────────
 const TTL_MS = 5 * 60 * 1000; // 5 minutes
-const APP_SETTINGS_KEY = 'nexiplay_app_settings_v3';
+const APP_SETTINGS_KEY = 'nexiplay_app_settings_v5';
 const TELEGRAM_SETTINGS_KEY = 'nexiplay_telegram_settings';
 
 // ── Module-level memory cache ──────────────────────────────
