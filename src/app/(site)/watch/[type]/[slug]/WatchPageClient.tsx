@@ -101,6 +101,21 @@ const AD_BLOCK_SANDBOX =
 
 const DISABLED_MULTI_SERVER_IDS = new Set(['muse_india', 'anione_india']);
 
+type MultiScraperServerConfig = {
+    mode?: string;
+    url?: string;
+    urls?: Record<string, string>;
+    episodeUrls?: Record<string, string>;
+};
+
+function normalizeConfiguredServerUrl(serverKey: string, url: string): string {
+    const cleanUrl = url.trim();
+    if (serverKey.toLowerCase() === 'toonstream' && /^\d+$/.test(cleanUrl)) {
+        return `https://toonstream.vip/?trembed=${cleanUrl}`;
+    }
+    return normalizePlayerUrl(cleanUrl);
+}
+
 function getYouTubeVideoId(urlOrId: string): string | null {
     const input = urlOrId.trim();
     if (/^[a-zA-Z0-9_-]{11}$/.test(input)) return input;
@@ -834,7 +849,49 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
         return {};
     };
 
-    const multiStreams = parseStreamingUrlJson(isSeriesOrAnime ? (activeEpisode?.streaming_url ?? activeEpisodeStreams?.streaming_url) : movie.streaming_url);
+    const parseMultiScraperConfig = (raw: string | null | undefined): Record<string, MultiScraperServerConfig> => {
+        if (!raw) return {};
+        const trimmed = raw.trim();
+        if (!trimmed.startsWith('{')) return {};
+        try {
+            const parsed = JSON.parse(trimmed);
+            return parsed && typeof parsed === 'object' ? parsed : {};
+        } catch (e) {
+            console.error('Failed to parse multi scraper config:', e);
+            return {};
+        }
+    };
+
+    const getConfiguredMultiStreams = (): Record<string, string> => {
+        const movieWithConfig = movie as unknown as { scraper_source?: string; scraper_url?: string };
+        if (movieWithConfig.scraper_source !== 'multi') return {};
+
+        const config = parseMultiScraperConfig(movieWithConfig.scraper_url);
+        const streams: Record<string, string> = {};
+
+        Object.entries(config).forEach(([serverKey, serverConfig]) => {
+            if (!serverConfig) return;
+            const seasonKey = String(currentSeasonNum);
+            const episodeKey = `${currentSeasonNum}_${currentEpisodeNum}`;
+            const rawUrl = serverConfig.mode === 'episode'
+                ? serverConfig.episodeUrls?.[episodeKey]
+                : serverConfig.mode === 'separate'
+                    ? serverConfig.urls?.[seasonKey]
+                    : serverConfig.url;
+
+            if (rawUrl && rawUrl.trim()) {
+                streams[serverKey] = normalizeConfiguredServerUrl(serverKey, rawUrl);
+            }
+        });
+
+        return streams;
+    };
+
+    const episodeMultiStreams = parseStreamingUrlJson(isSeriesOrAnime ? (activeEpisode?.streaming_url ?? activeEpisodeStreams?.streaming_url) : movie.streaming_url);
+    const multiStreams = {
+        ...getConfiguredMultiStreams(),
+        ...episodeMultiStreams
+    };
 
     const isServerEnabled = (serverId: string) => {
         if (DISABLED_MULTI_SERVER_IDS.has(serverId.toLowerCase())) return false;
