@@ -50,6 +50,8 @@ export interface Movie {
     streaming_url?: string;
     streaming_url_animerulz?: string;
     streaming_url_toonplay?: string;
+    // Multi-scraper config JSON (from streaming table)
+    scraper_url?: string;
 }
 
 export interface Upcoming {

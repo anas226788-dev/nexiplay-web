@@ -2,11 +2,36 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
+const RESOLVER_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+};
+
 function decodeHtmlEntities(str: string): string {
     return str
         .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(dec))
+        .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+        .replace(/&quot;/g, '"')
+        .replace(/&#039;/g, "'")
         .replace(/&amp;/g, '&')
         .replace(/&#038;/g, '&');
+}
+
+function absolutizeUrl(src: string, baseUrl: URL): string {
+    const decoded = decodeHtmlEntities(src).trim();
+    if (decoded.startsWith('//')) return `https:${decoded}`;
+    if (decoded.startsWith('/')) return `${baseUrl.origin}${decoded}`;
+    return decoded;
+}
+
+function getIframeUrls(html: string, baseUrl: URL): string[] {
+    return Array.from(html.matchAll(/<iframe\b[^>]*(?:data-src|src)=["']([^"']+)["'][^>]*>/gi))
+        .map(match => absolutizeUrl(match[1] || '', baseUrl))
+        .filter(Boolean)
+        .filter(src => {
+            const lower = src.toLowerCase();
+            return !lower.includes('/cdn-cgi/challenge-platform/') && !lower.includes('about:blank');
+        });
 }
 
 async function resolveMovieBox(targetUrl: string): Promise<string> {
@@ -17,15 +42,13 @@ async function resolveMovieBox(targetUrl: string): Promise<string> {
         if (!detailPath) throw new Error('Could not extract detailPath from URL');
 
         let subjectId = parsed.searchParams.get('id') || parsed.searchParams.get('subjectId');
-        
         let se = parsed.searchParams.get('se') || parsed.searchParams.get('detailSe') || '0';
         let ep = parsed.searchParams.get('ep') || parsed.searchParams.get('detailEp') || '0';
-        
-        if (!se || se === '') se = '0';
-        if (!ep || ep === '') ep = '0';
+
+        if (!se) se = '0';
+        if (!ep) ep = '0';
 
         if (!subjectId) {
-            console.log('[MovieBox Resolver] subjectId not in query, fetching from detail API...');
             const detailUrl = `https://h5-api.aoneroom.com/wefeed-h5api-bff/detail?detailPath=${detailPath}`;
             const res = await fetch(detailUrl, {
                 headers: {
@@ -43,8 +66,6 @@ async function resolveMovieBox(targetUrl: string): Promise<string> {
         }
 
         const playUrl = `https://h5-api.aoneroom.com/wefeed-h5api-bff/subject/play?subjectId=${subjectId}&se=${se}&ep=${ep}&detailPath=${detailPath}`;
-        console.log('[MovieBox Resolver] Fetching play API:', playUrl);
-        
         const playRes = await fetch(playUrl, {
             headers: {
                 'Accept': 'application/json',
@@ -59,25 +80,16 @@ async function resolveMovieBox(targetUrl: string): Promise<string> {
         }
 
         const data = playJson.data;
-        let selectedStreamUrl = '';
+        const streams = data.hls?.length ? data.hls : data.streams;
+        if (!streams?.length) return targetUrl;
 
-        if (data.hls && data.hls.length > 0) {
-            const sortedHls = [...data.hls].sort((a, b) => {
-                const resA = parseInt(a.resolutions) || 0;
-                const resB = parseInt(b.resolutions) || 0;
-                return resB - resA;
-            });
-            selectedStreamUrl = sortedHls[0].url;
-        } else if (data.streams && data.streams.length > 0) {
-            const sortedStreams = [...data.streams].sort((a, b) => {
-                const resA = parseInt(a.resolutions) || 0;
-                const resB = parseInt(b.resolutions) || 0;
-                return resB - resA;
-            });
-            selectedStreamUrl = sortedStreams[0].url;
-        }
+        const sortedStreams = [...streams].sort((a, b) => {
+            const resA = parseInt(a.resolutions) || 0;
+            const resB = parseInt(b.resolutions) || 0;
+            return resB - resA;
+        });
 
-        return selectedStreamUrl || targetUrl;
+        return sortedStreams[0]?.url || targetUrl;
     } catch (e: any) {
         console.error('[MovieBox Resolver Error]:', e.message);
         return targetUrl;
@@ -85,7 +97,7 @@ async function resolveMovieBox(targetUrl: string): Promise<string> {
 }
 
 async function resolveEmbedUrl(url: string, depth: number = 0): Promise<string> {
-    if (depth > 3) {
+    if (depth > 4) {
         console.log(`[Embed Resolver] Depth limit reached for: ${url}`);
         return url;
     }
@@ -95,14 +107,12 @@ async function resolveEmbedUrl(url: string, depth: number = 0): Promise<string> 
         const isToonstream = parsed.hostname.includes('toonstream');
         const isAnimeworld = parsed.hostname.includes('watchanimeworld') || parsed.hostname.includes('animeworld');
 
-        if (!isToonstream && !isAnimeworld) {
-            return url;
-        }
+        if (!isToonstream && !isAnimeworld) return url;
 
         console.log(`[Embed Resolver] Resolving [Depth ${depth}]: ${url}`);
         const res = await fetch(url, {
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                ...RESOLVER_HEADERS,
                 'Referer': url
             }
         });
@@ -113,33 +123,34 @@ async function resolveEmbedUrl(url: string, depth: number = 0): Promise<string> 
         }
 
         const html = await res.text();
-        const match = html.match(/<iframe[^>]+data-src=["']([^"']+)["']/i) || 
-                      html.match(/<iframe[^>]+src=["']([^"']+)["']/i);
+        const iframeUrls = getIframeUrls(html, parsed);
+        const preferredUrl = isToonstream
+            ? (
+                iframeUrls.find(src => {
+                    try {
+                        return !new URL(src).hostname.includes('toonstream');
+                    } catch {
+                        return false;
+                    }
+                }) || iframeUrls.find(src => src.includes('trembed=')) || iframeUrls[0]
+            )
+            : iframeUrls[0];
 
-        if (match && match[1]) {
-            let nextUrl = decodeHtmlEntities(match[1]);
-            
-            if (nextUrl.startsWith('//')) {
-                nextUrl = 'https:' + nextUrl;
-            } else if (nextUrl.startsWith('/')) {
-                nextUrl = parsed.origin + nextUrl;
-            }
-
-            console.log(`[Embed Resolver] Found iframe pointing to: ${nextUrl}`);
-
-            const nextParsed = new URL(nextUrl);
-            const nextIsToonstream = nextParsed.hostname.includes('toonstream');
-            const nextIsAnimeworld = nextParsed.hostname.includes('watchanimeworld') || nextParsed.hostname.includes('animeworld');
-
-            if (nextIsToonstream || nextIsAnimeworld) {
-                return await resolveEmbedUrl(nextUrl, depth + 1);
-            }
-
-            return nextUrl;
+        if (!preferredUrl) {
+            console.warn(`[Embed Resolver] No iframe found on page: ${url}`);
+            return url;
         }
 
-        console.warn(`[Embed Resolver] No iframe found on page: ${url}`);
-        return url;
+        console.log(`[Embed Resolver] Found iframe pointing to: ${preferredUrl}`);
+        const nextParsed = new URL(preferredUrl);
+        const nextIsToonstream = nextParsed.hostname.includes('toonstream');
+        const nextIsAnimeworld = nextParsed.hostname.includes('watchanimeworld') || nextParsed.hostname.includes('animeworld');
+
+        if (nextIsToonstream || nextIsAnimeworld) {
+            return await resolveEmbedUrl(preferredUrl, depth + 1);
+        }
+
+        return preferredUrl;
     } catch (e: any) {
         console.error(`[Embed Resolver] Error resolving at depth ${depth}:`, e.message);
         return url;
@@ -156,9 +167,9 @@ export async function GET(request: NextRequest) {
 
     try {
         const parsed = new URL(targetUrl);
-        const isMovieBox = parsed.hostname.includes('netfilm') || 
-                           parsed.hostname.includes('moviebox') || 
-                           parsed.hostname.includes('sflix');
+        const isMovieBox = parsed.hostname.includes('netfilm') ||
+            parsed.hostname.includes('moviebox') ||
+            parsed.hostname.includes('sflix');
 
         if (isMovieBox) {
             const resolvedUrl = await resolveMovieBox(targetUrl);
@@ -172,4 +183,3 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: e.message, url: targetUrl });
     }
 }
-

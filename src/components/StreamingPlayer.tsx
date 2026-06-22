@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Movie, Season, Episode } from '@/lib/types';
 import { useAdSettings } from '@/hooks/useAdSettings';
 import { canRequestPlayerFullscreen, FULLSCREEN_IFRAME_ATTRS, requestPlayerFullscreen } from '@/lib/playerFullscreen';
@@ -45,6 +45,58 @@ const BUILT_IN_SERVERS: Server[] = [
 ];
 
 const SERVERS: Server[] = BUILT_IN_SERVERS;
+
+// Scraper display metadata
+const SCRAPER_META: Record<string, { name: string; icon: string; needsResolve: boolean }> = {
+    toonstream: { name: 'ToonStream', icon: '🎬', needsResolve: true },
+    animeworld: { name: 'AnimeWorld', icon: '🌍', needsResolve: true },
+    animixstream: { name: 'AnimixStream', icon: '🎯', needsResolve: false },
+};
+
+interface ScraperConfig {
+    mode: 'single' | 'separate' | 'episode';
+    url?: string;
+    urls?: Record<string, string>;
+    episodeUrls?: Record<string, string>;
+}
+
+function parseMultiScraperConfig(jsonStr: string | undefined): Record<string, ScraperConfig> {
+    if (!jsonStr) return {};
+    try {
+        const parsed = JSON.parse(jsonStr);
+        const result: Record<string, ScraperConfig> = {};
+        for (const [key, val] of Object.entries(parsed)) {
+            if (val && typeof val === 'object') {
+                result[key] = val as ScraperConfig;
+            }
+        }
+        return result;
+    } catch {
+        return {};
+    }
+}
+
+function getScraperUrl(
+    config: ScraperConfig,
+    season: number,
+    episode: number,
+    isSeriesOrAnime: boolean
+): string | null {
+    if (!config) return null;
+    const mode = config.mode || 'single';
+
+    if (mode === 'episode' && isSeriesOrAnime && config.episodeUrls) {
+        const key = `${season}_${episode}`;
+        return config.episodeUrls[key] || null;
+    }
+
+    if (mode === 'separate' && isSeriesOrAnime && config.urls) {
+        return config.urls[String(season)] || null;
+    }
+
+    // single mode or movie
+    return config.url || null;
+}
 
 function getYouTubeVideoId(urlOrId: string): string | null {
     const input = urlOrId.trim();
@@ -287,11 +339,32 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
     const [activeServerId, setActiveServerId] = useState<string>('');
     const [sandboxMode, setSandboxMode] = useState<boolean>(true);
     const [canUseFullscreenAssist, setCanUseFullscreenAssist] = useState(false);
+    const [resolvedUrl, setResolvedUrl] = useState<string>('');
+    const [isResolving, setIsResolving] = useState(false);
 
     const sortedSeasons = [...seasons].sort((a, b) => a.season_number - b.season_number);
     const activeSeason = sortedSeasons.find(s => s.season_number === currentSeasonNum) || sortedSeasons[0];
     const episodes = activeSeason?.episodes?.sort((a, b) => a.episode_number - b.episode_number) || [];
     const activeEpisode = episodes.find(e => e.episode_number === currentEpisodeNum) || episodes[0];
+
+    // Parse multi-scraper config from streaming table
+    const scraperConfigs = useMemo(() => parseMultiScraperConfig(movie.scraper_url), [movie.scraper_url]);
+
+    // Build dynamic scraper server entries
+    const scraperServers = useMemo(() => {
+        return Object.entries(scraperConfigs)
+            .filter(([key]) => SCRAPER_META[key])
+            .map(([key, config]) => ({
+                id: `scraper_${key}`,
+                key,
+                name: SCRAPER_META[key].name,
+                icon: SCRAPER_META[key].icon,
+                needsResolve: SCRAPER_META[key].needsResolve,
+                config,
+            }));
+    }, [scraperConfigs]);
+
+    const hasScraperServers = scraperServers.length > 0;
 
     useEffect(() => {
         setCanUseFullscreenAssist(canRequestPlayerFullscreen());
@@ -328,22 +401,79 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
         if (customUrl && isServerEnabled(customServerId)) {
             setActiveServerId('custom');
         } else {
-            const firstEnabled = availableServers.find(srv => isServerEnabled(srv.id));
-            if (firstEnabled) {
-                setActiveServerId(firstEnabled.id);
-            } else if (customUrl && isServerEnabled(customServerId)) {
-                setActiveServerId('custom');
+            // Try scraper servers first (they are the most reliable for anime)
+            const firstScraper = scraperServers.find(srv => {
+                const url = getScraperUrl(srv.config, currentSeasonNum, currentEpisodeNum, isSeriesOrAnime);
+                return url && isServerEnabled(srv.id);
+            });
+            if (firstScraper) {
+                setActiveServerId(firstScraper.id);
             } else {
-                setActiveServerId('');
+                const firstEnabled = availableServers.find(srv => isServerEnabled(srv.id));
+                if (firstEnabled) {
+                    setActiveServerId(firstEnabled.id);
+                } else if (customUrl && isServerEnabled(customServerId)) {
+                    setActiveServerId('custom');
+                } else {
+                    setActiveServerId('');
+                }
             }
         }
-    }, [customUrl, movie.id, currentEpisodeNum, currentSeasonNum, adSettings]);
+    }, [customUrl, movie.id, currentEpisodeNum, currentSeasonNum, adSettings, scraperServers]);
+
+    // Resolve embed URL for scrapers that need it (ToonStream, AnimeWorld)
+    const resolveScraperEmbed = useCallback(async (rawUrl: string) => {
+        setIsResolving(true);
+        setResolvedUrl('');
+        try {
+            const res = await fetch(`/api/resolve-embed?url=${encodeURIComponent(rawUrl)}`);
+            if (res.ok) {
+                const data = await res.json();
+                setResolvedUrl(data.url || rawUrl);
+            } else {
+                setResolvedUrl(rawUrl);
+            }
+        } catch {
+            setResolvedUrl(rawUrl);
+        } finally {
+            setIsResolving(false);
+        }
+    }, []);
+
+    // Trigger resolve when a scraper server is selected
+    useEffect(() => {
+        if (!activeServerId.startsWith('scraper_')) {
+            setResolvedUrl('');
+            return;
+        }
+        const scraperKey = activeServerId.replace('scraper_', '');
+        const srv = scraperServers.find(s => s.key === scraperKey);
+        if (!srv) return;
+
+        const rawUrl = getScraperUrl(srv.config, currentSeasonNum, currentEpisodeNum, isSeriesOrAnime);
+        if (!rawUrl) {
+            setResolvedUrl('');
+            return;
+        }
+
+        if (srv.needsResolve) {
+            resolveScraperEmbed(rawUrl);
+        } else {
+            setResolvedUrl(rawUrl);
+        }
+    }, [activeServerId, currentSeasonNum, currentEpisodeNum, scraperServers, isSeriesOrAnime, resolveScraperEmbed]);
 
     // Build the final iframe src
     const getEmbedUrl = (): string => {
         if (activeServerId === 'custom') {
             return normalizePlayerUrl(customUrl || '');
         }
+
+        // Handle scraper servers
+        if (activeServerId.startsWith('scraper_')) {
+            return resolvedUrl ? normalizePlayerUrl(resolvedUrl) : '';
+        }
+
         const server = availableServers.find(s => s.id === activeServerId);
         if (!server) return '';
 
@@ -368,8 +498,8 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
         requestPlayerFullscreen(playerShellRef.current, playerIframeRef.current);
     };
 
-    // Check if we can play this content (needs either IDs or custom URL)
-    const hasIdentifiers = movie.tmdb_id || movie.imdb_id || movie.mal_id || customUrl;
+    // Check if we can play this content (needs either IDs, custom URL, or scraper configs)
+    const hasIdentifiers = movie.tmdb_id || movie.imdb_id || movie.mal_id || customUrl || hasScraperServers;
 
     if (!hasIdentifiers) {
         return (
@@ -422,6 +552,26 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
                             </button>
                         );
                     })}
+                    {/* Dynamic scraper servers from multi_scraper_config */}
+                    {scraperServers.map((srv) => {
+                        const url = getScraperUrl(srv.config, currentSeasonNum, currentEpisodeNum, isSeriesOrAnime);
+                        if (!url || !isServerEnabled(srv.id)) return null;
+
+                        return (
+                            <button
+                                key={srv.id}
+                                onClick={() => setActiveServerId(srv.id)}
+                                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                                    activeServerId === srv.id
+                                        ? 'bg-red-600 text-white shadow-lg shadow-red-900/30'
+                                        : 'bg-dark-850 text-gray-400 hover:bg-dark-750 hover:text-white'
+                                }`}
+                            >
+                                <span>{srv.icon}</span>
+                                <span>{srv.name}</span>
+                            </button>
+                        );
+                    })}
                 </div>
 
                 {/* Sandbox Ad Block Toggle */}
@@ -448,7 +598,13 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
                 ref={playerShellRef}
                 className="nexiplay-player-shell relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/10 group"
             >
-                {embedUrl ? (
+                {isResolving ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 p-6">
+                        <div className="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin mb-3" />
+                        <p className="font-bold text-white">Resolving server...</p>
+                        <p className="text-xs text-gray-500 mt-1">Connecting to streaming source</p>
+                    </div>
+                ) : embedUrl ? (
                     activeServerId === 'custom' && isM3U8 ? (
                         <HLSVideoPlayer src={`/api/proxy-stream?url=${encodeURIComponent(embedUrl)}`} />
                     ) : (
@@ -460,7 +616,7 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
                             {...FULLSCREEN_IFRAME_ATTRS}
                             // If sandboxMode is enabled, exclude allow-popups and allow-top-navigation to block ads
                             sandbox={
-                                sandboxMode && activeServerId !== 'custom'
+                                sandboxMode && activeServerId !== 'custom' && !activeServerId.startsWith('scraper_')
                                     ? "allow-scripts allow-same-origin allow-forms"
                                     : undefined
                             }
