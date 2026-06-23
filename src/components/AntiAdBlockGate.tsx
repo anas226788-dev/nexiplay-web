@@ -19,41 +19,52 @@ const BAIT_CLASSES = [
     'textads'
 ].join(' ');
 
-const SCRIPT_TIMEOUT_MS = 1800;
-const RECHECK_INTERVAL_MS = 15000;
+const SCRIPT_TIMEOUT_MS = 4000;
+const RECHECK_INTERVAL_MS = 30000;
 
 function wait(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+/**
+ * Creates a "bait" element that ad-blockers typically hide or remove.
+ * Uses realistic dimensions (300x250 — a common ad size) so we can
+ * reliably detect if an ad-blocker hid/removed it.
+ */
 async function isBaitElementBlocked(): Promise<boolean> {
     const bait = document.createElement('div');
     bait.className = BAIT_CLASSES;
     bait.setAttribute('aria-hidden', 'true');
+    bait.innerHTML = '&nbsp;';
     bait.style.cssText = [
         'position:absolute',
         'left:-10000px',
         'top:-10000px',
-        'width:1px',
-        'height:1px',
+        'width:300px',
+        'height:250px',
+        'overflow:hidden',
         'pointer-events:none'
     ].join(';');
 
     document.body.appendChild(bait);
-    await wait(120);
+    await wait(200);
 
-    const style = window.getComputedStyle(bait);
     const blocked =
-        style.display === 'none' ||
-        style.visibility === 'hidden' ||
+        !document.body.contains(bait) ||
         bait.offsetHeight === 0 ||
         bait.offsetWidth === 0 ||
-        !document.body.contains(bait);
+        window.getComputedStyle(bait).display === 'none' ||
+        window.getComputedStyle(bait).visibility === 'hidden';
 
     bait.remove();
     return blocked;
 }
 
+/**
+ * Loads a probe script named "ads.js" with ad-like query params.
+ * Ad-blockers typically block requests to files named ads.js / adsbygoogle.
+ * If the script fails to load or doesn't execute, an ad-blocker is present.
+ */
 function isProbeScriptBlocked(): Promise<boolean> {
     return new Promise(resolve => {
         const script = document.createElement('script');
@@ -75,7 +86,7 @@ function isProbeScriptBlocked(): Promise<boolean> {
         script.onload = () => {
             window.setTimeout(() => {
                 finish((window as any).__nexiplayAdProbe !== true);
-            }, 50);
+            }, 80);
         };
         script.onerror = () => finish(true);
 
@@ -84,13 +95,18 @@ function isProbeScriptBlocked(): Promise<boolean> {
     });
 }
 
+/**
+ * Runs both detection methods. Only flags "blocked" if BOTH checks agree,
+ * reducing false positives from slow networks or CSS quirks.
+ */
 async function detectAdBlocker(): Promise<boolean> {
     const [baitBlocked, scriptBlocked] = await Promise.all([
         isBaitElementBlocked(),
         isProbeScriptBlocked()
     ]);
 
-    return baitBlocked || scriptBlocked;
+    // Require BOTH checks to agree to reduce false positives
+    return baitBlocked && scriptBlocked;
 }
 
 export default function AntiAdBlockGate() {
@@ -104,6 +120,7 @@ export default function AntiAdBlockGate() {
             const blocked = await detectAdBlocker();
             setGateState(blocked ? 'blocked' : 'allowed');
         } catch {
+            // On error, don't block the user
             setGateState('allowed');
         } finally {
             if (manual) setIsCheckingAgain(false);

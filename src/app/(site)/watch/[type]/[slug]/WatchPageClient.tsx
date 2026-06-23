@@ -97,7 +97,7 @@ const BUILT_IN_SERVERS: Server[] = [
 const SERVERS: Server[] = BUILT_IN_SERVERS;
 
 const AD_BLOCK_SANDBOX =
-    'allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock allow-orientation-lock allow-modals allow-downloads allow-storage-access-by-user-activation';
+    'allow-scripts allow-same-origin allow-forms allow-popups allow-presentation allow-pointer-lock allow-orientation-lock allow-modals allow-downloads allow-storage-access-by-user-activation';
 
 const DISABLED_MULTI_SERVER_IDS = new Set(['muse_india', 'anione_india']);
 

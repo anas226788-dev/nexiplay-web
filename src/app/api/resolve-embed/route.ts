@@ -30,7 +30,9 @@ function getIframeUrls(html: string, baseUrl: URL): string[] {
         .filter(Boolean)
         .filter(src => {
             const lower = src.toLowerCase();
-            return !lower.includes('/cdn-cgi/challenge-platform/') && !lower.includes('about:blank');
+            return !lower.includes('/cdn-cgi/challenge-platform/') && 
+                   !lower.includes('about:blank') &&
+                   !lower.includes('googletagmanager.com');
         });
 }
 
@@ -96,6 +98,50 @@ async function resolveMovieBox(targetUrl: string): Promise<string> {
     }
 }
 
+async function fetchWithProxy(url: string): Promise<string | null> {
+    // Try direct fetch first
+    try {
+        const directRes = await fetch(url, {
+            headers: { ...RESOLVER_HEADERS, 'Referer': url },
+            signal: AbortSignal.timeout(5000),
+        });
+        if (directRes.ok) {
+            const html = await directRes.text();
+            // Cloudflare challenge pages have no real content — detect and skip
+            if (!html.includes('cloudflare') || html.includes('trembed') || html.includes('<iframe')) {
+                return html;
+            }
+        }
+    } catch {
+        // Direct fetch failed (blocked/timeout) — try proxy
+    }
+
+    // Fallback: use allorigins.win CORS proxy
+    const PROXY_URLS = [
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+    ];
+
+    for (const proxyUrl of PROXY_URLS) {
+        try {
+            const res = await fetch(proxyUrl, {
+                headers: { 'Accept': 'text/html,*/*' },
+                signal: AbortSignal.timeout(8000),
+            });
+            if (res.ok) {
+                const html = await res.text();
+                if (html.includes('<iframe') || html.includes('trembed')) {
+                    return html;
+                }
+            }
+        } catch {
+            continue;
+        }
+    }
+
+    return null;
+}
+
 async function resolveEmbedUrl(url: string, depth: number = 0): Promise<string> {
     if (depth > 4) {
         console.log(`[Embed Resolver] Depth limit reached for: ${url}`);
@@ -110,19 +156,13 @@ async function resolveEmbedUrl(url: string, depth: number = 0): Promise<string> 
         if (!isToonstream && !isAnimeworld) return url;
 
         console.log(`[Embed Resolver] Resolving [Depth ${depth}]: ${url}`);
-        const res = await fetch(url, {
-            headers: {
-                ...RESOLVER_HEADERS,
-                'Referer': url
-            }
-        });
-
-        if (!res.ok) {
-            console.warn(`[Embed Resolver] Fetch failed with status ${res.status} for: ${url}`);
+        
+        const html = await fetchWithProxy(url);
+        if (!html) {
+            console.warn(`[Embed Resolver] All fetch attempts failed for: ${url}`);
             return url;
         }
 
-        const html = await res.text();
         const iframeUrls = getIframeUrls(html, parsed);
         const preferredUrl = isToonstream
             ? (
