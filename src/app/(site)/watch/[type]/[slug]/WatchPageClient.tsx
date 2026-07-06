@@ -162,9 +162,23 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
     const [audioTracks, setAudioTracks] = useState<any[]>([]);
     const [currentTrackIndex, setCurrentTrackIndex] = useState<number>(-1);
 
+    // Error handling state
+    const [videoError, setVideoError] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const retryCountRef = useRef(0);
+    const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const MAX_RETRIES = 3;
+
     const [leftSkipActive, setLeftSkipActive] = useState(false);
     const [rightSkipActive, setRightSkipActive] = useState(false);
     const [accumulatedSkip, setAccumulatedSkip] = useState(0);
+
+    // Custom controls state
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
+    const [showSpeedMenu, setShowSpeedMenu] = useState<boolean>(false);
+    const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+    const [customSpeedVal, setCustomSpeedVal] = useState<string>('1.0');
 
     const leftSkipActiveRef = useRef(false);
     const rightSkipActiveRef = useRef(false);
@@ -305,6 +319,9 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
     useEffect(() => {
         setAudioTracks([]);
         setCurrentTrackIndex(-1);
+        setVideoError(null);
+        setIsLoading(true);
+        retryCountRef.current = 0;
 
         if (!hlsLoaded || !videoRef.current) return;
 
@@ -315,6 +332,15 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
             hlsRef.current.destroy();
             hlsRef.current = null;
         }
+
+        // Loading timeout — if video doesn't start within 20s, show error
+        if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = setTimeout(() => {
+            if (video.readyState < 2) {
+                setVideoError('Video failed to load. No response from server.');
+                setIsLoading(false);
+            }
+        }, 20000);
 
         const isMp4 = src.toLowerCase().includes('.mp4') || src.includes('mp4');
 
@@ -329,6 +355,10 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
             hls.attachMedia(video);
             
             hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                setIsLoading(false);
+                setVideoError(null);
+                if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
+                
                 const tracks = hls.audioTracks || [];
                 setAudioTracks(tracks);
                 setCurrentTrackIndex(hls.audioTrack);
@@ -353,6 +383,18 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
 
             hls.on(Hls.Events.ERROR, function (event: any, data: any) {
                 if (data.fatal) {
+                    retryCountRef.current++;
+                    console.warn(`[HLSPlayer] Fatal error (attempt ${retryCountRef.current}/${MAX_RETRIES}):`, data.type, data.details);
+
+                    if (retryCountRef.current >= MAX_RETRIES) {
+                        // Max retries reached — show error
+                        setVideoError('Video could not be loaded. Server or link issue.');
+                        setIsLoading(false);
+                        if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
+                        hls.destroy();
+                        return;
+                    }
+
                     switch (data.type) {
                         case Hls.ErrorTypes.NETWORK_ERROR:
                             hls.startLoad();
@@ -361,6 +403,9 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
                             hls.recoverMediaError();
                             break;
                         default:
+                            setVideoError('Unable to play this video.');
+                            setIsLoading(false);
+                            if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
                             hls.destroy();
                             break;
                     }
@@ -368,6 +413,13 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
             });
         } else {
             video.src = src;
+            
+            // For non-HLS (mp4), listen for native errors
+            video.onerror = () => {
+                setVideoError('Video failed to load.');
+                setIsLoading(false);
+                if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
+            };
         }
 
         const handleLoadedMetadata = () => {
@@ -413,15 +465,82 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
             }
         };
         video.addEventListener('loadedmetadata', handleLoadedMetadata);
+
+        // Clear loading when video can play
+        const handleCanPlay = () => {
+            setIsLoading(false);
+            setVideoError(null);
+            if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
+        };
+        video.addEventListener('canplay', handleCanPlay);
         
         return () => {
             video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+            video.removeEventListener('canplay', handleCanPlay);
+            if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
             if (hlsRef.current) {
                 hlsRef.current.destroy();
                 hlsRef.current = null;
             }
         };
     }, [src, hlsLoaded]);
+
+    // Handle playback speed changes
+    useEffect(() => {
+        if (videoRef.current) {
+            videoRef.current.playbackRate = playbackSpeed;
+        }
+    }, [playbackSpeed]);
+
+    // Reset playback speed on source changes
+    useEffect(() => {
+        setPlaybackSpeed(1.0);
+        setCustomSpeedVal('1.0');
+    }, [src]);
+
+    // Keep custom input in sync with current speed
+    useEffect(() => {
+        setCustomSpeedVal(String(playbackSpeed));
+    }, [playbackSpeed]);
+
+    // Listen for fullscreen change events
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            setIsFullscreen(!!(document.fullscreenElement || (document as any).webkitFullscreenElement));
+        };
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+            document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+        };
+    }, []);
+
+    const toggleFullscreen = () => {
+        const container = containerRef.current;
+        const video = videoRef.current;
+        if (!container || !video) return;
+
+        const isFS = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
+
+        if (!isFS) {
+            const req = container.requestFullscreen || (container as any).webkitRequestFullscreen || (container as any).mozRequestFullScreen || (container as any).msRequestFullscreen;
+            if (req) {
+                req.call(container).catch(() => {
+                    if ((video as any).webkitEnterFullscreen) {
+                        (video as any).webkitEnterFullscreen();
+                    }
+                });
+            } else if ((video as any).webkitEnterFullscreen) {
+                (video as any).webkitEnterFullscreen();
+            }
+        } else {
+            const exit = document.exitFullscreen || (document as any).webkitExitFullscreen || (document as any).mozCancelFullScreen || (document as any).msExitFullscreen;
+            if (exit) {
+                exit.call(document);
+            }
+        }
+    };
 
     // Set up onEnded event listener
     useEffect(() => {
@@ -451,8 +570,26 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
         }
     };
 
+    const handleRetry = () => {
+        setVideoError(null);
+        setIsLoading(true);
+        retryCountRef.current = 0;
+        if (hlsRef.current) {
+            hlsRef.current.destroy();
+            hlsRef.current = null;
+        }
+        if (videoRef.current) {
+            videoRef.current.src = '';
+        }
+        // Re-trigger the effect by toggling hlsLoaded
+        setHlsLoaded(false);
+        setTimeout(() => {
+            if ((window as any).Hls) setHlsLoaded(true);
+        }, 100);
+    };
+
     return (
-        <div className="absolute inset-0 w-full h-full bg-[#000000] flex flex-col justify-between group">
+        <div ref={containerRef} className="absolute inset-0 w-full h-full bg-[#000000] flex flex-col justify-between group">
             <style dangerouslySetInnerHTML={{__html: `
                 @keyframes rippleExpandLeft {
                     0% {
@@ -515,13 +652,137 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
             `}} />
 
             <div className="relative w-full flex-grow overflow-hidden">
+                {/* Error Overlay */}
+                {videoError && (
+                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm">
+                        <div className="flex flex-col items-center gap-4 p-6 max-w-md text-center">
+                            <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center">
+                                <svg className="w-8 h-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 className="text-white font-bold text-lg mb-1">Video Unavailable</h3>
+                                <p className="text-gray-400 text-sm">{videoError}</p>
+                            </div>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={handleRetry}
+                                    className="px-5 py-2.5 bg-gradient-to-r from-red-600 to-orange-600 text-white font-bold text-sm rounded-xl hover:from-red-500 hover:to-orange-500 transition-all shadow-lg shadow-red-900/30 flex items-center gap-2"
+                                >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
+                                    </svg>
+                                    Retry
+                                </button>
+                            </div>
+                            <p className="text-gray-500 text-xs mt-2">Try switching to a different server if the problem persists.</p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Loading Spinner */}
+                {isLoading && !videoError && (
+                    <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 pointer-events-none">
+                        <div className="flex flex-col items-center gap-3">
+                            <div className="w-10 h-10 border-3 border-white/20 border-t-red-500 rounded-full animate-spin" />
+                            <span className="text-gray-400 text-xs font-medium">Loading video...</span>
+                        </div>
+                    </div>
+                )}
+
                 <video
                     ref={videoRef}
                     controls
-                    className="absolute inset-0 w-full h-full object-contain"
+                    className={`absolute inset-0 w-full h-full object-contain ${videoError ? 'hidden' : ''}`}
                     autoPlay
                     playsInline
                 />
+
+                {/* Floating custom controls (Speed & Fullscreen) */}
+                {!videoError && !isLoading && (
+                    <div className="absolute top-4 right-4 z-30 flex items-center gap-2 bg-black/60 backdrop-blur-md border border-white/10 rounded-xl p-1 md:p-1.5 shadow-lg">
+                        {/* Speed Selector */}
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowSpeedMenu(!showSpeedMenu)}
+                                className="px-2.5 py-1 text-[10px] md:text-xs font-black text-white bg-white/5 hover:bg-white/15 rounded-lg transition-all flex items-center gap-1"
+                            >
+                                <span>⏱️</span>
+                                <span>{playbackSpeed === 1.0 ? 'Normal' : `${playbackSpeed}x`}</span>
+                            </button>
+                            
+                            {showSpeedMenu && (
+                                <div className="absolute right-0 mt-2 w-32 bg-[#0f0f0f]/95 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl overflow-hidden py-1 z-50 max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10">
+                                    {[0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0].map((speed) => (
+                                        <button
+                                            key={speed}
+                                            onClick={() => {
+                                                setPlaybackSpeed(speed);
+                                                setShowSpeedMenu(false);
+                                            }}
+                                            className={`w-full text-left px-3.5 py-1.5 text-[10px] md:text-xs font-black transition-colors ${
+                                                playbackSpeed === speed
+                                                    ? 'bg-red-600 text-white'
+                                                    : 'text-gray-300 hover:bg-white/15 hover:text-white'
+                                            }`}
+                                        >
+                                            {speed === 1.0 ? '1.0x (Normal)' : `${speed}x`}
+                                        </button>
+                                    ))}
+                                    
+                                    {/* Custom Speed Form */}
+                                    <div className="border-t border-white/10 px-3 py-2 mt-1 bg-white/[0.02]">
+                                        <span className="text-[9px] text-gray-500 font-black uppercase tracking-wider block mb-1">Custom Speed</span>
+                                        <div className="flex items-center gap-1.5">
+                                            <input
+                                                type="number"
+                                                min="0.1"
+                                                max="5.0"
+                                                step="0.05"
+                                                value={customSpeedVal}
+                                                onChange={(e) => setCustomSpeedVal(e.target.value)}
+                                                placeholder="1.0"
+                                                className="w-12 px-1.5 py-1 text-[10px] bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-red-500 font-black text-center"
+                                            />
+                                            <button
+                                                onClick={() => {
+                                                    const val = parseFloat(customSpeedVal);
+                                                    if (!isNaN(val) && val >= 0.1 && val <= 5.0) {
+                                                        setPlaybackSpeed(val);
+                                                        setShowSpeedMenu(false);
+                                                    } else {
+                                                        alert("Please enter a speed between 0.1 and 5.0");
+                                                    }
+                                                }}
+                                                className="px-2 py-1 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 rounded-lg text-[9px] font-black text-white shadow-md transition-all active:scale-95"
+                                            >
+                                                Set
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Fullscreen Button */}
+                        <button
+                            onClick={toggleFullscreen}
+                            className="p-1.5 text-white bg-white/5 hover:bg-white/15 rounded-lg transition-all"
+                            aria-label="Toggle Fullscreen"
+                        >
+                            {isFullscreen ? (
+                                <svg className="w-3.5 h-3.5 md:w-4.5 md:h-4.5 fill-current" viewBox="0 0 24 24">
+                                    <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z" />
+                                </svg>
+                            ) : (
+                                <svg className="w-3.5 h-3.5 md:w-4.5 md:h-4.5 fill-current" viewBox="0 0 24 24">
+                                    <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" />
+                                </svg>
+                            )}
+                        </button>
+                    </div>
+                )}
                 
                 {/* Click overlay for double-click skip & play/pause toggling */}
                 <div 
@@ -624,6 +885,9 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
     const [resolvedUrl, setResolvedUrl] = useState<string>('');
     const [resolvingUrl, setResolvingUrl] = useState<boolean>(false);
     const [activeEpisodeStreams, setActiveEpisodeStreams] = useState<Pick<Episode, 'streaming_url' | 'streaming_url_toonplay' | 'streaming_url_animerulz'> | null>(null);
+    // ToonPlay on-demand resolution state
+    const [toonplayResolvedUrl, setToonplayResolvedUrl] = useState<string>('');
+    const [toonplayResolving, setToonplayResolving] = useState<boolean>(false);
     const [canUseFullscreenAssist, setCanUseFullscreenAssist] = useState(false);
     const playerShellRef = useRef<HTMLDivElement>(null);
     const playerIframeRef = useRef<HTMLIFrameElement>(null);
@@ -824,6 +1088,26 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
         return activeEpisode?.streaming_url_toonplay ?? activeEpisodeStreams?.streaming_url_toonplay ?? null;
     };
 
+    // Get the toonplay series ID for on-demand resolution
+    const getToonplaySeriesId = (): string | null => {
+        const movieAny = movie as any;
+        const tpUrl = movieAny.toonplay_url;
+        if (!tpUrl) return null;
+        // Extract series ID from full URL or use as-is
+        const trimmed = tpUrl.trim();
+        if (trimmed.startsWith('http')) {
+            try {
+                const urlObj = new URL(trimmed);
+                const parts = urlObj.pathname.split('/').filter(Boolean);
+                const lastPart = parts[parts.length - 1] || '';
+                if (lastPart.startsWith('series-') || lastPart.startsWith('anime-')) {
+                    return lastPart;
+                }
+            } catch {}
+        }
+        return trimmed;
+    };
+
     const getAnimerulzUrl = (): string | null => {
         if (!isSeriesOrAnime) {
             return movie.streaming_url_animerulz || null;
@@ -833,6 +1117,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
 
     const customUrl = getCustomUrl();
     const toonplayUrl = getToonplayUrl();
+    const toonplaySeriesId = getToonplaySeriesId();
     const animerulzUrl = getAnimerulzUrl();
 
     // Parse JSON stream urls if present
@@ -937,7 +1222,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
 
     // Auto-select server
     useEffect(() => {
-        if (toonplayUrl && isServerEnabled('toonplay')) {
+        if ((toonplaySeriesId || toonplayUrl) && isServerEnabled('toonplay')) {
             setActiveServerId('toonplay');
         } else if (animerulzUrl && isServerEnabled('animerulz')) {
             setActiveServerId('animerulz');
@@ -952,7 +1237,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                 if (firstEnabled) {
                     setActiveServerId(firstEnabled.id);
                 } else {
-                    if (toonplayUrl) {
+                    if (toonplaySeriesId || toonplayUrl) {
                         setActiveServerId('toonplay');
                     } else if (animerulzUrl) {
                         setActiveServerId('animerulz');
@@ -969,7 +1254,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                 }
             }
         }
-    }, [customUrl, toonplayUrl, animerulzUrl, movie.id, currentEpisodeNum, currentSeasonNum, adSettings, JSON.stringify(multiStreams)]);
+    }, [customUrl, toonplayUrl, toonplaySeriesId, animerulzUrl, movie.id, currentEpisodeNum, currentSeasonNum, adSettings, JSON.stringify(multiStreams)]);
 
     // Build embed URL
     const getEmbedUrl = (): string => {
@@ -981,7 +1266,8 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
             return (customUrl && !customUrl.trim().startsWith('{')) ? normalizePlayerUrl(customUrl) : '';
         }
         if (activeServerId === 'toonplay') {
-            return normalizePlayerUrl(toonplayUrl || '');
+            // Use on-demand resolved URL if available, fallback to pre-stored URL
+            return normalizePlayerUrl(toonplayResolvedUrl || toonplayUrl || '');
         }
         if (activeServerId === 'animerulz') {
             return normalizePlayerUrl(animerulzUrl || '');
@@ -1033,6 +1319,51 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
         }
     }, [embedUrl, isAdVerified]);
 
+    // On-demand ToonPlay URL resolution
+    useEffect(() => {
+        if (activeServerId !== 'toonplay' || !isAdVerified) {
+            setToonplayResolvedUrl('');
+            setToonplayResolving(false);
+            return;
+        }
+
+        const seriesId = toonplaySeriesId;
+        if (!seriesId) return;
+
+        const cachedM3u8 = toonplayUrl || '';
+        setToonplayResolving(true);
+        setToonplayResolvedUrl('');
+
+        const params = new URLSearchParams({
+            toonplay_id: seriesId,
+            season: String(currentSeasonNum),
+            episode: String(currentEpisodeNum),
+        });
+        if (cachedM3u8) {
+            params.set('cached_url', cachedM3u8);
+        }
+
+        fetch(`/api/resolve-toonplay?${params.toString()}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.url) {
+                    setToonplayResolvedUrl(data.url);
+                    console.log(`[ToonPlay] Resolved S${currentSeasonNum}E${currentEpisodeNum} → ${data.source} URL`);
+                } else {
+                    console.warn(`[ToonPlay] Failed to resolve: ${data.error}`);
+                    // Fallback to cached URL anyway
+                    setToonplayResolvedUrl(cachedM3u8);
+                }
+            })
+            .catch(err => {
+                console.error('[ToonPlay] Resolve error:', err);
+                setToonplayResolvedUrl(cachedM3u8);
+            })
+            .finally(() => {
+                setToonplayResolving(false);
+            });
+    }, [activeServerId, isAdVerified, toonplaySeriesId, currentSeasonNum, currentEpisodeNum]);
+
     const getActiveStreamUrl = (): string => {
         if (activeServerId.startsWith('multi_')) {
             const key = activeServerId.replace('multi_', '');
@@ -1054,6 +1385,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
         resolvedUrl.toLowerCase().includes('fallback.streamindia.co.in/sources') ||
         resolvedUrl.toLowerCase().includes('hakunaymatata.com')
     ) : false;
+    const isToonplayResolving = activeServerId === 'toonplay' && toonplayResolving;
     const isYouTubeActive = resolvedUrl ? !!getYouTubeVideoId(resolvedUrl) : false;
     const isNativeStreamActive = (
         activeServerId === 'custom' ||
@@ -1283,6 +1615,12 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                                         Unlock Stream
                                     </button>
                                 </div>
+                            ) : isToonplayResolving ? (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 p-6 bg-dark-900/60 backdrop-blur-sm">
+                                    <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-4" />
+                                    <p className="font-bold text-sm text-white animate-pulse">Connecting to Nexiplay Private Server...</p>
+                                    <p className="text-xs text-gray-500 mt-1">Resolving fresh stream link</p>
+                                </div>
                             ) : resolvingUrl ? (
                                 <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 p-6 bg-dark-900/60 backdrop-blur-sm">
                                     <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin mb-4" />
@@ -1380,7 +1718,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                             </div>
                             <div className="flex flex-wrap gap-2.5">
                                 {/* Toonplay Stream Button */}
-                                {toonplayUrl && isServerEnabled('toonplay') && (
+                                {(toonplaySeriesId || toonplayUrl) && isServerEnabled('toonplay') && (
                                     <button
                                         onClick={() => handleServerSelect('toonplay')}
                                         className={`px-5 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
