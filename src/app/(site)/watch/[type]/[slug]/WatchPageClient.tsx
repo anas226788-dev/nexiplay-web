@@ -180,6 +180,11 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
     const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
     const [customSpeedVal, setCustomSpeedVal] = useState<string>('1.0');
 
+    // Quality controls state
+    const [hlsLevels, setHlsLevels] = useState<any[]>([]);
+    const [currentQualityIndex, setCurrentQualityIndex] = useState<number>(-1);
+    const [showQualityMenu, setShowQualityMenu] = useState<boolean>(false);
+
     const leftSkipActiveRef = useRef(false);
     const rightSkipActiveRef = useRef(false);
     const skipTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -359,6 +364,11 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
                 setVideoError(null);
                 if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
                 
+                // Read and set quality levels
+                const levels = hls.levels || [];
+                setHlsLevels(levels);
+                setCurrentQualityIndex(hls.currentLevel);
+
                 const tracks = hls.audioTracks || [];
                 setAudioTracks(tracks);
                 setCurrentTrackIndex(hls.audioTrack);
@@ -492,10 +502,13 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
         }
     }, [playbackSpeed]);
 
-    // Reset playback speed on source changes
+    // Reset playback speed and quality on source changes
     useEffect(() => {
         setPlaybackSpeed(1.0);
         setCustomSpeedVal('1.0');
+        setHlsLevels([]);
+        setCurrentQualityIndex(-1);
+        setShowQualityMenu(false);
     }, [src]);
 
     // Keep custom input in sync with current speed
@@ -506,7 +519,15 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
     // Listen for fullscreen change events
     useEffect(() => {
         const handleFullscreenChange = () => {
-            setIsFullscreen(!!(document.fullscreenElement || (document as any).webkitFullscreenElement));
+            const isFS = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
+            setIsFullscreen(isFS);
+            if (!isFS) {
+                if (screen.orientation && screen.orientation.unlock) {
+                    try {
+                        screen.orientation.unlock();
+                    } catch (e) {}
+                }
+            }
         };
         document.addEventListener('fullscreenchange', handleFullscreenChange);
         document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
@@ -522,11 +543,25 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
         if (!container || !video) return;
 
         const isFS = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
 
         if (!isFS) {
+            // iOS Native Fullscreen auto-rotates natively
+            if (isIOS && (video as any).webkitEnterFullscreen) {
+                (video as any).webkitEnterFullscreen();
+                return;
+            }
+
             const req = container.requestFullscreen || (container as any).webkitRequestFullscreen || (container as any).mozRequestFullScreen || (container as any).msRequestFullscreen;
             if (req) {
-                req.call(container).catch(() => {
+                req.call(container).then(() => {
+                    // Lock orientation to landscape on Android Chrome
+                    if (screen.orientation && (screen.orientation as any).lock) {
+                        (screen.orientation as any).lock('landscape').catch((err: any) => {
+                            console.warn("Screen orientation lock failed:", err);
+                        });
+                    }
+                }).catch(() => {
                     if ((video as any).webkitEnterFullscreen) {
                         (video as any).webkitEnterFullscreen();
                     }
@@ -540,6 +575,22 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
                 exit.call(document);
             }
         }
+    };
+
+    const handleQualityChange = (index: number) => {
+        if (hlsRef.current) {
+            hlsRef.current.currentLevel = index;
+            hlsRef.current.nextLevel = index;
+            setCurrentQualityIndex(index);
+            setShowQualityMenu(false);
+        }
+    };
+
+    const getQualityLabel = (level: any, idx: number) => {
+        if (!level) return 'Auto';
+        if (level.height) return `${level.height}p`;
+        if (level.name) return level.name;
+        return `Quality ${idx + 1}`;
     };
 
     // Set up onEnded event listener
@@ -699,14 +750,65 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
                     playsInline
                 />
 
-                {/* Floating custom controls (Speed & Fullscreen) */}
+                {/* Floating custom controls (Speed & Quality & Fullscreen) */}
                 {!videoError && !isLoading && (
                     <div className="absolute top-4 right-4 z-30 flex items-center gap-2 bg-black/60 backdrop-blur-md border border-white/10 rounded-xl p-1 md:p-1.5 shadow-lg">
+                        {/* Quality Selector */}
+                        {hlsLevels.length > 0 && (
+                            <div className="relative">
+                                <button
+                                    onClick={() => {
+                                        setShowQualityMenu(!showQualityMenu);
+                                        setShowSpeedMenu(false);
+                                    }}
+                                    className="px-2.5 py-1 text-[10px] md:text-xs font-black text-white bg-white/5 hover:bg-white/15 rounded-lg transition-all flex items-center gap-1 border border-white/5"
+                                >
+                                    <span>⚙️</span>
+                                    <span>
+                                        {currentQualityIndex === -1 
+                                            ? 'Auto' 
+                                            : getQualityLabel(hlsLevels[currentQualityIndex], currentQualityIndex)}
+                                    </span>
+                                </button>
+                                
+                                {showQualityMenu && (
+                                    <div className="absolute right-0 mt-2 w-28 bg-[#0f0f0f]/95 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl overflow-hidden py-1 z-50 max-h-60 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10">
+                                        <button
+                                            onClick={() => handleQualityChange(-1)}
+                                            className={`w-full text-left px-3.5 py-1.5 text-[10px] md:text-xs font-black transition-colors ${
+                                                currentQualityIndex === -1
+                                                    ? 'bg-red-600 text-white'
+                                                    : 'text-gray-300 hover:bg-white/15 hover:text-white'
+                                            }`}
+                                        >
+                                            Auto
+                                        </button>
+                                        {hlsLevels.map((level, idx) => (
+                                            <button
+                                                key={idx}
+                                                onClick={() => handleQualityChange(idx)}
+                                                className={`w-full text-left px-3.5 py-1.5 text-[10px] md:text-xs font-black transition-colors ${
+                                                    currentQualityIndex === idx
+                                                        ? 'bg-red-600 text-white'
+                                                        : 'text-gray-300 hover:bg-white/15 hover:text-white'
+                                                }`}
+                                            >
+                                                {getQualityLabel(level, idx)}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         {/* Speed Selector */}
                         <div className="relative">
                             <button
-                                onClick={() => setShowSpeedMenu(!showSpeedMenu)}
-                                className="px-2.5 py-1 text-[10px] md:text-xs font-black text-white bg-white/5 hover:bg-white/15 rounded-lg transition-all flex items-center gap-1"
+                                onClick={() => {
+                                    setShowSpeedMenu(!showSpeedMenu);
+                                    setShowQualityMenu(false);
+                                }}
+                                className="px-2.5 py-1 text-[10px] md:text-xs font-black text-white bg-white/5 hover:bg-white/15 rounded-lg transition-all flex items-center gap-1 border border-white/5"
                             >
                                 <span>⏱️</span>
                                 <span>{playbackSpeed === 1.0 ? 'Normal' : `${playbackSpeed}x`}</span>
