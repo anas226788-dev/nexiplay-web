@@ -27,6 +27,7 @@ type AuthContextValue = {
     setHideNsfw: (val: boolean) => void;
     signIn: (email: string, password: string) => Promise<void>;
     signUp: (email: string, password: string, displayName?: string, whatsappNumber?: string) => Promise<void>;
+    resendVerification: (email: string) => Promise<void>;
     signOut: () => Promise<void>;
     trackEvent: (payload: TrackEventPayload) => Promise<void>;
 };
@@ -204,6 +205,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (error) throw error;
     }, []);
 
+    const resendVerification = useCallback(async (email: string) => {
+        const { error } = await supabase.auth.resend({
+            type: 'signup',
+            email,
+        });
+        if (error) throw error;
+    }, []);
+
     const signOut = useCallback(async () => {
         const { error } = await supabase.auth.signOut();
         if (error) throw error;
@@ -233,9 +242,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setHideNsfw,
         signIn,
         signUp,
+        resendVerification,
         signOut,
         trackEvent
-    }), [loading, session, signIn, signOut, signUp, trackEvent, user, hideNsfw]);
+    }), [loading, session, signIn, signUp, resendVerification, signOut, trackEvent, user, hideNsfw]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

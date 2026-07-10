@@ -7,11 +7,13 @@ import { useAuth } from '@/context/AuthContext';
 
 export default function LoginPage() {
     const router = useRouter();
-    const { signIn } = useAuth();
+    const { signIn, resendVerification } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [successMsg, setSuccessMsg] = useState('');
     const [loading, setLoading] = useState(false);
+    const [isResending, setIsResending] = useState(false);
 
     const handleSubmit = async (event: FormEvent) => {
         event.preventDefault();
@@ -27,15 +29,44 @@ export default function LoginPage() {
         }
     };
 
+    const handleResendEmail = async () => {
+        setError('');
+        setSuccessMsg('');
+        setIsResending(true);
+        try {
+            await resendVerification(email.trim());
+            setSuccessMsg('Verification email sent successfully! Please check your inbox.');
+        } catch (err: any) {
+            setError(err.message || 'Failed to resend email. Please try again.');
+        } finally {
+            setIsResending(false);
+        }
+    };
+
     return (
         <div className="container mx-auto px-4 pt-32 pb-20 max-w-md">
             <div className="glass p-6 sm:p-8 rounded-2xl border border-white/10">
                 <h1 className="text-3xl font-black text-white mb-2">Login</h1>
                 <p className="text-sm text-gray-400 mb-6">Track your watch and download history on Nexiplay.</p>
 
+                {successMsg && (
+                    <div className="mb-4 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-200">
+                        {successMsg}
+                    </div>
+                )}
+
                 {error && (
                     <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-                        {error}
+                        <p>{error}</p>
+                        {error.toLowerCase().includes('email not confirmed') && (
+                            <button 
+                                onClick={handleResendEmail}
+                                disabled={isResending}
+                                className="mt-2 text-xs font-bold underline hover:text-white disabled:opacity-50"
+                            >
+                                {isResending ? 'Resending...' : 'Resend Verification Email'}
+                            </button>
+                        )}
                     </div>
                 )}
 
