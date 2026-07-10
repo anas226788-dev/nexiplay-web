@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
 import { SOCIAL_ICONS } from '@/config/socials';
 import { getTelegramSettings } from '@/lib/settingsCache';
+import { useAuth } from '@/context/AuthContext';
 
 export default function Header() {
     const pathname = usePathname();
@@ -35,7 +36,7 @@ export default function Header() {
         { href: '/movies', label: 'Movies' },
         { href: '/series', label: 'Series' },
         { href: '/anime', label: 'Anime' },
-        { href: '/blog', label: 'Blog' },
+        { href: '/novels', label: 'Novels' },
     ];
 
     const isActive = (href: string) => {
@@ -139,6 +140,8 @@ export default function Header() {
                                 )}
                             </button>
 
+                            <UserProfileMenu />
+
                             <MobileMenu navLinks={navLinks} isActive={isActive} />
                         </div>
                     </div>
@@ -240,6 +243,94 @@ function MobileMenu({
                         {link.label}
                     </Link>
                 ))}
+            </div>
+        </div>
+    );
+}
+
+function UserProfileMenu() {
+    const { user, signOut } = useAuth();
+    const [isOpen, setIsOpen] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    if (!user) {
+        return (
+            <>
+                {/* Desktop Login Button */}
+                <Link
+                    href="/login"
+                    className="hidden md:flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-full transition-colors font-bold text-sm"
+                >
+                    Login
+                </Link>
+                {/* Mobile Login Icon */}
+                <Link
+                    href="/login"
+                    className="md:hidden w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 border border-white/10 flex items-center justify-center text-white overflow-hidden hover:border-red-500 transition-colors"
+                    aria-label="Login"
+                >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                </Link>
+            </>
+        );
+    }
+
+    return (
+        <div className="relative z-50" ref={menuRef}>
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 border border-white/10 flex items-center justify-center text-white overflow-hidden hover:border-red-500 transition-colors"
+                aria-label="User Menu"
+            >
+                {user.user_metadata?.avatar_url ? (
+                    <img src={user.user_metadata.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                    <span className="font-bold text-lg">{user.email?.charAt(0).toUpperCase() || 'U'}</span>
+                )}
+            </button>
+
+            {/* Dropdown */}
+            <div className={`absolute right-0 top-full mt-2 w-56 py-2 bg-dark-900/95 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl transition-all duration-200 ${isOpen ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible -translate-y-2'}`}>
+                <div className="px-4 py-2 border-b border-white/10 mb-2">
+                    <p className="text-sm font-bold text-white truncate">{user.user_metadata?.full_name || 'User'}</p>
+                    <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                </div>
+                
+                <Link
+                    href="/account"
+                    onClick={() => setIsOpen(false)}
+                    className="flex items-center gap-3 px-4 py-2 hover:bg-white/5 transition-colors text-gray-300 hover:text-white"
+                >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    My Account
+                </Link>
+                
+                <button
+                    onClick={() => {
+                        setIsOpen(false);
+                        signOut();
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2 hover:bg-red-500/10 hover:text-red-500 transition-colors text-gray-300 mt-1"
+                >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    Sign Out
+                </button>
             </div>
         </div>
     );

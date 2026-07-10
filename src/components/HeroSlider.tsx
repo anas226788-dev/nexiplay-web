@@ -9,6 +9,7 @@ import { Movie } from '@/lib/types';
 import { getAppSettings, CachedAppSettings } from '@/lib/settingsCache';
 import { getContentUrl } from '@/lib/urlUtils';
 import { useAdultGate } from './AdultGateProvider';
+import { useAuth } from '@/context/AuthContext';
 
 import 'swiper/css';
 import 'swiper/css/effect-fade';
@@ -78,7 +79,10 @@ export default function HeroSlider({ movies }: HeroSliderProps) {
         // If no ad configured, Link handles navigation normally
     };
 
-    if (!movies || movies.length === 0) return null;
+    const { hideNsfw } = useAuth();
+    const filteredMovies = hideNsfw ? movies.filter(m => !m.is_adult) : movies;
+
+    if (!filteredMovies || filteredMovies.length === 0) return null;
 
     return (
         <div className="w-full relative group">
@@ -98,7 +102,7 @@ export default function HeroSlider({ movies }: HeroSliderProps) {
                 loop={true}
                 className="w-full h-[60vh] md:h-[80vh] lg:h-[85vh] relative"
             >
-                {movies.map((movie) => (
+                {filteredMovies.map((movie) => (
                     <SwiperSlide key={movie.id}>
                         <div className="relative w-full h-full">
                             {/* Background Image (Desktop) */}

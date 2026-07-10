@@ -27,6 +27,9 @@ export interface CachedAppSettings {
     is_download_verification_enabled?: boolean;
     download_ad_url_1?: string | null;
     download_ad_url_2?: string | null;
+    is_novel_verification_enabled?: boolean;
+    novel_ad_url_1?: string | null;
+    novel_ad_url_2?: string | null;
 }
 
 export interface CachedTelegramSettings {
@@ -98,7 +101,7 @@ export async function getAppSettings(): Promise<CachedAppSettings | null> {
         try {
             const { data, error } = await supabase
                 .from('app_settings')
-                .select('is_ads_enabled, popunder_url, direct_link_url, ad_frequency_session, ad_enabled_pages, ad_enabled_devices, native_ad_code, social_bar_code, social_pinterest, social_twitter, social_facebook, social_youtube, social_reddit, social_tumblr, social_aboutme, social_instagram, social_threads, is_verification_enabled, verification_ad_url_1, verification_ad_url_2, is_download_verification_enabled, download_ad_url_1, download_ad_url_2')
+                .select('is_ads_enabled, popunder_url, direct_link_url, ad_frequency_session, ad_enabled_pages, ad_enabled_devices, native_ad_code, social_bar_code, social_pinterest, social_twitter, social_facebook, social_youtube, social_reddit, social_tumblr, social_aboutme, social_instagram, social_threads, is_verification_enabled, verification_ad_url_1, verification_ad_url_2, is_download_verification_enabled, download_ad_url_1, download_ad_url_2, is_novel_verification_enabled, novel_ad_url_1, novel_ad_url_2')
                 .eq('id', 1)
                 .single();
 
@@ -128,6 +131,9 @@ export async function getAppSettings(): Promise<CachedAppSettings | null> {
                 is_download_verification_enabled: data.is_download_verification_enabled ?? false,
                 download_ad_url_1: data.download_ad_url_1 ?? null,
                 download_ad_url_2: data.download_ad_url_2 ?? null,
+                is_novel_verification_enabled: data.is_novel_verification_enabled ?? false,
+                novel_ad_url_1: data.novel_ad_url_1 ?? null,
+                novel_ad_url_2: data.novel_ad_url_2 ?? null,
             };
 
             appSettingsCache = { data: settings, ts: Date.now() };

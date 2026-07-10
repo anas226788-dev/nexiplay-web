@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Movie } from '@/lib/types';
 import { getContentUrl } from '@/lib/urlUtils';
 import { useAdultGate } from './AdultGateProvider';
+import { useAuth } from '@/context/AuthContext';
 
 interface MovieCardProps {
     movie: Movie;
@@ -13,6 +14,11 @@ interface MovieCardProps {
 export default function MovieCard({ movie }: MovieCardProps) {
     const detailUrl = getContentUrl(movie);
     const { checkAdultGate } = useAdultGate();
+    const { hideNsfw } = useAuth();
+
+    if (hideNsfw && movie.is_adult) {
+        return null;
+    }
 
     const handleClick = (e: React.MouseEvent) => {
         if (movie.is_adult) {

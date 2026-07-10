@@ -6,11 +6,12 @@ interface AdVerificationPopupProps {
     onVerified: () => void;
     adUrl1: string;
     adUrl2: string;
+    contentType?: 'stream' | 'download' | 'novel';
 }
 
 const COUNTDOWN_SECONDS = 10;
 
-export default function AdVerificationPopup({ onVerified, adUrl1, adUrl2 }: AdVerificationPopupProps) {
+export default function AdVerificationPopup({ onVerified, adUrl1, adUrl2, contentType = 'stream' }: AdVerificationPopupProps) {
     const [currentStep, setCurrentStep] = useState<1 | 2>(1);
     const [adClicked, setAdClicked] = useState(false);
     const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
@@ -83,7 +84,7 @@ export default function AdVerificationPopup({ onVerified, adUrl1, adUrl2 }: AdVe
                         </svg>
                     </div>
                     <p className="text-white font-bold text-lg">Verification Complete!</p>
-                    <p className="text-cyan-300/70 text-sm">Unlocking your stream...</p>
+                    <p className="text-cyan-300/70 text-sm">Unlocking your {contentType}...</p>
                 </div>
             </div>
         );
@@ -168,7 +169,7 @@ export default function AdVerificationPopup({ onVerified, adUrl1, adUrl2 }: AdVe
                     <p className="text-center text-gray-400 text-sm mb-5 leading-relaxed">
                         {currentStep === 1
                             ? 'Please wait while we establish a secure connection.'
-                            : 'Complete the final verification to unlock your stream.'}
+                            : `Complete the final verification to unlock your ${contentType}.`}
                     </p>
 
                     {/* Support message */}
@@ -237,7 +238,7 @@ export default function AdVerificationPopup({ onVerified, adUrl1, adUrl2 }: AdVe
                                     : 'bg-gradient-to-r from-emerald-500 to-green-400 text-black hover:shadow-[0_0_40px_rgba(0,255,100,0.25)]'
                             }`}
                         >
-                            {currentStep === 1 ? 'Proceed to Step 2' : '🎬 Unlock Stream'}
+                            {currentStep === 1 ? 'Proceed to Step 2' : `🎬 Unlock ${contentType.charAt(0).toUpperCase() + contentType.slice(1)}`}
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
                             </svg>

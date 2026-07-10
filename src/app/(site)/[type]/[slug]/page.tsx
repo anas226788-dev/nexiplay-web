@@ -11,6 +11,7 @@ import dynamicImport from 'next/dynamic';
 import { buildPageMetadata } from '@/lib/metadata';
 import AdultGateGuard from '@/components/AdultGateGuard';
 import ActiveMovieSetter from '@/components/ActiveMovieSetter';
+import WatchlistButton from '@/components/WatchlistButton';
 
 const ScreenshotGallery = dynamicImport(() => import('@/components/ScreenshotGallery'), {
     loading: () => <div className="h-64 bg-dark-800 animate-pulse rounded-xl my-8" />
@@ -343,7 +344,7 @@ export default async function MovieDetailPage({ params, searchParams }: PageProp
                                 <TelegramButton className="w-full" />
                             </div>
 
-                            <div className="flex flex-col sm:flex-row gap-4 pt-4">
+                            <div className="flex flex-col sm:flex-row gap-4 pt-4 flex-wrap">
                                 {((movieData.tmdb_id || movieData.imdb_id || movieData.mal_id || movieData.streaming_url) && movieData.streaming_url !== 'disabled') && (
                                     <Link
                                         href={`/watch/${type}/${rawSlug}`}
@@ -367,6 +368,7 @@ export default async function MovieDetailPage({ params, searchParams }: PageProp
                                     </svg>
                                     Download Links
                                 </Link>
+                                <WatchlistButton movieId={movieData.id} />
                                 {movieData.trailer_url && (
                                     <a
                                         href={movieData.trailer_url}
@@ -420,7 +422,7 @@ export default async function MovieDetailPage({ params, searchParams }: PageProp
                         )}
 
                         {isSeriesOrAnime ? (
-                            <EpisodeList seasons={seasons} running_status={movieData.running_status} contentId={movieData.id} contentType={movieData.type} />
+                            <EpisodeList seasons={seasons} running_status={movieData.running_status} contentId={movieData.id} contentType={movieData.type} contentTitle={movieData.title} />
                         ) : (
                             <DownloadPanel downloadLinks={movieData.download_links || []} contentId={movieData.id} contentType={movieData.type} />
                         )}

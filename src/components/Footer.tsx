@@ -72,6 +72,7 @@ export default function Footer() {
             { href: '/movies', label: 'Movies' },
             { href: '/series', label: 'Series' },
             { href: '/anime', label: 'Anime' },
+            { href: '/novels', label: 'Novels' },
         ],
         genres: [
             { href: '/genre/action', label: 'Action' },

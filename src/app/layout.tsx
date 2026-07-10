@@ -8,6 +8,7 @@ import { PopunderAd, SocialBarAd } from '@/components/ads';
 import { AdProvider } from '@/context/AdProvider';
 import { TutorialProvider } from '@/context/TutorialContext';
 import { ActiveMovieProvider } from '@/context/ActiveMovieContext';
+import { AuthProvider } from '@/context/AuthContext';
 import { rootMetadata } from '@/lib/metadata';
 
 const inter = Inter({
@@ -35,27 +36,29 @@ export default function RootLayout({
             <body className={`${inter.className} gradient-bg min-h-screen`} suppressHydrationWarning>
                 <AdProvider>
                     <TutorialProvider>
-                        <ActiveMovieProvider>
-                            <NoticeSystem />
-                            <PopunderAd />
-                            <SocialBarAd />
-                            <AntiAdBlockGate />
+                        <AuthProvider>
+                            <ActiveMovieProvider>
+                                <NoticeSystem />
+                                <PopunderAd />
+                                <SocialBarAd />
+                                <AntiAdBlockGate />
 
-                            <Script
-                                src="https://www.googletagmanager.com/gtag/js?id=G-697MJ5V5CL"
-                                strategy="afterInteractive"
-                            />
-                            <Script id="google-analytics" strategy="afterInteractive">
-                                {`
+                                <Script
+                                    src="https://www.googletagmanager.com/gtag/js?id=G-697MJ5V5CL"
+                                    strategy="afterInteractive"
+                                />
+                                <Script id="google-analytics" strategy="afterInteractive">
+                                    {`
                                     window.dataLayer = window.dataLayer || [];
                                     function gtag(){dataLayer.push(arguments);}
                                     gtag('js', new Date());
                                     gtag('config', 'G-697MJ5V5CL');
                                 `}
-                            </Script>
+                                </Script>
 
-                            {children}
-                        </ActiveMovieProvider>
+                                {children}
+                            </ActiveMovieProvider>
+                        </AuthProvider>
                     </TutorialProvider>
                 </AdProvider>
             </body>

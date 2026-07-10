@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { Movie } from '@/lib/types';
 import { useAdultGate } from './AdultGateProvider';
+import { useAuth } from '@/context/AuthContext';
 
 interface SearchBarProps {
     className?: string;
@@ -22,6 +23,7 @@ export default function SearchBar({ className = '' }: SearchBarProps) {
     const searchRef = useRef<HTMLDivElement>(null);
     const router = useRouter();
     const { checkAdultGate } = useAdultGate();
+    const { hideNsfw } = useAuth();
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -107,7 +109,7 @@ export default function SearchBar({ className = '' }: SearchBarProps) {
                 <div className="absolute top-full left-0 right-0 mt-2 bg-dark-700 border border-white/10 rounded-xl overflow-hidden shadow-2xl z-50 max-h-[400px] overflow-y-auto">
                     {results.length > 0 ? (
                         <div>
-                            {results.map((movie) => (
+                            {(hideNsfw ? results.filter(r => !r.is_adult) : results).map((movie) => (
                                 <Link
                                     key={movie.id}
                                     href={`/${movie.type}/${movie.slug}`}

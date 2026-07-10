@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Download } from '@/lib/types';
 import { useAdSettings } from '@/hooks/useAdSettings';
+import { useAuth } from '@/context/AuthContext';
 import AdVerificationPopup from './AdVerificationPopup';
 
 // ── localStorage helpers for download verification ──
@@ -42,6 +43,7 @@ interface DownloadButtonProps {
 export default function DownloadButton({ download, contentId, contentType }: DownloadButtonProps) {
     const [showVerification, setShowVerification] = useState(false);
     const { settings: adSettings } = useAdSettings();
+    const { trackEvent } = useAuth();
 
     // Format: [ 720p – 800MB ]
     const buttonText = download.file_size
@@ -49,6 +51,24 @@ export default function DownloadButton({ download, contentId, contentType }: Dow
         : download.quality;
 
     const handleClick = (e: React.MouseEvent) => {
+        trackEvent({
+            event_type: 'download',
+            movie_id: contentId,
+            content_type: contentType,
+            provider: 'Direct',
+            resolution: download.quality,
+            metadata: {
+                download_id: download.id,
+                url_host: (() => {
+                    try {
+                        return download.file_url ? new URL(download.file_url).hostname : null;
+                    } catch {
+                        return null;
+                    }
+                })()
+            }
+        });
+
         const verificationEnabled = adSettings?.isDownloadVerificationEnabled ?? false;
         if (!verificationEnabled) return; // allow direct download
 

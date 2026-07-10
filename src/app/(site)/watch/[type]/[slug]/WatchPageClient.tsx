@@ -11,6 +11,7 @@ import CommentSection from '@/components/CommentSection';
 import RelatedPosts from '@/components/RelatedPosts';
 import AdVerificationPopup from '@/components/AdVerificationPopup';
 import { canRequestPlayerFullscreen, FULLSCREEN_IFRAME_ATTRS, requestPlayerFullscreen } from '@/lib/playerFullscreen';
+import { useAuth } from '@/context/AuthContext';
 
 interface WatchPageClientProps {
     movie: Movie;
@@ -1018,6 +1019,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
     const activeEpisode = episodes.find(e => e.episode_number === currentEpisodeNum) || episodes[0];
 
     const { settings: adSettings } = useAdSettings();
+    const { user, trackEvent } = useAuth();
 
     // Load watched episodes and initial URL params on mount
     useEffect(() => {
@@ -1093,6 +1095,66 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
             }
         }
     }, [activeEpisode, isSeriesOrAnime]);
+
+    const currentEventIdRef = useRef<string | null>(null);
+    const watchTimeRef = useRef<number>(0);
+
+    useEffect(() => {
+        if (!user || !movie.id) return;
+
+        // Generate a new UUID for this specific watch event
+        const eventId = crypto.randomUUID();
+        currentEventIdRef.current = eventId;
+        watchTimeRef.current = 0;
+
+        // Map server ID to friendly name
+        const serverName = (() => {
+            if (!activeServerId) return 'Default Server';
+            if (activeServerId.startsWith('multi_')) {
+                const key = activeServerId.replace('multi_', '');
+                return `${key.toUpperCase()} (Multi)`;
+            }
+            if (activeServerId === 'toonplay') return 'Toonplay';
+            if (activeServerId === 'animerulz') return 'Animerulz';
+            if (activeServerId === 'custom') return 'Custom';
+            
+            // Find name in availableServers
+            const srv = availableServers.find(s => s.id === activeServerId);
+            return srv ? srv.name : activeServerId;
+        })();
+
+        // Insert initial 0m watch event
+        trackEvent({
+            id: eventId,
+            event_type: 'watch',
+            movie_id: movie.id,
+            episode_id: isSeriesOrAnime ? activeEpisode?.id : null,
+            content_type: movie.type,
+            content_title: movie.title,
+            season_number: isSeriesOrAnime ? currentSeasonNum : null,
+            episode_number: isSeriesOrAnime ? currentEpisodeNum : null,
+            metadata: {
+                server: serverName || null,
+                slug,
+                server_id: activeServerId
+            }
+        });
+
+        // Start interval to update watch duration in database every 10 seconds
+        const timer = setInterval(async () => {
+            watchTimeRef.current += 10;
+            const elapsed = watchTimeRef.current;
+
+            await supabase
+                .from('user_events')
+                .update({ duration_seconds: elapsed })
+                .eq('id', eventId);
+        }, 10000);
+
+        return () => {
+            clearInterval(timer);
+        };
+    }, [activeEpisode?.id, activeServerId, currentEpisodeNum, currentSeasonNum, isSeriesOrAnime, movie.id, movie.title, movie.type, slug, trackEvent, user]);
 
     useEffect(() => {
         if (!isSeriesOrAnime || !activeEpisode?.id) {

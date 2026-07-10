@@ -18,6 +18,9 @@ export interface AdSettings {
     isDownloadVerificationEnabled: boolean;
     downloadAdUrl1: string | null;
     downloadAdUrl2: string | null;
+    isNovelVerificationEnabled: boolean;
+    novelAdUrl1: string | null;
+    novelAdUrl2: string | null;
 }
 
 interface UseAdSettingsReturn {
@@ -49,6 +52,9 @@ const DEFAULT_SETTINGS: AdSettings = {
     isDownloadVerificationEnabled: false,
     downloadAdUrl1: null,
     downloadAdUrl2: null,
+    isNovelVerificationEnabled: false,
+    novelAdUrl1: null,
+    novelAdUrl2: null,
 };
 
 /**
@@ -74,6 +80,9 @@ function mapToAdSettings(data: CachedAppSettings): AdSettings {
         isDownloadVerificationEnabled: data.is_download_verification_enabled ?? false,
         downloadAdUrl1: data.download_ad_url_1 ?? null,
         downloadAdUrl2: data.download_ad_url_2 ?? null,
+        isNovelVerificationEnabled: data.is_novel_verification_enabled ?? false,
+        novelAdUrl1: data.novel_ad_url_1 ?? null,
+        novelAdUrl2: data.novel_ad_url_2 ?? null,
     };
 }
 

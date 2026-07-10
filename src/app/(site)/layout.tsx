@@ -4,6 +4,7 @@ import SplashScreen from '@/components/SplashScreen';
 import AnimatedTelegramCTA from '@/components/AnimatedTelegramCTA';
 import ClientChatbot from '@/components/ClientChatbot';
 import AdultGateProvider from '@/components/AdultGateProvider';
+import UserAnalyticsTracker from '@/components/UserAnalyticsTracker';
 
 export default function SiteLayout({
     children,
@@ -13,6 +14,7 @@ export default function SiteLayout({
     return (
         <div className="flex flex-col min-h-screen">
             <SplashScreen />
+            <UserAnalyticsTracker />
             <Header />
             <AnimatedTelegramCTA />
             <AdultGateProvider>

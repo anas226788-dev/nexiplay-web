@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { DownloadLink } from '@/lib/types';
 import { useAdSettings } from '@/hooks/useAdSettings';
 import { useTutorial } from '@/context/TutorialContext';
+import { useAuth } from '@/context/AuthContext';
 import AdVerificationPopup from './AdVerificationPopup';
 
 // ── localStorage helpers for download verification ──
@@ -72,6 +73,7 @@ export default function DownloadPanel({ downloadLinks, contentId, contentType }:
     const [isVerified, setIsVerified] = useState(() => checkDownloadVerified(contentId, contentType));
     const { settings: adSettings } = useAdSettings();
     const { hasTutorial, openTutorial } = useTutorial();
+    const { trackEvent } = useAuth();
 
     // Group links by resolution
     const linksByResolution = downloadLinks.reduce((acc, link) => {
@@ -106,7 +108,25 @@ export default function DownloadPanel({ downloadLinks, contentId, contentType }:
             }));
     };
 
-    const handleDownloadClick = (url: string, e: React.MouseEvent) => {
+    const handleDownloadClick = (url: string, provider: ProviderKey, resolution: string, e: React.MouseEvent) => {
+        trackEvent({
+            event_type: 'download',
+            movie_id: contentId,
+            content_type: contentType,
+            provider: PROVIDER_CONFIG[provider].name,
+            resolution,
+            metadata: {
+                provider_key: provider,
+                url_host: (() => {
+                    try {
+                        return new URL(url).hostname;
+                    } catch {
+                        return null;
+                    }
+                })()
+            }
+        });
+
         const verificationEnabled = adSettings?.isDownloadVerificationEnabled ?? false;
         
         if (!verificationEnabled) {
@@ -229,7 +249,7 @@ export default function DownloadPanel({ downloadLinks, contentId, contentType }:
                                                         e.preventDefault();
                                                         return;
                                                     }
-                                                    handleDownloadClick(provider.url, e);
+                                                    handleDownloadClick(provider.url, provider.key, activeResolution, e);
                                                 }}
                                                 className={`
                                                     flex items-center gap-3 p-4 rounded-xl min-h-[44px]

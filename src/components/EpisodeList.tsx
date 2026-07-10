@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Season, Episode, EpisodeDownloadLink } from '@/lib/types';
 import { useAdSettings } from '@/hooks/useAdSettings';
 import { useTutorial } from '@/context/TutorialContext';
+import { useAuth } from '@/context/AuthContext';
 import AdVerificationPopup from './AdVerificationPopup';
 
 // ── Download verification helpers ──
@@ -39,6 +40,7 @@ interface EpisodeListProps {
     running_status?: 'Ongoing' | 'Completed' | 'Hiatus';
     contentId?: string;
     contentType?: string;
+    contentTitle?: string;
 }
 
 const RESOLUTIONS = ['360p', '480p', '720p', '1080p'] as const;
@@ -54,7 +56,7 @@ const PROVIDER_CONFIG = {
 
 type ProviderKey = keyof typeof PROVIDER_CONFIG;
 
-export default function EpisodeList({ seasons, running_status, contentId = '', contentType = 'anime' }: EpisodeListProps) {
+export default function EpisodeList({ seasons, running_status, contentId = '', contentType = 'anime', contentTitle = '' }: EpisodeListProps) {
     const [activeSeason, setActiveSeason] = useState(seasons[0]?.season_number || 1);
     const [activeEpisode, setActiveEpisode] = useState<string | null>(null);
     const [activeResolution, setActiveResolution] = useState<string | null>(null);
@@ -62,8 +64,36 @@ export default function EpisodeList({ seasons, running_status, contentId = '', c
     const [pendingDownloadUrl, setPendingDownloadUrl] = useState<string | null>(null);
     const { settings: adSettings } = useAdSettings();
     const { hasTutorial, openTutorial } = useTutorial();
+    const { trackEvent } = useAuth();
 
-    const handleDownloadClick = (url: string, e: React.MouseEvent) => {
+    const handleDownloadClick = (
+        url: string,
+        providerName: string,
+        resolution: string,
+        episodeNum: number | undefined,
+        seasonNum: number | undefined,
+        e: React.MouseEvent
+    ) => {
+        trackEvent({
+            event_type: 'download',
+            movie_id: contentId,
+            content_type: contentType,
+            content_title: contentTitle || null,
+            season_number: seasonNum || null,
+            episode_number: episodeNum || null,
+            provider: providerName,
+            resolution: resolution,
+            metadata: {
+                url_host: (() => {
+                    try {
+                        return new URL(url).hostname;
+                    } catch {
+                        return null;
+                    }
+                })()
+            }
+        });
+
         const verificationEnabled = adSettings?.isDownloadVerificationEnabled ?? false;
         if (!verificationEnabled) return;
         const verified = checkDownloadVerified(contentId, contentType);
@@ -193,7 +223,14 @@ export default function EpisodeList({ seasons, running_status, contentId = '', c
                             {currentSeason.season_zip_link && (
                                 <a
                                     href={currentSeason.season_zip_link}
-                                    onClick={(e) => handleDownloadClick(currentSeason.season_zip_link!, e)}
+                                    onClick={(e) => handleDownloadClick(
+                                        currentSeason.season_zip_link!,
+                                        'ZIP / Full Season',
+                                        'All',
+                                        undefined,
+                                        currentSeason.season_number,
+                                        e
+                                    )}
                                     className="
                                         flex items-center justify-center gap-2 px-6 py-3
                                         bg-gradient-to-r from-purple-600 to-indigo-600
@@ -310,7 +347,14 @@ export default function EpisodeList({ seasons, running_status, contentId = '', c
                                                                                     rel="noopener noreferrer"
                                                                                     onClick={(e) => {
                                                                                         if (isExpired) { e.preventDefault(); return; }
-                                                                                        handleDownloadClick(provider.url, e);
+                                                                                        handleDownloadClick(
+                                                                                            provider.url,
+                                                                                            provider.name,
+                                                                                            activeResolution,
+                                                                                            episode.episode_number,
+                                                                                            currentSeason.season_number,
+                                                                                            e
+                                                                                        );
                                                                                     }}
                                                                                     className={`
                                                                                         flex items-center gap-3 p-3 rounded-lg min-h-[44px]

@@ -23,11 +23,21 @@ const parser = new Parser({
 // Configure this in your .env.local to point to your Blogger/WordPress RSS feed
 const RSS_URL = process.env.NEXT_PUBLIC_BLOG_RSS_URL || 'https://www.animenewsnetwork.com/news/rss.xml';
 
-export async function getBlogPosts(): Promise<BlogPost[]> {
+export async function getBlogPosts(label?: string): Promise<BlogPost[]> {
     try {
         const feed = await parser.parseURL(RSS_URL);
         
-        return feed.items.map(item => {
+        let items = feed.items;
+        
+        // If a label is provided and the feed supports categories, filter by label
+        if (label) {
+            items = items.filter(item => {
+                const categories = item.categories || [];
+                return categories.some((c: string) => c.toLowerCase() === label.toLowerCase());
+            });
+        }
+        
+        return items.map(item => {
             let thumbnail = '/preview.jpg'; // default Nexiplay preview image
             
             // Extract from standard media namespaces
@@ -66,7 +76,7 @@ export async function getBlogPosts(): Promise<BlogPost[]> {
     }
 }
 
-export async function getBlogPostBySlug(slug: string): Promise<BlogPost | null> {
-    const posts = await getBlogPosts();
+export async function getBlogPostBySlug(slug: string, label?: string): Promise<BlogPost | null> {
+    const posts = await getBlogPosts(label);
     return posts.find(p => p.slug === slug) || null;
 }

@@ -42,7 +42,7 @@ export default function CategoryMenu({ categories, activeSlug }: CategoryMenuPro
 
 // Quick type filter tabs
 interface TypeTabsProps {
-    activeType?: 'all' | 'movie' | 'series' | 'anime' | 'upcoming';
+    activeType?: 'all' | 'movie' | 'series' | 'anime' | 'upcoming' | 'novels';
 }
 
 export function TypeTabs({ activeType = 'all' }: TypeTabsProps) {
@@ -51,6 +51,7 @@ export function TypeTabs({ activeType = 'all' }: TypeTabsProps) {
         { key: 'movie', label: 'Movies', href: '/movies' },
         { key: 'series', label: 'Series', href: '/series' },
         { key: 'anime', label: 'Anime', href: '/anime' },
+        { key: 'novels', label: 'Novels', href: '/novels' },
         { key: 'upcoming', label: '🔥 Upcoming', href: '/upcoming' },
     ];
 
