@@ -35,7 +35,7 @@ export default function LoginPage() {
         setIsResending(true);
         try {
             await resendVerification(email.trim());
-            setSuccessMsg('Verification email sent successfully! Please check your inbox.');
+            setSuccessMsg('Verification email sent successfully! Please check your Inbox and SPAM/Junk folder.');
         } catch (err: any) {
             setError(err.message || 'Failed to resend email. Please try again.');
         } finally {
@@ -59,13 +59,16 @@ export default function LoginPage() {
                     <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
                         <p>{error}</p>
                         {error.toLowerCase().includes('email not confirmed') && (
-                            <button 
-                                onClick={handleResendEmail}
-                                disabled={isResending}
-                                className="mt-2 text-xs font-bold underline hover:text-white disabled:opacity-50"
-                            >
-                                {isResending ? 'Resending...' : 'Resend Verification Email'}
-                            </button>
+                            <div className="mt-3 flex flex-col items-start gap-1">
+                                <button 
+                                    onClick={handleResendEmail}
+                                    disabled={isResending}
+                                    className="text-xs font-bold underline hover:text-white disabled:opacity-50"
+                                >
+                                    {isResending ? 'Resending...' : 'Resend Verification Email'}
+                                </button>
+                                <span className="text-[10px] text-red-300 opacity-80">(If you don't see the email, please check your SPAM/Junk folder)</span>
+                            </div>
                         )}
                     </div>
                 )}

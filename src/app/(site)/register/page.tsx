@@ -23,8 +23,8 @@ export default function RegisterPage() {
         setLoading(true);
         try {
             await signUp(email.trim(), password, displayName.trim(), whatsappNumber.trim());
-            setMessage('Account created. If email confirmation is enabled, please verify your email before logging in.');
-            setTimeout(() => router.push('/login'), 1200);
+            setMessage('Account created successfully! A verification link has been sent to your email. Please check your Inbox and SPAM/Junk folder to verify your account before logging in.');
+            setTimeout(() => router.push('/login'), 5000);
         } catch (err: any) {
             setError(err.message || 'Registration failed. Please try again.');
         } finally {
