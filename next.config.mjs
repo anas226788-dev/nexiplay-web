@@ -2,6 +2,7 @@
 const nextConfig = {
     compress: true, // Enable Gzip compression
     reactStrictMode: true,
+    productionBrowserSourceMaps: false, // Prevent exposing source code maps in production
     experimental: {
         optimizePackageImports: ['lucide-react', 'date-fns', 'lodash'], // Optimize imports
     },
@@ -20,6 +21,28 @@ const nextConfig = {
     async headers() {
         return [
             {
+                // Global security headers
+                source: '/:path*',
+                headers: [
+                    {
+                        key: 'X-Frame-Options',
+                        value: 'DENY',
+                    },
+                    {
+                        key: 'X-Content-Type-Options',
+                        value: 'nosniff',
+                    },
+                    {
+                        key: 'Referrer-Policy',
+                        value: 'strict-origin-when-cross-origin',
+                    },
+                    {
+                        key: 'Permissions-Policy',
+                        value: 'camera=(), microphone=(), geolocation=()',
+                    },
+                ],
+            },
+            {
                 // Cache OG-relevant static assets (preview images, favicons)
                 source: '/(preview\\.jpg|favicon\\.ico|apple-touch-icon\\.png|android-chrome-.*\\.png|favicon-.*\\.png)',
                 headers: [
@@ -30,7 +53,7 @@ const nextConfig = {
                 ],
             },
             {
-                // Ensure all pages are indexable by crawlers
+                // Ensure all pages are indexable by search engine crawlers
                 source: '/:path*',
                 headers: [
                     {
@@ -44,3 +67,4 @@ const nextConfig = {
 };
 
 export default nextConfig;
+

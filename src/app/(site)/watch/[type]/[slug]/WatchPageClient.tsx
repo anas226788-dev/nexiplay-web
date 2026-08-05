@@ -1907,7 +1907,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                                         }`}
                                     >
                                         <span className="text-orange-500">⚡</span>
-                                        <span>Nexiplay Server</span>
+                                        <span>AnimeR Server</span>
                                     </button>
                                 )}
 
@@ -1934,21 +1934,24 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                                         custom: 'Server Nexiplay',
                                         animeworld: 'AnimeWorld Server',
                                         animixstream: 'Nexiplay Ani Server',
-                                        toonstream: 'Nexiplay T Server'
+                                        toonstream: 'Nexiplay T Server',
+                                        rareanimes: 'RR Nexiplay Server'
                                     };
                                     
                                     const serverIcons: Record<string, string> = {
                                         custom: '⭐',
                                         animeworld: '🌐',
                                         animixstream: '🚀',
-                                        toonstream: '📺'
+                                        toonstream: '📺',
+                                        rareanimes: '⭐'
                                     };
                                     
                                     const serverColors: Record<string, string> = {
                                         custom: 'text-yellow-400',
                                         animeworld: 'text-green-400',
                                         animixstream: 'text-cyan-400',
-                                        toonstream: 'text-purple-400'
+                                        toonstream: 'text-purple-400',
+                                        rareanimes: 'text-pink-500'
                                     };
 
                                     const srvName = serverNames[serverKey] || `${serverKey.toUpperCase()} Server`;

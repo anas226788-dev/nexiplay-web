@@ -4,5 +4,12 @@
             "path": "/api/cron/check-links",
             "schedule": "0 0 */5 * *"
         }
+    ],
+    "redirects": [
+        {
+            "source": "/.git/(.*)",
+            "destination": "/",
+            "permanent": true
+        }
     ]
 }

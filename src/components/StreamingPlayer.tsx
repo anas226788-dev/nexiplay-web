@@ -27,8 +27,8 @@ const BUILT_IN_SERVERS: Server[] = [
         getUrl: (id, tmdb, imdb, mal, s, e) => {
             if (!tmdb) return null;
             return s !== undefined && e !== undefined
-                ? `https://vidsrc.to/embed/tv/${tmdb}/${s}/${e}`
-                : `https://vidsrc.to/embed/movie/${tmdb}`;
+                ? `https://vidsrc.pm/embed/tv/${tmdb}/${s}/${e}`
+                : `https://vidsrc.pm/embed/movie/${tmdb}`;
         }
     },
     {
@@ -38,8 +38,8 @@ const BUILT_IN_SERVERS: Server[] = [
         getUrl: (id, tmdb, imdb, mal, s, e) => {
             if (!tmdb) return null;
             return s !== undefined && e !== undefined
-                ? `https://vidsrc.me/embed/tv?tmdb=${tmdb}&season=${s}&episode=${e}`
-                : `https://vidsrc.me/embed/movie?tmdb=${tmdb}`;
+                ? `https://vidsrc.in/embed/tv?tmdb=${tmdb}&season=${s}&episode=${e}`
+                : `https://vidsrc.in/embed/movie?tmdb=${tmdb}`;
         }
     }
 ];
