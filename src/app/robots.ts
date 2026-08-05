@@ -14,6 +14,12 @@ export default function robots(): MetadataRoute.Robots {
         'CCBot',
         'Diffbot',
         'FacebookBot',
+        'facebookexternalhit',
+        'Applebot',
+        'Twitterbot',
+        'Slackbot',
+        'Omgilibot',
+        'Omgili',
         'WebCopier',
     ];
 
@@ -33,4 +39,5 @@ export default function robots(): MetadataRoute.Robots {
         sitemap: getAbsoluteUrl('/sitemap.xml'),
     };
 }
+
 

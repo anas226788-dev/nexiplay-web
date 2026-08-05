@@ -1,1 +1,0 @@
-const { createClient } = require('@supabase/supabase-js'); const supabase = createClient('https://xyz.supabase.co', 'xyz'); try { supabase.from('profiles').upsert({ id: '123', email: undefined }); console.log('Did not throw'); } catch(e) { console.log('THREW:', e.message); }  

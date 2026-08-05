@@ -2,6 +2,7 @@
 const nextConfig = {
     compress: true, // Enable Gzip compression
     reactStrictMode: true,
+    poweredByHeader: false, // Hide x-powered-by: Next.js header
     productionBrowserSourceMaps: false, // Prevent exposing source code maps in production
     experimental: {
         optimizePackageImports: ['lucide-react', 'date-fns', 'lodash'], // Optimize imports
@@ -67,4 +68,5 @@ const nextConfig = {
 };
 
 export default nextConfig;
+
 

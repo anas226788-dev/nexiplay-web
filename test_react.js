@@ -1,1 +1,0 @@
-const React = require('react'); let state = true; const setState = (s) = state = s; console.log('State is now:', state); }; const handler = async () = try { throw null; } catch(err) { console.log(err.message); } finally { setState(false); } }; handler().catch(e =, e.message));  
