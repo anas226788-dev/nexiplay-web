@@ -18,6 +18,132 @@ export default function NoticeSystem() {
     const [selectedVideoUrl, setSelectedVideoUrl] = useState<string | null>(null);
     const { activeMovie } = useActiveMovie();
 
+    // ── Live In-Browser APK Download Progress State ──
+    const [downloadState, setDownloadState] = useState<{
+        active: boolean;
+        percent: number;
+        loadedMb: string;
+        totalMb: string;
+        complete: boolean;
+        version: string;
+        error: string | null;
+    }>({
+        active: false,
+        percent: 0,
+        loadedMb: '0',
+        totalMb: '0',
+        complete: false,
+        version: 'latest',
+        error: null,
+    });
+
+    async function startDirectApkDownload(targetUrl?: string) {
+        const downloadApi = '/api/download/apk';
+        setDownloadState({
+            active: true,
+            percent: 0,
+            loadedMb: '0.0',
+            totalMb: '...',
+            complete: false,
+            version: 'latest',
+            error: null,
+        });
+
+        try {
+            const res = await fetch(downloadApi);
+            if (!res.ok) {
+                // If streaming route fails, direct navigation fallback
+                window.location.href = targetUrl || downloadApi;
+                setTimeout(() => setDownloadState(prev => ({ ...prev, active: false })), 2000);
+                return;
+            }
+
+            const contentLength = res.headers.get('content-length');
+            const totalBytes = contentLength ? parseInt(contentLength, 10) : 0;
+            const totalMbStr = totalBytes ? (totalBytes / (1024 * 1024)).toFixed(1) : '50.0';
+
+            if (!res.body) {
+                window.location.href = downloadApi;
+                return;
+            }
+
+            const reader = res.body.getReader();
+            const chunks: Uint8Array[] = [];
+            let loadedBytes = 0;
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                if (value) {
+                    chunks.push(value);
+                    loadedBytes += value.length;
+                    const loadedMbStr = (loadedBytes / (1024 * 1024)).toFixed(1);
+                    const percent = totalBytes > 0 
+                        ? Math.min(99, Math.round((loadedBytes / totalBytes) * 100))
+                        : Math.min(95, Math.round((loadedBytes / (45 * 1024 * 1024)) * 100));
+
+                    setDownloadState(prev => ({
+                        ...prev,
+                        percent,
+                        loadedMb: loadedMbStr,
+                        totalMb: totalMbStr,
+                    }));
+                }
+            }
+
+            // Create downloaded APK file blob and trigger instant device save
+            const blob = new Blob(chunks, { type: 'application/vnd.android.package-archive' });
+            const objectUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = objectUrl;
+            a.download = 'NexiPlay.apk';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(objectUrl), 15000);
+
+            setDownloadState(prev => ({
+                ...prev,
+                percent: 100,
+                loadedMb: (loadedBytes / (1024 * 1024)).toFixed(1),
+                totalMb: (loadedBytes / (1024 * 1024)).toFixed(1),
+                complete: true,
+            }));
+
+            setTimeout(() => {
+                setDownloadState(prev => ({ ...prev, active: false }));
+            }, 6000);
+
+        } catch (err: any) {
+            console.error('Download error:', err);
+            window.location.href = downloadApi;
+            setTimeout(() => setDownloadState(prev => ({ ...prev, active: false })), 2000);
+        }
+    }
+
+    // Intercept clicks on any notice app download buttons or APK links
+    useEffect(() => {
+        function handleDocumentClick(e: MouseEvent) {
+            const target = (e.target as HTMLElement)?.closest('a');
+            if (!target) return;
+
+            const isAppBtn = target.classList.contains('notice-app-btn') || 
+                             target.classList.contains('notice-app-btn-lg') || 
+                             target.classList.contains('notice-app-btn-neon');
+            const href = target.getAttribute('href') || '';
+            const isApkLink = href.includes('/api/download/apk') || href.endsWith('.apk') || (href.includes('github.com') && href.includes('.apk'));
+
+            if (isAppBtn || isApkLink) {
+                e.preventDefault();
+                e.stopPropagation();
+                startDirectApkDownload(href);
+            }
+        }
+
+        document.addEventListener('click', handleDocumentClick, true);
+        return () => document.removeEventListener('click', handleDocumentClick, true);
+    }, []);
+
     useEffect(() => {
         async function fetchNotices() {
             // 1. Check sessionStorage cache first (bypassed on localhost for instant updates)
@@ -508,6 +634,48 @@ export default function NoticeSystem() {
                             Close ✕
                         </button>
                         <RenderVideo url={selectedVideoUrl} />
+                    </div>
+                </div>
+            )}
+            {/* ── Live APK Download Progress Floating Modal ── */}
+            {downloadState.active && (
+                <div className="fixed bottom-6 right-6 md:right-8 z-[130] max-w-md w-[calc(100%-3rem)] bg-dark-900/95 backdrop-blur-2xl border border-red-500/30 rounded-3xl p-5 shadow-[0_12px_40px_rgba(0,0,0,0.8)] animate-slide-up font-sans">
+                    <div className="flex items-start gap-3.5">
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center text-2xl shadow-lg shrink-0 border border-white/10">
+                            {downloadState.complete ? '✅' : '📱'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                                <h4 className="text-sm font-bold text-white tracking-wide">
+                                    {downloadState.complete ? 'Download Complete!' : 'Downloading NexiPlay App...'}
+                                </h4>
+                                <span className="text-xs font-black text-red-400 font-mono">
+                                    {downloadState.percent}%
+                                </span>
+                            </div>
+                            <p className="text-xs text-gray-400 mb-3 font-medium">
+                                {downloadState.complete 
+                                    ? 'Saved to your Downloads. Tap or open file to install!' 
+                                    : `${downloadState.loadedMb} MB of ${downloadState.totalMb} MB • Direct Fast Stream`}
+                            </p>
+
+                            {/* Animated Glowing Progress Bar */}
+                            <div className="w-full h-2.5 bg-white/10 rounded-full overflow-hidden relative">
+                                <div 
+                                    className="h-full bg-gradient-to-r from-red-600 via-red-500 to-orange-400 rounded-full transition-all duration-200 relative"
+                                    style={{ width: `${downloadState.percent}%` }}
+                                >
+                                    <div className="absolute inset-0 bg-white/20 animate-pulse" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={() => setDownloadState(prev => ({ ...prev, active: false }))}
+                            className="text-gray-500 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+                        >
+                            ✕
+                        </button>
                     </div>
                 </div>
             )}

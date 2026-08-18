@@ -205,8 +205,8 @@ async function fetchAI(
                     .replace(/:free$/i, '')
                     .replace(/-free$/i, '')
                     .replace(/\s*\(free\)$/i, '');
-                console.log(`[Chat API] ✅ OpenRouter success: ${usedModel}`);
-                return { content, agent: `OpenRouter (${shortName})` };
+                console.log(`[Chat API] ✅ Model success: ${usedModel}`);
+                return { content, agent: shortName };
             } catch (err) {
                 console.log(`[Chat API] OpenRouter model "${model}" failed:`, err instanceof Error ? err.message : err);
                 // Continue to next model
@@ -248,7 +248,7 @@ async function fetchAI(
         const content = data?.choices?.[0]?.message?.content?.trim();
         if (!content) throw new Error('Empty response from Groq');
         console.log('[Chat API] ✅ Groq fallback success');
-        return { content, agent: 'Groq (llama-3.3-70b)' };
+        return { content, agent: 'llama-3.3-70b' };
     } catch (groqError) {
         console.error('[Chat API] Groq fallback also failed:', groqError instanceof Error ? groqError.message : groqError);
         throw new Error('AI_UNAVAILABLE');
@@ -860,7 +860,7 @@ export async function POST(request: NextRequest) {
                             content: requestSubmitted
                                 ? `"${verifiedTitle}" is not on Nexiplay yet, but it's a real ${tmdbResult.tmdb_type || 'title'}! Your request has been sent to the admin. We'll try to add it soon! 🙏`
                                 : `"${verifiedTitle}" is not available on Nexiplay right now. Please try again later! 🙏`,
-                            agent: 'Groq (fallback)'
+                            agent: 'llama-3.3-70b'
                         };
                     }
 
@@ -890,7 +890,7 @@ export async function POST(request: NextRequest) {
                     } catch {
                         aiReply = {
                             content: `Sorry, I couldn't verify "${extractedTitle}" as a real movie, anime, or series. Please check the name and try again! 🙏`,
-                            agent: 'Groq (fallback)'
+                            agent: 'llama-3.3-70b'
                         };
                     }
 
@@ -1008,7 +1008,7 @@ async function handleNonStreaming(
         } catch {
             aiReply = {
                 content: `"${verifiedTitle}" is not on Nexiplay yet. Your request has been submitted! 🙏`,
-                agent: 'Groq (fallback)'
+                agent: 'llama-3.3-70b'
             };
         }
 
@@ -1039,7 +1039,7 @@ async function handleNonStreaming(
     } catch {
         aiReply = {
             content: `Sorry, "${extractedTitle}" doesn't appear to be a valid title. Please check the name! 🙏`,
-            agent: 'Groq (fallback)'
+            agent: 'llama-3.3-70b'
         };
     }
 

@@ -35,10 +35,22 @@ interface StreamStatus {
 
 const formatAgentName = (name?: string | null): string => {
     if (!name) return '';
-    return name
+    let cleaned = name.trim();
+    if (cleaned.toLowerCase().startsWith('openrouter (')) {
+        cleaned = cleaned.slice(12, -1).trim();
+    } else if (cleaned.toLowerCase().startsWith('groq (')) {
+        cleaned = cleaned.slice(6, -1).trim();
+    }
+    if (cleaned.includes('/')) {
+        cleaned = cleaned.split('/').pop() || cleaned;
+    }
+    return cleaned
+        .replace(/^openrouter\s*/i, '')
+        .replace(/^groq\s*/i, '')
         .replace(/:free$/i, '')
         .replace(/-free$/i, '')
-        .replace(/\s*\(free\)$/i, '');
+        .replace(/\s*\(free\)$/i, '')
+        .trim();
 };
 
 export default function Chatbot() {
