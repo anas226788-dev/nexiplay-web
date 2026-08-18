@@ -1542,9 +1542,9 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
     const activeStreamUrl = getActiveStreamUrl();
 
     const isM3U8Active = resolvedUrl ? (
-        resolvedUrl.toLowerCase().includes('.m3u8') || 
-        resolvedUrl.toLowerCase().includes('.mp4') || 
-        resolvedUrl.toLowerCase().includes('google-proxy') || 
+        /(?:\.m3u8(?:[?#]|$)|\/hls(?:\/|[?#]|$))/i.test(resolvedUrl) ||
+        resolvedUrl.toLowerCase().includes('.mp4') ||
+        resolvedUrl.toLowerCase().includes('google-proxy') ||
         resolvedUrl.toLowerCase().includes('streamindia') ||
         resolvedUrl.toLowerCase().includes('fallback.streamindia.co.in/sources') ||
         resolvedUrl.toLowerCase().includes('hakunaymatata.com')
@@ -1557,6 +1557,15 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
         activeServerId === 'animerulz' ||
         activeServerId.startsWith('multi_')
     ) && isM3U8Active;
+    // VidSrc actively rejects sandboxed iframes. Keep the ad-block sandbox for
+    // compatible providers, but let the known built-in embeds run normally.
+    const isBuiltInIframeServer = activeServerId === 'vidsrc_to' || activeServerId === 'vidsrc_me';
+    const shouldSandboxIframe = sandboxMode &&
+        !isBuiltInIframeServer &&
+        activeServerId !== 'custom' &&
+        activeServerId !== 'toonplay' &&
+        activeServerId !== 'animerulz' &&
+        !activeServerId.startsWith('multi_');
     const isIframePlayerActive = !!resolvedUrl && !isNativeStreamActive;
 
     // Filter episodes by search query
@@ -1803,11 +1812,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                                         title="Streaming player"
                                         className="nexiplay-player-frame absolute inset-0 w-full h-full bg-black"
                                         {...FULLSCREEN_IFRAME_ATTRS}
-                                        sandbox={
-                                            sandboxMode && activeServerId !== 'custom' && activeServerId !== 'toonplay' && activeServerId !== 'animerulz' && !activeServerId.startsWith('multi_')
-                                                ? AD_BLOCK_SANDBOX
-                                                : undefined
-                                        }
+                                        sandbox={shouldSandboxIframe ? AD_BLOCK_SANDBOX : undefined}
                                         referrerPolicy={isYouTubeActive ? 'strict-origin-when-cross-origin' : 'no-referrer'}
                                     />
                                 )

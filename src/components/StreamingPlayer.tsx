@@ -485,15 +485,18 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
 
     const embedUrl = getEmbedUrl();
 
-    const isM3U8 = customUrl ? (
-        customUrl.toLowerCase().includes('.m3u8') || 
-        customUrl.toLowerCase().includes('google-proxy') || 
-        customUrl.toLowerCase().includes('streamindia') ||
-        customUrl.toLowerCase().includes('fallback.streamindia.co.in/sources')
+    const isM3U8 = embedUrl ? (
+        embedUrl.toLowerCase().includes('.m3u8') ||
+        embedUrl.toLowerCase().includes('google-proxy') ||
+        embedUrl.toLowerCase().includes('streamindia') ||
+        embedUrl.toLowerCase().includes('fallback.streamindia.co.in/sources')
     ) : false;
+    const isNativeStreamActive = (
+        activeServerId === 'custom' ||
+        activeServerId === 'toonplay'
+    ) && isM3U8;
     const isYouTubeActive = embedUrl ? !!getYouTubeVideoId(embedUrl) : false;
-    const isIframePlayerActive = !!embedUrl && !(activeServerId === 'custom' && isM3U8);
-
+    const isIframePlayerActive = !!embedUrl && !isNativeStreamActive;
     const handlePlayerFullscreenRequest = () => {
         requestPlayerFullscreen(playerShellRef.current, playerIframeRef.current);
     };
@@ -605,7 +608,7 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
                         <p className="text-xs text-gray-500 mt-1">Connecting to streaming source</p>
                     </div>
                 ) : embedUrl ? (
-                    activeServerId === 'custom' && isM3U8 ? (
+                    isNativeStreamActive ? (
                         <HLSVideoPlayer src={`/api/proxy-stream?url=${encodeURIComponent(embedUrl)}`} />
                     ) : (
                         <iframe

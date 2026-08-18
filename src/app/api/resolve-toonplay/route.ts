@@ -19,6 +19,17 @@ const HEADERS = {
  * OR:
  *   - cached_url: A previously cached m3u8 URL to test first. If it works, returns it directly.
  */
+const isLikelyHlsUrl = (value: string): boolean => {
+    try {
+        const parsed = new URL(value);
+        const path = `${parsed.pathname}${parsed.search}`.toLowerCase();
+        return /\.m3u8(?:[?#]|$)/i.test(path) ||
+            /\/hls(?:\/|[?#]|$)/i.test(path) ||
+            parsed.hostname.toLowerCase() === 'as-cdn21.top';
+    } catch {
+        return false;
+    }
+};
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const toonplayId = searchParams.get('toonplay_id');
@@ -27,7 +38,7 @@ export async function GET(request: NextRequest) {
     const cachedUrl = searchParams.get('cached_url');
 
     // If a cached URL is provided, test if it still works first
-    if (cachedUrl) {
+    if (cachedUrl && isLikelyHlsUrl(cachedUrl)) {
         try {
             const testRes = await fetch(cachedUrl, {
                 method: 'HEAD',
@@ -144,18 +155,24 @@ export async function GET(request: NextRequest) {
 
         const streamData = await streamRes.json();
         const files = streamData.files || {};
-        const m3u8 = files.hin || files.eng || files.jpn || Object.values(files)[0];
-
+        const orderedCandidates = [
+            files.hin,
+            files.eng,
+            files.jpn,
+            ...Object.values(files),
+        ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
+        const uniqueCandidates = [...new Set(orderedCandidates)];
+        const m3u8 = uniqueCandidates.find(isLikelyHlsUrl);
         if (!m3u8) {
             return NextResponse.json(
-                { error: 'No streaming files found' },
+                { error: 'No usable HLS streaming files found' },
                 { status: 404 }
             );
         }
-
         return NextResponse.json({
-            url: m3u8 as string,
-            source: 'fresh',
+            url: m3u8,
+            source: 'server2',
+            server: 'server2',
             languages: Object.keys(files),
         });
 

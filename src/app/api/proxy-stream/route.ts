@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const targetUrl = searchParams.get('url');
+    const lowerTargetUrl = targetUrl?.toLowerCase() || '';
 
     if (!targetUrl) {
         return new NextResponse('Missing url parameter', { status: 400 });
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
         if (targetUrl.includes('anidb.app')) {
             headers['Referer'] = 'https://animerulz.net/';
             headers['Origin'] = 'https://animerulz.net';
-        } else if (targetUrl.includes('streamindia') || targetUrl.includes('animesalt')) {
+        } else if (targetUrl.includes('streamindia') || targetUrl.includes('animesalt') || targetUrl.includes('as-cdn21.top') || targetUrl.includes('toonplay.in')) {
             headers['Referer'] = 'https://toonplay.in/';
             headers['Origin'] = 'https://toonplay.in';
         } else if (targetUrl.includes('hakunaymatata.com')) {
@@ -43,7 +44,13 @@ export async function GET(request: NextRequest) {
         const contentType = res.headers.get('content-type') || '';
         
         // Check if it's an HLS playlist (m3u8)
-        if (contentType.includes('mpegurl') || targetUrl.endsWith('.m3u8') || targetUrl.includes('index') || targetUrl.includes('master')) {
+        const isSegmentTarget = /\.(ts|m4s|aac|mp4)(?:[?#]|$)/i.test(lowerTargetUrl);
+        const isPlaylistTarget = !isSegmentTarget && (
+            contentType.includes('mpegurl') ||
+            /\.m3u8(?:[?#]|$)/i.test(lowerTargetUrl) ||
+            /\/(?:hls|playlist|master)(?:\/|[?#]|$)/i.test(lowerTargetUrl)
+        );
+        if (isPlaylistTarget) {
             const playlistText = await res.text();
             const rewrittenPlaylist = rewritePlaylist(playlistText, targetUrl, request.nextUrl.origin);
             
@@ -52,6 +59,8 @@ export async function GET(request: NextRequest) {
                     'Content-Type': 'application/vnd.apple.mpegurl',
                     'Access-Control-Allow-Origin': '*',
                     'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+            'Access-Control-Allow-Headers': 'Range, Origin, Referer, Content-Type',
+            'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges',
                 }
             });
         }
@@ -60,6 +69,8 @@ export async function GET(request: NextRequest) {
         const headersToPass: Record<string, string> = {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+            'Access-Control-Allow-Headers': 'Range, Origin, Referer, Content-Type',
+            'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges',
         };
         
         const originContentType = res.headers.get('content-type');
