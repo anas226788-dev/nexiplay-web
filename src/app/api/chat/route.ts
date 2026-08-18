@@ -42,6 +42,7 @@ Rules:
 - If intent is "chat", title must be null
 - IMPORTANT: If user asks for recommendations like "give me some anime names", "suggest action movies", "kichu anime name daw", "best horror movies ki ase?" — this is CHAT, not search. They're not searching for a specific title.
 - Be smart about multilingual input (Bangla, Hindi, English, etc.)
+- CRITICAL: ALWAYS preserve sequel numbers, season numbers, and part numbers in the title! "Spider-Man 2" is NOT "Spider-Man". "The Amazing Spider-Man 2" is different from "The Amazing Spider-Man". Include all numbers that are part of the title.
 
 Examples:
 User: "naruto ase naki?" → {"intent":"search","title":"Naruto","confidence":0.95}
@@ -57,6 +58,11 @@ User: "noy" → {"intent":"chat","title":null,"confidence":0.85}
 User: "jujutsu kaisen daw" → {"intent":"search","title":"Jujutsu Kaisen","confidence":0.95}
 User: "Heavenly Delusion" → {"intent":"search","title":"Heavenly Delusion","confidence":0.9}
 User: "demon slayer er link daw" → {"intent":"search","title":"Demon Slayer","confidence":0.95}
+User: "the amazing spider-man 2 ase?" → {"intent":"search","title":"The Amazing Spider-Man 2","confidence":0.95}
+User: "spider man 3 download" → {"intent":"search","title":"Spider-Man 3","confidence":0.95}
+User: "iron man 2" → {"intent":"search","title":"Iron Man 2","confidence":0.95}
+User: "john wick chapter 4" → {"intent":"search","title":"John Wick: Chapter 4","confidence":0.95}
+User: "my hero academia season 7" → {"intent":"search","title":"My Hero Academia Season 7","confidence":0.95}
 User: "kichu action anime name daw" → {"intent":"chat","title":null,"confidence":0.9}
 User: "suggest some good horror movies" → {"intent":"chat","title":null,"confidence":0.9}
 User: "best anime ki ki ase tomar kase?" → {"intent":"chat","title":null,"confidence":0.9}
@@ -325,23 +331,154 @@ const COMMON_WORDS = new Set([
     'when', 'what', 'your', 'some', 'them', 'would', 'there', 'their',
 ]);
 
-// Check how relevant a DB result is to the search query
+// ============================================================
+// SMART RELEVANCE CHECKING — Number/Sequel-Aware
+// ============================================================
+
+// Extract all numbers from a title string (sequel numbers, season numbers, part numbers)
+function extractNumbers(title: string): number[] {
+    // Match standalone numbers, roman numerals patterns, and numbers after keywords
+    const matches = title.match(/\b\d+\b/g);
+    return matches ? matches.map(Number) : [];
+}
+
+// Normalize a title for comparison: lowercase, remove special chars, collapse whitespace
+function normalizeTitle(title: string): string {
+    return title
+        .toLowerCase()
+        .replace(/[:\-–—_.,!?'"()\[\]]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+// Check how relevant a DB result is to the search query (NUMBER-AWARE)
 function isRelevantResult(dbTitle: string, searchTitle: string): boolean {
-    const dbLower = dbTitle.toLowerCase();
-    const searchLower = searchTitle.toLowerCase();
+    const dbNorm = normalizeTitle(dbTitle);
+    const searchNorm = normalizeTitle(searchTitle);
+
+    // CRITICAL: Check sequel/season/part numbers first
+    const searchNumbers = extractNumbers(searchNorm);
+    const dbNumbers = extractNumbers(dbNorm);
+
+    if (searchNumbers.length > 0) {
+        // User is looking for a specific numbered sequel/season/part
+        // The DB result MUST contain the SAME number(s)
+        const hasAllNumbers = searchNumbers.every(n => dbNumbers.includes(n));
+        if (!hasAllNumbers) {
+            console.log(`[Chat API] Number mismatch: search has [${searchNumbers}], DB "${dbTitle}" has [${dbNumbers}]`);
+            return false;
+        }
+    } else if (dbNumbers.length > 0) {
+        // User did NOT specify a number, but DB result has one
+        // This is OK — e.g. searching "Spider-Man" should match "Spider-Man 1" or "The Amazing Spider-Man"
+        // But we continue to check word relevance below
+    }
 
     // If search title is fully contained in DB title → highly relevant
-    if (dbLower.includes(searchLower)) return true;
+    if (dbNorm.includes(searchNorm)) return true;
 
     // Count how many significant search words appear in the DB title
-    const searchWords = searchLower.split(/\s+/).filter(w => w.length >= 3 && !COMMON_WORDS.has(w));
+    // Include numbers as significant words (they're crucial for sequels!)
+    const searchWords = searchNorm.split(/\s+/).filter(w => {
+        if (/^\d+$/.test(w)) return true; // Numbers are ALWAYS significant
+        return w.length >= 3 && !COMMON_WORDS.has(w);
+    });
     if (searchWords.length === 0) return false;
 
-    const matchCount = searchWords.filter(w => dbLower.includes(w)).length;
+    const matchCount = searchWords.filter(w => {
+        // For numbers, require exact word boundary match in DB title
+        if (/^\d+$/.test(w)) {
+            const numRegex = new RegExp(`\\b${w}\\b`);
+            return numRegex.test(dbNorm);
+        }
+        return dbNorm.includes(w);
+    }).length;
     const matchRatio = matchCount / searchWords.length;
 
-    // At least 50% of significant words must match
-    return matchRatio >= 0.5;
+    // At least 60% of significant words must match (raised from 50%)
+    return matchRatio >= 0.6;
+}
+
+// ============================================================
+// AI RESULT VALIDATION — Use AI brain to verify DB results match user intent
+// ============================================================
+async function validateSearchResults(
+    userQuery: string,
+    extractedTitle: string,
+    dbResults: ContentResult[],
+    openRouterModels: string[] = []
+): Promise<ContentResult[]> {
+    if (dbResults.length === 0) return [];
+
+    // Quick exact-match check: if any DB title matches almost exactly, skip AI validation
+    const exactMatch = dbResults.filter(r => {
+        const dbNorm = normalizeTitle(r.title);
+        const searchNorm = normalizeTitle(extractedTitle);
+        return dbNorm === searchNorm || dbNorm.includes(searchNorm) || searchNorm.includes(dbNorm);
+    });
+    if (exactMatch.length > 0) {
+        console.log('[Chat API] Exact match found, skipping AI validation');
+        return exactMatch;
+    }
+
+    // Use AI to validate: "Does any of these results match what the user is looking for?"
+    try {
+        const resultsList = dbResults.map((r, i) => `${i + 1}. "${r.title}" (${r.type}, ${r.release_year || 'unknown'})`).join('\n');
+
+        const validationPrompt = `You are a content matching validator for a movie/anime/series website.
+
+The user asked: "${userQuery}"
+The extracted title from their query is: "${extractedTitle}"
+
+Our database returned these results:
+${resultsList}
+
+Respond with ONLY a JSON object:
+{
+  "valid_indices": [list of 1-indexed result numbers that ACTUALLY match what the user is looking for],
+  "reasoning": "brief explanation"
+}
+
+CRITICAL RULES:
+- Be STRICT about sequel numbers: "The Amazing Spider-Man 2" is NOT "The Amazing Spider-Man" (no 2). They are DIFFERENT movies.
+- "Iron Man 3" is NOT "Iron Man" or "Iron Man 2"
+- "Naruto Shippuden" is NOT "Naruto" (they are different series)
+- Season numbers matter: "Attack on Titan Season 4" is different from other seasons
+- If NONE of the results match, return {"valid_indices": [], "reasoning": "No exact match found"}
+- Only include results that genuinely match the user's search intent`;
+
+        const aiResponse = await fetchAI(
+            [
+                { role: 'system', content: validationPrompt },
+                { role: 'user', content: `Validate these results for: "${extractedTitle}"` },
+            ],
+            200,
+            0.1,
+            openRouterModels
+        );
+
+        const jsonMatch = aiResponse.content.match(/\{[\s\S]*?\}/);
+        if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            const validIndices: number[] = parsed.valid_indices || [];
+            console.log('[Chat API] AI validation result:', parsed.reasoning, '| Valid indices:', validIndices);
+
+            if (validIndices.length === 0) {
+                console.log('[Chat API] AI says NONE of the DB results match user intent');
+                return [];
+            }
+
+            // Return only the AI-validated results
+            return validIndices
+                .filter(i => i >= 1 && i <= dbResults.length)
+                .map(i => dbResults[i - 1]);
+        }
+    } catch (err) {
+        console.error('[Chat API] AI validation failed, using number-based filtering:', err);
+    }
+
+    // Fallback: return original results (already number-filtered by isRelevantResult)
+    return dbResults;
 }
 
 async function searchContent(title: string): Promise<ContentResult[]> {
@@ -359,7 +496,7 @@ async function searchContent(title: string): Promise<ContentResult[]> {
             .limit(5);
 
         if (!error && data && data.length > 0) {
-            // Filter for relevance
+            // Filter for relevance (number-aware)
             const relevant = data.filter(d => isRelevantResult(d.title, title));
             if (relevant.length > 0) {
                 console.log('[Chat API] DB FOUND:', relevant.map(d => d.title));
@@ -367,9 +504,9 @@ async function searchContent(title: string): Promise<ContentResult[]> {
             }
         }
 
-        // Strategy 2: Only use SIGNIFICANT words (5+ chars, not common words)
+        // Strategy 2: Only use SIGNIFICANT words (4+ chars, not common words)
         const significantWords = title.split(/\s+/).filter(
-            w => w.length >= 5 && !COMMON_WORDS.has(w.toLowerCase())
+            w => w.length >= 4 && !COMMON_WORDS.has(w.toLowerCase())
         );
 
         for (const word of significantWords) {
@@ -380,7 +517,7 @@ async function searchContent(title: string): Promise<ContentResult[]> {
                 .limit(10);
 
             if (!wordError && wordData && wordData.length > 0) {
-                // Filter results for relevance to the original title
+                // Filter results for relevance to the original title (number-aware)
                 const relevant = wordData.filter(d => isRelevantResult(d.title, title));
                 if (relevant.length > 0) {
                     console.log('[Chat API] DB FOUND (word):', relevant.map(d => d.title));
@@ -665,10 +802,21 @@ export async function POST(request: NextRequest) {
                 send('status', { step: 'searching_local', message: '🔍 Searching Nexiplay database...' });
                 await delay(1000); // Let user see "Searching" step
 
-                const dbResults = await searchContent(extractedTitle);
+                const rawDbResults = await searchContent(extractedTitle);
+
+                // STEP 2.5: AI Brain Validation — verify results actually match user intent
+                let dbResults = rawDbResults;
+                if (rawDbResults.length > 0) {
+                    send('status', { step: 'validating', message: '🧠 Verifying results match your query...' });
+                    await delay(600);
+                    dbResults = await validateSearchResults(userMessage, extractedTitle, rawDbResults, openRouterModels);
+                    if (dbResults.length === 0) {
+                        console.log('[Chat API] AI validation rejected all DB results — proceeding to TMDB');
+                    }
+                }
 
                 if (dbResults.length > 0) {
-                    // FOUND in DB!
+                    // FOUND in DB and validated by AI!
                     send('result', {
                         reply: `Yes, it's available on Nexiplay! Click below to view and download:`,
                         intent: 'search',
@@ -814,7 +962,16 @@ async function handleNonStreaming(
     const extractedTitle = intentResult.title || userMessage;
 
     // Search DB
-    const dbResults = await searchContent(extractedTitle);
+    const rawDbResults = await searchContent(extractedTitle);
+
+    // AI Brain Validation — verify results actually match user intent
+    let dbResults = rawDbResults;
+    if (rawDbResults.length > 0) {
+        dbResults = await validateSearchResults(userMessage, extractedTitle, rawDbResults, openRouterModels);
+        if (dbResults.length === 0) {
+            console.log('[Chat API] AI validation rejected all DB results — proceeding to TMDB');
+        }
+    }
 
     if (dbResults.length > 0) {
         return new Response(
