@@ -36,18 +36,40 @@ export const metadata: Metadata = buildPageMetadata({
 const ITEMS_PER_PAGE = 24;
 
 async function getHomeContent(page: number) {
-    const cardFields = 'id, title, slug, type, poster_url, release_year, created_at, trending_badge, is_adult';
+    const cardFields = 'id, title, slug, type, poster_url, release_year, created_at, trending_badge, is_adult, admin_note';
     const sliderFields = 'id, title, slug, type, poster_url, release_year, banner_url_desktop, banner_url_mobile, description, ad_link, is_adult';
     
     const from = (page - 1) * ITEMS_PER_PAGE;
     const to = from + ITEMS_PER_PAGE - 1;
 
     // 1. Fetch core data (always needed)
-    const [categoriesRes, latestCountRes, paginatedLatestRes] = await Promise.all([
+    const [categoriesRes, latestCountRes, paginatedLatestRes, pinnedRes] = await Promise.all([
         supabase.from('categories').select('id, name, slug, created_at').order('name', { ascending: true }),
         supabase.from('movies').select('id', { count: 'exact', head: true }).in('type', ['movie', 'series', 'anime']),
         supabase.from('movies').select(cardFields).in('type', ['movie', 'series', 'anime']).order('created_at', { ascending: false }).range(from, to),
+        page === 1 
+            ? supabase.from('movies').select(cardFields).eq('admin_note', 'pinned').in('type', ['movie', 'series', 'anime']).order('created_at', { ascending: false })
+            : Promise.resolve({ data: [] }),
     ]);
+
+    // Format pinned movies
+    const pinnedMovies: Movie[] = (pinnedRes.data || []).map((m: any) => ({
+        ...m,
+        is_pinned: true
+    }));
+    const pinnedIds = new Set(pinnedMovies.map(m => m.id));
+
+    // Combine pinned movies at the top of page 1, filtering duplicates
+    const regularLatest: Movie[] = (paginatedLatestRes.data || [])
+        .filter((m: any) => !pinnedIds.has(m.id))
+        .map((m: any) => ({
+            ...m,
+            is_pinned: Boolean(m.admin_note === 'pinned')
+        }));
+
+    const paginatedLatest: Movie[] = page === 1 
+        ? [...pinnedMovies, ...regularLatest] 
+        : (paginatedLatestRes.data || []).map((m: any) => ({ ...m, is_pinned: Boolean(m.admin_note === 'pinned') }));
 
     let trendingMovies: Movie[] = [];
     let latestUpdates: any[] = [];
@@ -57,6 +79,13 @@ async function getHomeContent(page: number) {
     let latestSeries: Movie[] = [];
     let latestAnime: Movie[] = [];
 
+    // Helper to sort pinned items to top of category grids
+    const sortCategoryWithPinned = (items: any[]) => {
+        const pinned = (items || []).filter(m => m.admin_note === 'pinned').map(m => ({ ...m, is_pinned: true }));
+        const unpinned = (items || []).filter(m => m.admin_note !== 'pinned').map(m => ({ ...m, is_pinned: false }));
+        return [...pinned, ...unpinned];
+    };
+
     // 2. Fetch specific Home Page grids & widgets ONLY if page exactly 1
     if (page === 1) {
         const [trendingRes, updatesRes, settingsRes, upcomingRes, movRes, serRes, aniRes] = await Promise.all([
@@ -64,24 +93,24 @@ async function getHomeContent(page: number) {
             supabase.from('updates').select('*').eq('is_active', true).order('updated_at', { ascending: false }).limit(10),
             supabase.from('app_settings').select('latest_update_click_ad_link').eq('id', 1).single(),
             supabase.from('upcoming').select('*').order('release_date', { ascending: true }).limit(10),
-            supabase.from('movies').select(cardFields).eq('type', 'movie').order('created_at', { ascending: false }).limit(6),
-            supabase.from('movies').select(cardFields).eq('type', 'series').order('created_at', { ascending: false }).limit(6),
-            supabase.from('movies').select(cardFields).eq('type', 'anime').order('created_at', { ascending: false }).limit(6),
+            supabase.from('movies').select(cardFields).eq('type', 'movie').order('created_at', { ascending: false }).limit(10),
+            supabase.from('movies').select(cardFields).eq('type', 'series').order('created_at', { ascending: false }).limit(10),
+            supabase.from('movies').select(cardFields).eq('type', 'anime').order('created_at', { ascending: false }).limit(10),
         ]);
 
         trendingMovies = (trendingRes.data as Movie[]) || [];
         latestUpdates = updatesRes.data || [];
         latestUpdateAdLink = settingsRes.data?.latest_update_click_ad_link || '';
         upcomingReleases = upcomingRes.data || [];
-        latestMovies = (movRes.data as Movie[]) || [];
-        latestSeries = (serRes.data as Movie[]) || [];
-        latestAnime = (aniRes.data as Movie[]) || [];
+        latestMovies = sortCategoryWithPinned(movRes.data || []).slice(0, 6);
+        latestSeries = sortCategoryWithPinned(serRes.data || []).slice(0, 6);
+        latestAnime = sortCategoryWithPinned(aniRes.data || []).slice(0, 6);
     }
 
     return {
         categories: categoriesRes.data || [],
         totalLatestCount: latestCountRes.count || 0,
-        paginatedLatest: (paginatedLatestRes.data as Movie[]) || [],
+        paginatedLatest,
         trendingMovies,
         latestUpdates,
         latestUpdateAdLink,

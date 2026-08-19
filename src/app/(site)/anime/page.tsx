@@ -22,6 +22,7 @@ interface AnimePageProps {
 async function getAnime(page: number): Promise<{ anime: Movie[]; totalCount: number }> {
     const from = (page - 1) * ITEMS_PER_PAGE;
     const to = from + ITEMS_PER_PAGE - 1;
+    const fields = 'id, title, slug, type, poster_url, description, release_year, created_at, trending_badge, is_adult, admin_note';
 
     // Get total count
     const { count } = await supabase
@@ -29,20 +30,30 @@ async function getAnime(page: number): Promise<{ anime: Movie[]; totalCount: num
         .select('id', { count: 'exact', head: true })
         .eq('type', 'anime');
 
-    // Get paginated data
-    const { data, error } = await supabase
-        .from('movies')
-        .select('id, title, slug, type, poster_url, description, release_year, created_at, trending_badge, is_adult')
-        .eq('type', 'anime')
-        .order('created_at', { ascending: false })
-        .range(from, to);
+    // Get paginated data + pinned items on page 1
+    const [paginatedRes, pinnedRes] = await Promise.all([
+        supabase
+            .from('movies')
+            .select(fields)
+            .eq('type', 'anime')
+            .order('created_at', { ascending: false })
+            .range(from, to),
+        page === 1
+            ? supabase.from('movies').select(fields).eq('type', 'anime').eq('admin_note', 'pinned').order('created_at', { ascending: false })
+            : Promise.resolve({ data: [] })
+    ]);
 
-    if (error) {
-        console.error('Error fetching anime:', error);
+    if (paginatedRes.error) {
+        console.error('Error fetching anime:', paginatedRes.error);
         return { anime: [], totalCount: 0 };
     }
 
-    return { anime: data || [], totalCount: count || 0 };
+    const pinned: Movie[] = (pinnedRes.data || []).map((m: any) => ({ ...m, is_pinned: true }));
+    const pinnedIds = new Set(pinned.map(m => m.id));
+    const regular: Movie[] = (paginatedRes.data || []).filter((m: any) => !pinnedIds.has(m.id)).map((m: any) => ({ ...m, is_pinned: m.admin_note === 'pinned' }));
+    const finalAnime: Movie[] = page === 1 ? [...pinned, ...regular] : (paginatedRes.data || []).map((m: any) => ({ ...m, is_pinned: m.admin_note === 'pinned' }));
+
+    return { anime: finalAnime, totalCount: count || 0 };
 }
 
 export default async function AnimePage({ searchParams }: AnimePageProps) {

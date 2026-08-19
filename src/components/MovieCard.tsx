@@ -94,9 +94,13 @@ export default function MovieCard({ movie }: MovieCardProps) {
                     </span>
                 </div>
 
-                {/* NEW / TRENDING Badge */}
-                <div className="absolute bottom-2 left-2">
-                    {movie.trending_badge ? (
+                {/* PINNED / GORGEOUS / TRENDING Badge */}
+                <div className="absolute bottom-2 left-2 z-10">
+                    {movie.is_pinned ? (
+                        <span className="px-2.5 py-1 text-[10px] font-black rounded-md bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-black uppercase tracking-wider shadow-lg shadow-amber-500/50 border border-yellow-200/90 flex items-center gap-1 font-bold animate-pulse">
+                            <span>📌</span> Gorgeous
+                        </span>
+                    ) : movie.trending_badge ? (
                         <span className="px-2 py-1 text-[10px] font-black rounded bg-gradient-to-r from-orange-500 to-red-600 text-white uppercase tracking-wider shadow-lg shadow-red-600/30 animate-pulse">
                             🔥 Trending
                         </span>

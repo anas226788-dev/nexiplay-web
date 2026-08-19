@@ -18,6 +18,8 @@ export interface Movie {
     is_trending?: boolean;
     trending_badge?: boolean;
     trending_rank?: number;
+    is_pinned?: boolean;
+    pinned_at?: string | null;
     banner_url_desktop?: string;
     banner_url_mobile?: string;
     // Running Series Features
