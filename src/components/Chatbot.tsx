@@ -1,7 +1,7 @@
 'use client';
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -54,6 +54,7 @@ const formatAgentName = (name?: string | null): string => {
 };
 
 export default function Chatbot() {
+    const { user } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
     const [settings, setSettings] = useState<ChatbotConfig | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -258,10 +259,21 @@ export default function Chatbot() {
 
             // Start the API call (non-streaming for reliability)
             const history = getAIHistory();
+            const authUserId = user?.id || null;
+            const authUserEmail = user?.email || null;
+            const authUserName = user?.user_metadata?.display_name || user?.user_metadata?.full_name || (user?.email ? user.email.split('@')[0] : null);
+
             const fetchPromise = fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: userMessage, history, streaming: false })
+                body: JSON.stringify({
+                    message: userMessage,
+                    history,
+                    streaming: false,
+                    user_id: authUserId,
+                    user_email: authUserEmail,
+                    user_name: authUserName
+                })
             });
 
             // Step 2: Show "Searching" while waiting

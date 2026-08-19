@@ -641,7 +641,13 @@ Rules:
 // ============================================================
 // STEP 4: SUBMIT REQUEST (only for verified content)
 // ============================================================
-async function submitRequest(title: string, tmdbInfo?: TMDBResult): Promise<boolean> {
+async function submitRequest(
+    title: string,
+    tmdbInfo?: TMDBResult,
+    userId?: string | null,
+    userName?: string | null,
+    userEmail?: string | null
+): Promise<boolean> {
     const supabase = getSupabase();
     if (!supabase) return false;
 
@@ -658,22 +664,46 @@ async function submitRequest(title: string, tmdbInfo?: TMDBResult): Promise<bool
             .gte('created_at', oneDayAgo)
             .limit(1);
 
+        const userMeta = (userId || userName || userEmail) ? {
+            user_id: userId || null,
+            user_name: userName || null,
+            user_email: userEmail || null,
+            source: 'web_chat'
+        } : null;
+
         if (existing && existing.length > 0) {
-            console.log('[Chat API] Request already exists (24h), skipping');
+            console.log('[Chat API] Request already exists (24h), updating with user metadata if logged in');
+            if (userMeta) {
+                try {
+                    await supabase.from('content_requests').update({ scraped_data: userMeta }).eq('id', existing[0].id);
+                } catch (e) {
+                    console.warn('[Chat API] Could not update existing request scraped_data:', e);
+                }
+            }
             return true;
         }
 
-        // Insert the request
-        const { error } = await supabase
-            .from('content_requests')
-            .insert({ content_name: contentName, status: 'pending' });
+        // Insert with scraped_data JSONB (guaranteed to succeed across all database versions)
+        const insertPayload: any = {
+            content_name: contentName,
+            status: 'pending',
+            scraped_data: userMeta
+        };
 
-        if (error) {
-            console.error('[Chat API] Insert request error:', error.message);
-            return false;
+        const { data: inserted, error: insertError } = await supabase
+            .from('content_requests')
+            .insert(insertPayload)
+            .select();
+
+        if (!insertError && inserted && inserted.length > 0) {
+            console.log('[Chat API] ✅ Request inserted with scraped_data user metadata:', contentName, userName || userId || 'Guest');
+            return true;
         }
 
-        console.log('[Chat API] ✅ Request inserted:', contentName);
+        if (insertError) {
+            console.warn('[Chat API] Insert with scraped_data failed, trying basic insert:', insertError.message);
+            await supabase.from('content_requests').insert({ content_name: contentName, status: 'pending' });
+        }
         return true;
     } catch (err) {
         console.error('[Chat API] Submit request error:', err);
@@ -729,7 +759,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const { message, history = [], streaming = false } = body;
+        const { message, history = [], streaming = false, user_id = null, user_name = null, user_email = null } = body;
 
         if (!message || typeof message !== 'string' || message.trim().length === 0) {
             return new Response(
@@ -759,7 +789,7 @@ export async function POST(request: NextRequest) {
         // NON-STREAMING MODE (backward compatible)
         // ============================================================
         if (!streaming) {
-            return handleNonStreaming(userMessage, history, openRouterModels);
+            return handleNonStreaming(userMessage, history, openRouterModels, user_id, user_name, user_email);
         }
 
         // ============================================================
@@ -845,7 +875,7 @@ export async function POST(request: NextRequest) {
                     send('status', { step: 'submitting', message: `📥 "${verifiedTitle}" is real! Submitting request to admin...` });
                     await delay(1000); // Let user see "Submitting" step
 
-                    const requestSubmitted = await submitRequest(verifiedTitle, tmdbResult);
+                    const requestSubmitted = await submitRequest(verifiedTitle, tmdbResult, user_id, user_name, user_email);
 
                     // Generate AI reply
                     const context = requestSubmitted
@@ -926,11 +956,12 @@ export async function POST(request: NextRequest) {
         console.error('[Chat API] Unhandled error:', error);
         return new Response(
             JSON.stringify({
-                reply: "Sorry, AI is temporarily unavailable. Please try again later.",
+                reply: "Sorry, I'm having a brief connection issue. How can I help you find movies, anime, or series? 🙏",
                 intent: 'general',
+                agent: 'llama-3.3-70b',
                 isFallback: true,
             }),
-            { status: 500, headers: { 'Content-Type': 'application/json' } }
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
         );
     }
 }
@@ -941,73 +972,108 @@ export async function POST(request: NextRequest) {
 async function handleNonStreaming(
     userMessage: string,
     history: { role: string; content: string }[],
-    openRouterModels: string[] = []
+    openRouterModels: string[] = [],
+    userId?: string | null,
+    userName?: string | null,
+    userEmail?: string | null
 ) {
-    console.log('\n=== CHAT API (NON-STREAMING) ===');
-    console.log('Message:', userMessage);
+    try {
+        console.log('\n=== CHAT API (NON-STREAMING) ===');
+        console.log('Message:', userMessage);
 
-    // Step 1: AI Intent Detection
-    const intentResult = await detectIntentWithAI(userMessage, openRouterModels);
-    console.log('Intent:', intentResult.intent, '| Title:', intentResult.title);
+        // Step 1: AI Intent Detection
+        const intentResult = await detectIntentWithAI(userMessage, openRouterModels);
+        console.log('Intent:', intentResult.intent, '| Title:', intentResult.title);
 
-    // Chat intent
-    if (intentResult.intent === 'chat') {
-        const aiReply = await getAIResponse(userMessage, history, undefined, openRouterModels);
-        return new Response(JSON.stringify({ reply: aiReply.content, agent: aiReply.agent, intent: 'general' }), {
-            headers: { 'Content-Type': 'application/json' },
-        });
-    }
-
-    // Search intent
-    const extractedTitle = intentResult.title || userMessage;
-
-    // Search DB
-    const rawDbResults = await searchContent(extractedTitle);
-
-    // AI Brain Validation — verify results actually match user intent
-    let dbResults = rawDbResults;
-    if (rawDbResults.length > 0) {
-        dbResults = await validateSearchResults(userMessage, extractedTitle, rawDbResults, openRouterModels);
-        if (dbResults.length === 0) {
-            console.log('[Chat API] AI validation rejected all DB results — proceeding to TMDB');
+        // Chat intent
+        if (intentResult.intent === 'chat') {
+            const aiReply = await getAIResponse(userMessage, history, undefined, openRouterModels);
+            return new Response(JSON.stringify({ reply: aiReply.content, agent: aiReply.agent, intent: 'general' }), {
+                headers: { 'Content-Type': 'application/json' },
+            });
         }
-    }
 
-    if (dbResults.length > 0) {
-        return new Response(
-            JSON.stringify({
-                reply: `Yes, it's available on Nexiplay! Click below to view and download:`,
-                intent: 'search',
-                found: true,
-                results: dbResults.map(r => ({
-                    title: r.title,
-                    slug: r.slug,
-                    type: r.type,
-                    release_year: r.release_year,
-                    poster_url: r.poster_url,
-                })),
-            }),
-            { headers: { 'Content-Type': 'application/json' } }
-        );
-    }
+        // Search intent
+        const extractedTitle = intentResult.title || userMessage;
 
-    // Verify with TMDB
-    const tmdbResult = await verifyWithTMDB(extractedTitle, openRouterModels);
+        // Search DB
+        const rawDbResults = await searchContent(extractedTitle);
 
-    if (tmdbResult.verified) {
-        const verifiedTitle = tmdbResult.tmdb_title || extractedTitle;
-        const requestSubmitted = await submitRequest(verifiedTitle, tmdbResult);
+        // AI Brain Validation — verify results actually match user intent
+        let dbResults = rawDbResults;
+        if (rawDbResults.length > 0) {
+            dbResults = await validateSearchResults(userMessage, extractedTitle, rawDbResults, openRouterModels);
+            if (dbResults.length === 0) {
+                console.log('[Chat API] AI validation rejected all DB results — proceeding to TMDB');
+            }
+        }
 
-        const context = requestSubmitted
-            ? `The user searched for "${verifiedTitle}" (${tmdbResult.tmdb_type || 'content'}, ${tmdbResult.tmdb_year || 'unknown year'}). It's a real title verified online but NOT available on Nexiplay yet. Their request has been sent to the admin. Politely inform them with the verified info. Be warm and friendly. IMPORTANT: Detect the user's language from their message "${userMessage}" and reply in that EXACT same language. If they wrote in Bangla/Banglish, reply in Bangla/Banglish. NEVER reply in English if user didn't write in English.`
-            : `The user searched for "${verifiedTitle}" but it's not on Nexiplay yet. Inform them politely. IMPORTANT: Detect the user's language from their message "${userMessage}" and reply in that EXACT same language. NEVER default to English.`;
+        if (dbResults.length > 0) {
+            return new Response(
+                JSON.stringify({
+                    reply: `Yes, it's available on Nexiplay! Click below to view and download:`,
+                    intent: 'search',
+                    found: true,
+                    results: dbResults.map(r => ({
+                        title: r.title,
+                        slug: r.slug,
+                        type: r.type,
+                        release_year: r.release_year,
+                        poster_url: r.poster_url,
+                    })),
+                }),
+                { headers: { 'Content-Type': 'application/json' } }
+            );
+        }
 
+        // Verify with TMDB
+        const tmdbResult = await verifyWithTMDB(extractedTitle, openRouterModels);
+
+        if (tmdbResult.verified) {
+            const verifiedTitle = tmdbResult.tmdb_title || extractedTitle;
+            const requestSubmitted = await submitRequest(verifiedTitle, tmdbResult, userId, userName, userEmail);
+
+            const context = requestSubmitted
+                ? `The user searched for "${verifiedTitle}" (${tmdbResult.tmdb_type || 'content'}, ${tmdbResult.tmdb_year || 'unknown year'}). It's a real title verified online but NOT available on Nexiplay yet. Their request has been sent to the admin. Politely inform them with the verified info. Be warm and friendly. IMPORTANT: Detect the user's language from their message "${userMessage}" and reply in that EXACT same language. If they wrote in Bangla/Banglish, reply in Bangla/Banglish. NEVER reply in English if user didn't write in English.`
+                : `The user searched for "${verifiedTitle}" but it's not on Nexiplay yet. Inform them politely. IMPORTANT: Detect the user's language from their message "${userMessage}" and reply in that EXACT same language. NEVER default to English.`;
+
+            let aiReply: AIResponse;
+            try {
+                aiReply = await getAIResponse(userMessage, history, context, openRouterModels);
+            } catch {
+                aiReply = {
+                    content: `"${verifiedTitle}" is not on Nexiplay yet. Your request has been submitted! 🙏`,
+                    agent: 'llama-3.3-70b'
+                };
+            }
+
+            return new Response(
+                JSON.stringify({
+                    reply: aiReply.content,
+                    agent: aiReply.agent,
+                    intent: 'search',
+                    found: false,
+                    requestSubmitted,
+                    tmdbVerified: true,
+                    tmdbInfo: {
+                        title: tmdbResult.tmdb_title,
+                        type: tmdbResult.tmdb_type,
+                        year: tmdbResult.tmdb_year,
+                        poster: tmdbResult.tmdb_poster,
+                    },
+                }),
+                { headers: { 'Content-Type': 'application/json' } }
+            );
+        }
+
+        // Not verified
         let aiReply: AIResponse;
         try {
+            const context = `"${extractedTitle}" is NOT a real movie/anime/series. Ask user to check the name. IMPORTANT: Detect the user's language from their message "${userMessage}" and reply in that EXACT same language. NEVER default to English.`;
             aiReply = await getAIResponse(userMessage, history, context, openRouterModels);
         } catch {
             aiReply = {
-                content: `"${verifiedTitle}" is not on Nexiplay yet. Your request has been submitted! 🙏`,
+                content: `Sorry, "${extractedTitle}" doesn't appear to be a valid title. Please check the name! 🙏`,
                 agent: 'llama-3.3-70b'
             };
         }
@@ -1018,40 +1084,21 @@ async function handleNonStreaming(
                 agent: aiReply.agent,
                 intent: 'search',
                 found: false,
-                requestSubmitted,
-                tmdbVerified: true,
-                tmdbInfo: {
-                    title: tmdbResult.tmdb_title,
-                    type: tmdbResult.tmdb_type,
-                    year: tmdbResult.tmdb_year,
-                    poster: tmdbResult.tmdb_poster,
-                },
+                requestSubmitted: false,
+                tmdbVerified: false,
             }),
             { headers: { 'Content-Type': 'application/json' } }
         );
+    } catch (err) {
+        console.error('[Chat API] Non-streaming error:', err);
+        return new Response(
+            JSON.stringify({
+                reply: "Sorry, I'm having a brief connection issue. How can I help you find movies, anime, or series? 🙏",
+                intent: 'general',
+                agent: 'llama-3.3-70b',
+                isFallback: true,
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
     }
-
-    // Not verified
-    let aiReply: AIResponse;
-    try {
-        const context = `"${extractedTitle}" is NOT a real movie/anime/series. Ask user to check the name. IMPORTANT: Detect the user's language from their message "${userMessage}" and reply in that EXACT same language. NEVER default to English.`;
-        aiReply = await getAIResponse(userMessage, history, context, openRouterModels);
-    } catch {
-        aiReply = {
-            content: `Sorry, "${extractedTitle}" doesn't appear to be a valid title. Please check the name! 🙏`,
-            agent: 'llama-3.3-70b'
-        };
-    }
-
-    return new Response(
-        JSON.stringify({
-            reply: aiReply.content,
-            agent: aiReply.agent,
-            intent: 'search',
-            found: false,
-            requestSubmitted: false,
-            tmdbVerified: false,
-        }),
-        { headers: { 'Content-Type': 'application/json' } }
-    );
 }
