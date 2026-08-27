@@ -13,7 +13,8 @@ export const metadata: Metadata = buildPageMetadata({
     path: '/series',
 });
 
-export const revalidate = 720;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 interface SeriesPageProps {
     searchParams: Promise<{ page?: string }>;

@@ -24,8 +24,9 @@ const MovieGrid = dynamicImport(() => import('@/components/MovieGrid'), {
     loading: () => <div className="h-96 bg-dark-800 animate-pulse rounded-xl my-8" />,
 });
 
-// ISR: Revalidate every 15 minutes
-export const revalidate = 720;
+// Force dynamic to ensure immediate reflection of admin pin/unpin actions
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export const metadata: Metadata = buildPageMetadata({
     title: 'Download Movies, Series & Anime',
@@ -79,32 +80,39 @@ async function getHomeContent(page: number) {
     let latestSeries: Movie[] = [];
     let latestAnime: Movie[] = [];
 
-    // Helper to sort pinned items to top of category grids
-    const sortCategoryWithPinned = (items: any[]) => {
-        const pinned = (items || []).filter(m => m.admin_note === 'pinned').map(m => ({ ...m, is_pinned: true }));
-        const unpinned = (items || []).filter(m => m.admin_note !== 'pinned').map(m => ({ ...m, is_pinned: false }));
-        return [...pinned, ...unpinned];
+    // Helper to fetch category items with pinned items always placed first
+    const getCategoryWithPinned = async (type: string) => {
+        const [catPinnedRes, catRegularRes] = await Promise.all([
+            supabase.from('movies').select(cardFields).eq('type', type).eq('admin_note', 'pinned').order('created_at', { ascending: false }).limit(6),
+            supabase.from('movies').select(cardFields).eq('type', type).order('created_at', { ascending: false }).limit(10),
+        ]);
+        const catPinned = (catPinnedRes.data || []).map((m: any) => ({ ...m, is_pinned: true }));
+        const catPinnedIds = new Set(catPinned.map(m => m.id));
+        const catRegular = (catRegularRes.data || [])
+            .filter((m: any) => !catPinnedIds.has(m.id))
+            .map((m: any) => ({ ...m, is_pinned: false }));
+        return [...catPinned, ...catRegular].slice(0, 6);
     };
 
     // 2. Fetch specific Home Page grids & widgets ONLY if page exactly 1
     if (page === 1) {
-        const [trendingRes, updatesRes, settingsRes, upcomingRes, movRes, serRes, aniRes] = await Promise.all([
+        const [trendingRes, updatesRes, settingsRes, upcomingRes, movList, serList, aniList] = await Promise.all([
             supabase.from('movies').select(sliderFields).eq('is_trending', true).order('trending_rank', { ascending: true }).limit(10),
             supabase.from('updates').select('*').eq('is_active', true).order('updated_at', { ascending: false }).limit(10),
             supabase.from('app_settings').select('latest_update_click_ad_link').eq('id', 1).single(),
             supabase.from('upcoming').select('*').order('release_date', { ascending: true }).limit(10),
-            supabase.from('movies').select(cardFields).eq('type', 'movie').order('created_at', { ascending: false }).limit(10),
-            supabase.from('movies').select(cardFields).eq('type', 'series').order('created_at', { ascending: false }).limit(10),
-            supabase.from('movies').select(cardFields).eq('type', 'anime').order('created_at', { ascending: false }).limit(10),
+            getCategoryWithPinned('movie'),
+            getCategoryWithPinned('series'),
+            getCategoryWithPinned('anime'),
         ]);
 
         trendingMovies = (trendingRes.data as Movie[]) || [];
         latestUpdates = updatesRes.data || [];
         latestUpdateAdLink = settingsRes.data?.latest_update_click_ad_link || '';
         upcomingReleases = upcomingRes.data || [];
-        latestMovies = sortCategoryWithPinned(movRes.data || []).slice(0, 6);
-        latestSeries = sortCategoryWithPinned(serRes.data || []).slice(0, 6);
-        latestAnime = sortCategoryWithPinned(aniRes.data || []).slice(0, 6);
+        latestMovies = movList;
+        latestSeries = serList;
+        latestAnime = aniList;
     }
 
     return {
