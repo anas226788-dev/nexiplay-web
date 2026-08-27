@@ -68,7 +68,7 @@ export default function NoticeSystem() {
             }
 
             const reader = res.body.getReader();
-            const chunks: Uint8Array[] = [];
+            const chunks: BlobPart[] = [];
             let loadedBytes = 0;
 
             while (true) {
