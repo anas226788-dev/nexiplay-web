@@ -79,16 +79,37 @@ export default async function NovelDetailsPage({ params }: PageProps) {
             <div className="flex flex-col md:flex-row gap-8 lg:gap-12 mb-12">
                 {/* Cover Image */}
                 <div className="w-[200px] md:w-[280px] shrink-0 mx-auto md:mx-0">
-                    <div className="relative aspect-[2/3] w-full rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-dark-800">
-                        <Image
-                            src={novel.cover_url || '/novel-covers/cover-1.jpg'}
-                            alt={novel.title}
-                            fill
-                            className="object-cover"
-                            priority
-                        />
+                    <div className="relative aspect-[2/3] w-full rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-gradient-to-b from-[#181822] via-[#0f0f14] to-black flex items-center justify-center">
+                        {novel.cover_url ? (
+                            <Image
+                                src={novel.cover_url}
+                                alt={novel.title}
+                                fill
+                                className="object-cover"
+                                priority
+                            />
+                        ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-between p-6 text-center select-none">
+                                <div className="text-[11px] font-mono uppercase tracking-widest text-gray-500">
+                                    NEXIPLAY NOVEL
+                                </div>
+                                <div className="flex flex-col items-center">
+                                    <div className="w-16 h-16 rounded-2xl bg-white/[0.04] border border-white/10 flex items-center justify-center text-red-400 mb-3 shadow-inner">
+                                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                        </svg>
+                                    </div>
+                                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                                        {novel.genre || 'Romantic'}
+                                    </span>
+                                </div>
+                                <div className="text-[10px] text-gray-600 font-mono">
+                                    {novel.author || 'Nexiplay'}
+                                </div>
+                            </div>
+                        )}
                         {novel.status === 'completed' && (
-                            <div className="absolute top-3 right-3 bg-green-500/90 backdrop-blur text-white text-xs font-bold px-3 py-1.5 rounded uppercase tracking-wider shadow-lg">
+                            <div className="absolute top-3 right-3 bg-emerald-600/90 backdrop-blur text-white text-xs font-bold px-3 py-1.5 rounded uppercase tracking-wider shadow-lg">
                                 Completed
                             </div>
                         )}
