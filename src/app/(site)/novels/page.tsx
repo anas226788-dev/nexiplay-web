@@ -41,7 +41,7 @@ export default async function NovelsIndexPage() {
                         <Link href={`/novels/${novel.slug}`} key={novel.slug} className="group flex flex-col rounded-2xl overflow-hidden hover:-translate-y-1 transition-all">
                             <div className="relative aspect-[2/3] w-full overflow-hidden bg-dark-800 rounded-xl mb-3 shadow-lg">
                                 <Image
-                                    src={novel.cover_url || '/preview.jpg'}
+                                    src={novel.cover_url || '/novel-covers/cover-1.jpg'}
                                     alt={novel.title}
                                     fill
                                     className="object-cover transition-transform duration-500 group-hover:scale-105"

@@ -81,7 +81,7 @@ export default async function NovelDetailsPage({ params }: PageProps) {
                 <div className="w-[200px] md:w-[280px] shrink-0 mx-auto md:mx-0">
                     <div className="relative aspect-[2/3] w-full rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-dark-800">
                         <Image
-                            src={novel.cover_url || '/preview.jpg'}
+                            src={novel.cover_url || '/novel-covers/cover-1.jpg'}
                             alt={novel.title}
                             fill
                             className="object-cover"
