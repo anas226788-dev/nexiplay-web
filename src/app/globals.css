@@ -1,6 +1,9 @@
+@import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
 
 :root {
   /* Liquid Glass Theme - Core Palette */
@@ -409,3 +412,35 @@ body {
     animation: marquee 25s linear infinite;
     will-change: transform;
 }
+
+/* --- Professional Bengali Novel Reader Typography --- */
+.font-bengali {
+  font-family: 'Hind Siliguri', 'Noto Sans Bengali', 'SolaimanLipi', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.novel-reader-article {
+  font-family: 'Hind Siliguri', 'Noto Sans Bengali', 'SolaimanLipi', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+.novel-para {
+  margin-bottom: 1.75rem;
+  line-height: 2.2;
+  letter-spacing: 0.012em;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.novel-para.dialogue {
+  font-weight: 500;
+}
+
+.reader-dark .novel-para {
+  color: #e2e8f0;
+}
+
+.reader-light .novel-para {
+  color: #1e293b;
+}
+
