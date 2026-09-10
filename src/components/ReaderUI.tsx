@@ -122,11 +122,31 @@ export default function ReaderUI({ novel, chapter, prevSlug, nextSlug, chapterIn
 
             {/* Content Area */}
             <div className="container mx-auto px-4 py-8 md:py-16 max-w-3xl">
-                <article 
-                    className="prose max-w-none prose-img:rounded-xl prose-img:mx-auto prose-p:leading-relaxed"
-                    style={{ fontSize: `${fontSize}px` }}
-                    dangerouslySetInnerHTML={{ __html: chapter.content }}
-                />
+                {chapter.content ? (
+                    <article 
+                        className="prose max-w-none prose-img:rounded-xl prose-img:mx-auto prose-p:leading-relaxed"
+                        style={{ fontSize: `${fontSize}px` }}
+                        dangerouslySetInnerHTML={{ __html: chapter.content }}
+                    />
+                ) : (
+                    <div className="text-center py-16 bg-white/[0.02] rounded-2xl border border-white/5 p-8">
+                        <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-gray-400 mx-auto mb-3">
+                            <svg className="w-6 h-6 animate-pulse text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                            </svg>
+                        </div>
+                        <h3 className="text-lg font-bold text-white mb-1">Loading Chapter...</h3>
+                        <p className="text-gray-400 text-sm max-w-sm mx-auto mb-4">
+                            Fetching chapter text from Cloudflare CDN. If it doesn't appear, please reload.
+                        </p>
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs transition-colors shadow-lg shadow-red-900/30"
+                        >
+                            Reload Chapter
+                        </button>
+                    </div>
+                )}
 
                 {/* Bottom Navigation */}
                 <div className={`mt-16 pt-8 border-t flex flex-col sm:flex-row items-center justify-between gap-4 ${isDarkMode ? 'border-white/10' : 'border-gray-200'}`}>
