@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ad Test - Social Bar & Popunder</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 40px;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 200vh;
+        }
+
+        h1 {
+            color: #e94560;
+        }
+
+        .status {
+            background: #16213e;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+
+        .click-area {
+            background: #e94560;
+            padding: 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+            margin: 20px 0;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .click-area:hover {
+            background: #c73a50;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🧪 Ad Test Page — Pure HTML (No React/Next.js)</h1>
+
+    <div class="status">
+        <strong>Purpose:</strong> If ads show HERE but NOT on the main site, the problem is in our React code.
+        <br>If ads DON'T show here either, the problem is Adsterra/Browser/Extension.
+    </div>
+
+    <div class="status">
+        <strong>Social Bar:</strong> Should appear as a floating bar at the bottom of the screen.
+    </div>
+
+    <div class="status">
+        <strong>Popunder:</strong> Click anywhere on this page — a new tab should open with an ad.
+    </div>
+
+    <div class="click-area" onclick="alert('You clicked! If popunder works, a new tab also opened.')">
+        👆 CLICK HERE TO TEST POPUNDER 👆
+    </div>
+
+    <div class="click-area">
+        👆 ALSO CLICK HERE 👆
+    </div>
+
+    <p>Scroll down for more click targets...</p>
+
+    <div style="margin-top: 100vh;">
+        <div class="click-area">👆 CLICK AT BOTTOM 👆</div>
+    </div>
+
+    <!-- SOCIAL BAR - Direct Adsterra Code -->
+    <script src="https://conscientiouscabbageadrift.com/e3/a2/47/e3a247a1392d9e120d201658ad26d90a.js"></script>
+
+    <!-- POPUNDER - Direct Adsterra Code -->
+    <script src="https://conscientiouscabbageadrift.com/bf/59/f1/bf59f1cde9a00e6fa2ec5c7249ee762f.js"></script>
+
+    <script>
+        console.log('[TEST PAGE] Both Adsterra scripts loaded directly (no React)');
+    </script>
+</body>
+
+</html>
