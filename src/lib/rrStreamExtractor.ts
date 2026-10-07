@@ -32,31 +32,73 @@ export interface ExtractedRRStream {
     m3u8Url?: string;
     cookies?: string;
     title?: string;
-    fallbackUrl?: string;
 }
 
 /**
- * Extracts the direct .m3u8 stream and session cookies from a codedew zipper or razorshell embed URL.
+ * Extracts the direct .m3u8 stream and session cookies from:
+ * 1. A rareanimes article post page (e.g. https://www.rareanimes.mov/hindi/.../)
+ * 2. A codedew zipper link (e.g. https://codedew.com/zipper/?url=...)
+ * 3. An argon razorshell embed URL (e.g. https://argon.razorshell.space/embed/...)
+ * 4. A direct .m3u8 playlist URL
  */
-export async function extractRRStream(rawUrl: string): Promise<ExtractedRRStream> {
+export async function extractRRStream(rawUrl: string, epNum: number = 1): Promise<ExtractedRRStream> {
     if (!rawUrl) {
         return { success: false };
     }
 
     const cleanUrl = rawUrl.trim();
 
-    // If it's already an m3u8 or mp4
+    // 0. If it's already an m3u8 or mp4
     if (cleanUrl.includes('.m3u8') || cleanUrl.includes('.mp4')) {
         return { success: true, m3u8Url: cleanUrl };
     }
 
     try {
-        let playerEmbedUrl = cleanUrl;
-        let referer = 'https://codedew.com/';
+        let currentTarget = cleanUrl;
 
-        // 1. Unwrap codedew zipper if present
-        if (cleanUrl.includes('codedew.com/zipper')) {
-            const zipperRes = await fetch(cleanUrl, {
+        // 1. If it's a rareanimes blog post, find the episode zipper link
+        if (currentTarget.includes('rareanimes.') || (!currentTarget.includes('codedew.com/zipper') && !currentTarget.includes('razorshell.space'))) {
+            try {
+                const postRes = await fetch(currentTarget, {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'Referer': 'https://rareanimes.net/'
+                    }
+                });
+
+                if (postRes.ok) {
+                    const postHtml = await postRes.text();
+                    const epNumStr = String(epNum);
+                    const padded = epNumStr.padStart(2, '0');
+                    const epRegex = new RegExp(`(?:Episode|Ep\\.?)\\s*(?:0*${epNumStr}|${padded})\\b`, 'i');
+                    const epMatch = epRegex.exec(postHtml);
+
+                    if (epMatch) {
+                        const subHtml = postHtml.substring(epMatch.index, epMatch.index + 3500);
+                        const zipMatch = subHtml.match(/href=["'](https?:\/\/[^"']*codedew\.com\/zipper\/[^"']*)["']/i)
+                                      || subHtml.match(/href=["'](https?:\/\/[^"']*zipper\/[^"']*)["']/i);
+                        if (zipMatch) {
+                            currentTarget = zipMatch[1].replace(/&amp;/g, '&');
+                        }
+                    } else {
+                        // Fallback: look for first zipper link on page if ep 1
+                        if (epNum === 1) {
+                            const firstZip = postHtml.match(/href=["'](https?:\/\/[^"']*codedew\.com\/zipper\/[^"']*)["']/i);
+                            if (firstZip) {
+                                currentTarget = firstZip[1].replace(/&amp;/g, '&');
+                            }
+                        }
+                    }
+                }
+            } catch (err: any) {
+                console.warn('[RR Extractor Post Resolve Warning]:', err.message);
+            }
+        }
+
+        // 2. Unwrap codedew zipper if present
+        let playerEmbedUrl = currentTarget;
+        if (currentTarget.includes('codedew.com/zipper') || currentTarget.includes('/zipper/')) {
+            const zipperRes = await fetch(currentTarget, {
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                     'Referer': 'https://rareanimes.net/'
@@ -72,16 +114,21 @@ export async function extractRRStream(rawUrl: string): Promise<ExtractedRRStream
             }
         }
 
-        // 2. Fetch the player embed HTML
+        // Must be an embed URL to extract juicycodes from
+        if (!playerEmbedUrl.includes('razorshell.space') && !playerEmbedUrl.includes('embed')) {
+            return { success: false };
+        }
+
+        // 3. Fetch the player embed HTML
         const embedRes = await fetch(playerEmbedUrl, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Referer': referer
+                'Referer': 'https://codedew.com/'
             }
         });
 
         if (!embedRes.ok) {
-            return { success: false, fallbackUrl: playerEmbedUrl };
+            return { success: false };
         }
 
         const rawCookies = embedRes.headers.get('set-cookie') || '';
@@ -94,14 +141,13 @@ export async function extractRRStream(rawUrl: string): Promise<ExtractedRRStream
         const jcMatch = html.match(/_juicycodes\([\s\S]*?\)/);
 
         if (!jcMatch) {
-            // No juicycodes found, fallback to embed URL
-            return { success: false, fallbackUrl: playerEmbedUrl };
+            return { success: false };
         }
 
-        // 3. Deobfuscate using VM to obtain direct m3u8 source URL
+        // 4. Deobfuscate using VM to obtain direct m3u8 source URL
         const playerJs = await getPlayerJs();
         if (!playerJs) {
-            return { success: false, fallbackUrl: playerEmbedUrl };
+            return { success: false };
         }
 
         let m3u8Url = '';
@@ -147,9 +193,9 @@ export async function extractRRStream(rawUrl: string): Promise<ExtractedRRStream
             };
         }
 
-        return { success: false, fallbackUrl: playerEmbedUrl };
+        return { success: false };
     } catch (err: any) {
         console.error('[RR Stream Extractor Error]:', err.message);
-        return { success: false, fallbackUrl: cleanUrl };
+        return { success: false };
     }
 }

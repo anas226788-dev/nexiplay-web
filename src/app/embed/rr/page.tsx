@@ -126,21 +126,12 @@ export default function RREmbedPlayerPage() {
 
             {!loading && !error && streamData && (
                 <div className="w-full h-full relative">
-                    {streamData.format === 'hls_stream' ? (
-                        <video
-                            ref={videoRef}
-                            controls
-                            playsInline
-                            className="w-full h-full object-contain bg-black"
-                        />
-                    ) : (
-                        <iframe
-                            src={streamData.playbackUrl}
-                            className="w-full h-full border-0"
-                            allowFullScreen
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-                        />
-                    )}
+                    <video
+                        ref={videoRef}
+                        controls
+                        playsInline
+                        className="w-full h-full object-contain bg-black"
+                    />
                 </div>
             )}
         </div>

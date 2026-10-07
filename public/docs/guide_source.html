@@ -107,11 +107,6 @@
       border: 1px solid #bfdbfe;
       border-left: 4px solid #3b82f6;
     }
-    .card-alert {
-      background: #fef2f2;
-      border: 1px solid #fecaca;
-      border-left: 4px solid #ef4444;
-    }
     pre {
       background: #0f172a;
       color: #f1f5f9;
@@ -157,16 +152,6 @@
     tr:nth-child(even) td {
       background: #f8fafc;
     }
-    .token-preview {
-      background: #2e1065;
-      color: #e9d5ff;
-      font-family: monospace;
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-size: 11px;
-      word-break: break-all;
-      margin: 6px 0;
-    }
     .page-break {
       page-break-before: always;
     }
@@ -206,7 +191,8 @@
     <p style="margin-top: 4px; font-size: 12px; color: #4c1d95;">
       This API allows third-party developers, mobile apps, and external websites to stream 100% of all anime catalog titles via a single unified endpoint. 
       The upstream origin hosts (e.g. <code>codedew.com</code>, <code>razorshell.space</code>, <code>*.groovy.monster</code>) are <strong>never</strong> leaked to client network inspectors. 
-      All requests, playlist manifests (<code>.m3u8</code>), and video chunks (<code>.ts</code>) are proxied and tunneled through your NexiPlay instance with dynamic 2-hour encrypted security tokens.
+      All requests, playlist manifests (<code>.m3u8</code>), and video chunks (<code>.ts</code>) are proxied and tunneled through your NexiPlay instance with dynamic 2-hour encrypted security tokens. 
+      Under no circumstances are external blog sites or web pages loaded.
     </p>
   </div>
 
@@ -255,7 +241,7 @@
         <td><code>slug</code></td>
         <td>String</td>
         <td>Required*</td>
-        <td>Anime URL slug (e.g. <code>blue-box-2026</code>, <code>hana-kimi-2026</code>).</td>
+        <td>Anime URL slug (e.g. <code>blue-box-2026</code>, <code>bleach-thousand-year-blood-war-2026</code>).</td>
       </tr>
       <tr>
         <td><code>id</code></td>
@@ -287,17 +273,17 @@
   <div class="avoid-break">
     <pre>{
   <span class="json-key">"success"</span>: <span class="json-bool">true</span>,
-  <span class="json-key">"title"</span>: <span class="json-str">"Blue Box"</span>,
+  <span class="json-key">"title"</span>: <span class="json-str">"Bleach Thousand-Year Blood War ( Season 1-3)"</span>,
   <span class="json-key">"type"</span>: <span class="json-str">"anime"</span>,
-  <span class="json-key">"slug"</span>: <span class="json-str">"blue-box-2026"</span>,
+  <span class="json-key">"slug"</span>: <span class="json-str">"bleach-thousand-year-blood-war-2026"</span>,
   <span class="json-key">"season"</span>: <span class="json-num">1</span>,
   <span class="json-key">"episode"</span>: <span class="json-num">1</span>,
   <span class="json-key">"server"</span>: <span class="json-str">"RR Nexiplay Server"</span>,
   <span class="json-key">"format"</span>: <span class="json-str">"hls_stream"</span>,
   <span class="json-key">"expiresInSeconds"</span>: <span class="json-num">7200</span>,
-  <span class="json-key">"token"</span>: <span class="json-str">"b5870d09f28e80c144a1976b581c760c:0b9b2b4ed354a9cf4115455363..."</span>,
-  <span class="json-key">"playbackUrl"</span>: <span class="json-str">"https://your-domain.com/api/v1/anime/playback?token=b5870d09f28e..."</span>,
-  <span class="json-key">"embedUrl"</span>: <span class="json-str">"https://your-domain.com/embed/rr?slug=blue-box-2026&season=1&episode=1"</span>,
+  <span class="json-key">"token"</span>: <span class="json-str">"6502f6cb975f597a3b8a556d86b1f9b3:ec5a4c77a34fb1f9f0f67161f332ed8a..."</span>,
+  <span class="json-key">"playbackUrl"</span>: <span class="json-str">"https://your-domain.com/api/v1/anime/playback?token=6502f6cb975f..."</span>,
+  <span class="json-key">"embedUrl"</span>: <span class="json-str">"https://your-domain.com/embed/rr?slug=bleach-thousand-year-blood-war-2026&season=1&episode=1"</span>,
   <span class="json-key">"iframeCode"</span>: <span class="json-str">"&lt;iframe src=\"https://your-domain.com/embed/rr?...\" width=\"100%\"...&gt;&lt;/iframe&gt;"</span>
 }</pre>
   </div>
@@ -388,7 +374,7 @@
     }
 
     // Launch target anime:
-    playAnime('blue-box-2026', 1, 1);
+    playAnime('bleach-thousand-year-blood-war-2026', 1, 1);
   &lt;/script&gt;
 &lt;/body&gt;
 &lt;/html&gt;</pre>
@@ -491,7 +477,7 @@
     <p><strong>Flutter (using <code>video_player</code> package):</strong></p>
     <pre><span style="color: #64748b;">// 1. Fetch metadata</span>
 <span style="color: #f472b6;">final</span> res = <span style="color: #f472b6;">await</span> http.get(Uri.parse(
-  <span style="color: #a7f3d0;">'https://your-domain.com/api/v1/anime/stream?slug=blue-box-2026&season=1&episode=1'</span>
+  <span style="color: #a7f3d0;">'https://your-domain.com/api/v1/anime/stream?slug=bleach-thousand-year-blood-war-2026&season=1&episode=1'</span>
 ));
 <span style="color: #f472b6;">final</span> data = jsonDecode(res.body);
 <span style="color: #f472b6;">final</span> String playbackUrl = data[<span style="color: #a7f3d0;">'playbackUrl'</span>];
@@ -514,7 +500,7 @@ _controller = VideoPlayerController.networkUrl(
 
   <div class="avoid-break">
     <pre>&lt;iframe 
-  src="https://your-domain.com/embed/rr?slug=blue-box-2026&season=1&episode=1" 
+  src="https://your-domain.com/embed/rr?slug=bleach-thousand-year-blood-war-2026&season=1&episode=1" 
   width="100%" 
   height="500px" 
   frameborder="0" 

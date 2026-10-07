@@ -131,13 +131,26 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        // 3. Resolve direct HLS stream if applicable
-        const extracted = await extractRRStream(rrStreamUrl);
-        const resolvedTargetUrl = extracted.m3u8Url || extracted.fallbackUrl || rrStreamUrl;
-        const streamCookies = extracted.cookies || '';
-        const isHls = Boolean(extracted.m3u8Url) || /\.(m3u8|mp4|ts)(?:[?#]|$)/i.test(resolvedTargetUrl);
+        // 3. Resolve direct HLS stream (extract from rareanimes post, zipper, or embed)
+        const extracted = await extractRRStream(rrStreamUrl, epNum);
 
-        // 4. Encrypt the stream URL with expiration (2 hours)
+        if (!extracted.success || !extracted.m3u8Url) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: 'RR Nexiplay Server direct video stream could not be extracted for this episode.',
+                    title: movie.title,
+                    season: seasonNum,
+                    episode: epNum
+                },
+                { status: 404, headers: { 'Access-Control-Allow-Origin': '*' } }
+            );
+        }
+
+        const resolvedTargetUrl = extracted.m3u8Url;
+        const streamCookies = extracted.cookies || '';
+
+        // 4. Encrypt the direct stream URL with expiration (2 hours)
         const now = Date.now();
         const expiresAt = now + 2 * 60 * 60 * 1000;
 
@@ -145,7 +158,7 @@ export async function GET(request: NextRequest) {
             url: resolvedTargetUrl,
             server: 'rareanimes',
             cookies: streamCookies,
-            format: isHls ? 'hls_stream' : 'embed_stream',
+            format: 'hls_stream',
             contentId: movie.id,
             slug: movie.slug,
             season: seasonNum,
@@ -167,7 +180,7 @@ export async function GET(request: NextRequest) {
                 season: seasonNum,
                 episode: epNum,
                 server: 'RR Nexiplay Server',
-                format: isHls ? 'hls_stream' : 'embed_stream',
+                format: 'hls_stream',
                 expiresInSeconds: 7200,
                 token,
                 playbackUrl,

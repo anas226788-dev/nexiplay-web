@@ -170,39 +170,11 @@ export async function GET(request: NextRequest) {
         }
     }
 
-    // 4. Fallback: Proxy unblocked HTML if stream extraction wasn't possible
-    try {
-        const embedRes = await fetch(targetUrl, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Referer': 'https://codedew.com/'
-            }
-        });
-
-        if (embedRes.ok) {
-            let html = await embedRes.text();
-            const embedOrigin = new URL(targetUrl).origin;
-
-            if (html.includes('<head>')) {
-                html = html.replace('<head>', `<head><base href="${embedOrigin}/">`);
-            } else {
-                html = `<base href="${embedOrigin}/">` + html;
-            }
-
-            return new NextResponse(html, {
-                headers: {
-                    'Content-Type': 'text/html; charset=utf-8',
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
-                    'Cache-Control': 'private, no-cache, no-store, must-revalidate'
-                }
-            });
-        }
-    } catch (e: any) {
-        console.error('[Playback Proxy Fallback Error]:', e.message);
-    }
-
-    return NextResponse.redirect(targetUrl);
+    // 4. Target could not be served as an M3U8 stream (Never proxy or display external websites!)
+    return new NextResponse('Playback error: Direct HLS video stream not available for this target.', {
+        status: 404,
+        headers: { 'Access-Control-Allow-Origin': '*' }
+    });
 }
 
 export async function OPTIONS() {
