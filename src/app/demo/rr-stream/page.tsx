@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
 
 interface ApiResponse {
     success: boolean;
@@ -21,12 +20,24 @@ interface ApiResponse {
     error?: string;
 }
 
+// Verified anime from database that are configured with RR Nexiplay server
+const VERIFIED_RR_ANIME = [
+    { title: 'Hana-Kimi', slug: 'hana-kimi-2026' },
+    { title: 'Blue Box', slug: 'blue-box-2026' },
+    { title: "Hell's Paradise", slug: 'hell-s-paradise-2026' },
+    { title: 'Oshi No Ko', slug: 'oshi-no-ko-2026' },
+    { title: 'Bleach TYBW', slug: 'bleach-thousand-year-blood-war-2026' },
+    { title: 'Buddy Daddies', slug: 'buddy-daddies-2026' },
+    { title: 'Grand Blue Dreaming', slug: 'grand-blue-dreaming-2026' },
+    { title: 'Marriage Toxin', slug: 'marriage-toxin-2026' }
+];
+
 export default function RRStreamDemoPage() {
     const [slug, setSlug] = useState('hana-kimi-2026');
     const [season, setSeason] = useState('1');
     const [episode, setEpisode] = useState('1');
-    const [activeTab, setActiveTab] = useState<'iframe' | 'api' | 'guide'>('iframe');
     const [deviceView, setDeviceView] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+    const [bottomTab, setBottomTab] = useState<'api' | 'guide'>('api');
 
     // API state
     const [apiResponse, setApiResponse] = useState<ApiResponse | null>(null);
@@ -35,44 +46,13 @@ export default function RRStreamDemoPage() {
     const [httpStatus, setHttpStatus] = useState<number | null>(null);
     const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
-    // Default sample anime from database
-    const [animeSuggestions, setAnimeSuggestions] = useState<{ title: string; slug: string }[]>([
-        { title: 'Hana-Kimi', slug: 'hana-kimi-2026' },
-        { title: 'Kaguya-sama: Love is War', slug: 'kaguya-sama-love-is-war-2019' },
-        { title: 'Classroom of the Elite', slug: 'classroom-of-the-elite-2017' },
-        { title: 'My Hero Academia', slug: 'my-hero-academia-season-1-to-8-2026' },
-        { title: 'Violet Evergarden', slug: 'violet-evergarden-2020' },
-        { title: "Hell's Paradise", slug: 'hell-s-paradise-2026' }
-    ]);
-
-    useEffect(() => {
-        const loadSuggestions = async () => {
-            try {
-                const { data } = await supabase
-                    .from('movies')
-                    .select('title, slug')
-                    .eq('type', 'anime')
-                    .limit(10);
-
-                if (data && data.length > 0) {
-                    setAnimeSuggestions(data);
-                }
-            } catch {
-                // Ignore fallback
-            }
-        };
-
-        loadSuggestions();
-    }, []);
-
-    const runApiTest = async () => {
-        if (!slug.trim()) return;
+    const runApiTest = async (targetSlug = slug, targetSeason = season, targetEp = episode) => {
+        if (!targetSlug.trim()) return;
         setLoading(true);
-        setApiResponse(null);
         const startTime = performance.now();
 
         try {
-            const url = `/api/v1/anime/stream?slug=${encodeURIComponent(slug.trim())}&season=${season}&episode=${episode}`;
+            const url = `/api/v1/anime/stream?slug=${encodeURIComponent(targetSlug.trim())}&season=${targetSeason}&episode=${targetEp}`;
             const res = await fetch(url);
             const data: ApiResponse = await res.json();
             const duration = Math.round(performance.now() - startTime);
@@ -92,11 +72,18 @@ export default function RRStreamDemoPage() {
         }
     };
 
-    // Auto-run when mounted or when slug/season/ep is changed and user clicks
+    // Auto-run when mounted
     useEffect(() => {
-        runApiTest();
+        runApiTest('hana-kimi-2026', '1', '1');
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    const handleSelectSample = (sampleSlug: string) => {
+        setSlug(sampleSlug);
+        setSeason('1');
+        setEpisode('1');
+        runApiTest(sampleSlug, '1', '1');
+    };
 
     const copyToClipboard = (text: string, key: string) => {
         navigator.clipboard.writeText(text);
@@ -126,7 +113,7 @@ export default function RRStreamDemoPage() {
                             RR Anime Stream Playground & Tester
                         </h1>
                         <p className="text-sm text-gray-400 mt-1 max-w-2xl">
-                            Test the encrypted stream API and live Iframe embed player before deploying to your other websites or apps.
+                            Live Iframe Player & Encrypted API Token Tester. Test your anime stream and embed player before using it on other websites.
                         </p>
                     </div>
 
@@ -141,45 +128,37 @@ export default function RRStreamDemoPage() {
                 {/* Input & Parameters Bar */}
                 <div className="p-6 rounded-2xl bg-[#111118] border border-white/10 shadow-2xl space-y-4">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-sm font-bold uppercase tracking-wider text-gray-400">
-                            Configure Stream Target
+                        <h2 className="text-sm font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">
+                            <span>⚙️</span> Configure Stream Target
                         </h2>
-                        {animeSuggestions.length > 0 && (
-                            <span className="text-xs text-gray-500">Quick Samples:</span>
-                        )}
+                        <span className="text-xs text-gray-400 font-medium">Quick RR Samples:</span>
                     </div>
 
-                    {/* Quick Suggestions Chips */}
-                    {animeSuggestions.length > 0 && (
-                        <div className="flex flex-wrap gap-2">
-                            {animeSuggestions.map((item) => (
-                                <button
-                                    key={item.slug}
-                                    onClick={() => {
-                                        setSlug(item.slug);
-                                        setSeason('1');
-                                        setEpisode('1');
-                                    }}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                                        slug === item.slug
-                                            ? 'bg-red-600 text-white font-bold shadow-md shadow-red-600/20'
-                                            : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/5'
-                                    }`}
-                                >
-                                    {item.title}
-                                </button>
-                            ))}
-                        </div>
-                    )}
+                    {/* Quick Suggestions Chips (Only real working RR animes) */}
+                    <div className="flex flex-wrap gap-2">
+                        {VERIFIED_RR_ANIME.map((item) => (
+                            <button
+                                key={item.slug}
+                                onClick={() => handleSelectSample(item.slug)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                    slug === item.slug
+                                        ? 'bg-gradient-to-r from-red-600 to-orange-600 text-white font-bold shadow-md shadow-red-600/30 scale-105'
+                                        : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/5'
+                                }`}
+                            >
+                                {item.title}
+                            </button>
+                        ))}
+                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end pt-2">
                         <div className="md:col-span-6 space-y-1.5">
                             <label className="text-xs font-bold text-gray-400">Anime Slug or UUID</label>
                             <input
                                 type="text"
                                 value={slug}
                                 onChange={(e) => setSlug(e.target.value)}
-                                placeholder="e.g. solo-leveling or naruto"
+                                placeholder="e.g. hana-kimi-2026 or blue-box-2026"
                                 className="w-full px-4 py-3 rounded-xl bg-black/50 border border-white/10 text-sm font-mono text-white placeholder-gray-600 focus:outline-none focus:border-red-500/60"
                             />
                         </div>
@@ -208,19 +187,19 @@ export default function RRStreamDemoPage() {
 
                         <div className="md:col-span-2">
                             <button
-                                onClick={runApiTest}
+                                onClick={() => runApiTest()}
                                 disabled={loading}
                                 className="w-full py-3 px-5 rounded-xl bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 active:scale-[0.98] text-white text-sm font-black transition-all shadow-lg shadow-red-900/30 flex items-center justify-center gap-2 disabled:opacity-50"
                             >
                                 {loading ? (
                                     <>
                                         <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                        <span>Testing...</span>
+                                        <span>Loading...</span>
                                     </>
                                 ) : (
                                     <>
                                         <span>▶</span>
-                                        <span>Run Test</span>
+                                        <span>Play & Test</span>
                                     </>
                                 )}
                             </button>
@@ -228,243 +207,252 @@ export default function RRStreamDemoPage() {
                     </div>
                 </div>
 
-                {/* Tabs switcher */}
-                <div className="flex border-b border-white/10">
-                    <button
-                        onClick={() => setActiveTab('iframe')}
-                        className={`px-6 py-3 text-sm font-bold transition-all relative ${
-                            activeTab === 'iframe' ? 'text-white' : 'text-gray-400 hover:text-gray-200'
-                        }`}
-                    >
-                        📺 Live Iframe Player
-                        {activeTab === 'iframe' && (
-                            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-600 rounded-full" />
-                        )}
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('api')}
-                        className={`px-6 py-3 text-sm font-bold transition-all relative flex items-center gap-2 ${
-                            activeTab === 'api' ? 'text-white' : 'text-gray-400 hover:text-gray-200'
-                        }`}
-                    >
-                        🔐 Encrypted API Response
-                        {httpStatus && (
-                            <span
-                                className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                                    httpStatus === 200
-                                        ? 'bg-emerald-500/20 text-emerald-400'
-                                        : 'bg-red-500/20 text-red-400'
-                                }`}
-                            >
-                                {httpStatus}
-                            </span>
-                        )}
-                        {activeTab === 'api' && (
-                            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-600 rounded-full" />
-                        )}
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('guide')}
-                        className={`px-6 py-3 text-sm font-bold transition-all relative ${
-                            activeTab === 'guide' ? 'text-white' : 'text-gray-400 hover:text-gray-200'
-                        }`}
-                    >
-                        📖 Integration Guide
-                        {activeTab === 'guide' && (
-                            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-600 rounded-full" />
-                        )}
-                    </button>
-                </div>
+                {/* ============================================================== */}
+                {/* 1. LIVE IFRAME VIDEO PLAYER (PROMINENT CENTERPIECE) */}
+                {/* ============================================================== */}
+                <div className="p-6 rounded-3xl bg-[#111118] border border-white/10 shadow-2xl space-y-5">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-white/5 pb-4">
+                        <div className="flex items-center gap-3">
+                            <span className="text-xl">📺</span>
+                            <div>
+                                <h2 className="text-base font-black text-white flex items-center gap-2">
+                                    <span>Live Video Player Preview</span>
+                                    {apiResponse?.success && (
+                                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                            ● Live HLS Stream Ready
+                                        </span>
+                                    )}
+                                </h2>
+                                <p className="text-xs text-gray-400">
+                                    {apiResponse?.title ? `Playing: ${apiResponse.title} (S${season} E${episode})` : `Target: ${slug} (Season ${season}, Episode ${episode})`}
+                                </p>
+                            </div>
+                        </div>
 
-                {/* TAB 1: LIVE IFRAME EMBED */}
-                {activeTab === 'iframe' && (
-                    <div className="space-y-6">
-                        {/* Device view switcher */}
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs text-gray-400 font-bold">Simulate Device:</span>
-                                <div className="flex bg-white/5 rounded-lg p-1 border border-white/5">
-                                    <button
-                                        onClick={() => setDeviceView('desktop')}
-                                        className={`px-3 py-1 rounded text-xs font-bold transition-colors ${
-                                            deviceView === 'desktop' ? 'bg-white/20 text-white' : 'text-gray-400'
-                                        }`}
-                                    >
-                                        Desktop (100%)
-                                    </button>
-                                    <button
-                                        onClick={() => setDeviceView('tablet')}
-                                        className={`px-3 py-1 rounded text-xs font-bold transition-colors ${
-                                            deviceView === 'tablet' ? 'bg-white/20 text-white' : 'text-gray-400'
-                                        }`}
-                                    >
-                                        Tablet (768px)
-                                    </button>
-                                    <button
-                                        onClick={() => setDeviceView('mobile')}
-                                        className={`px-3 py-1 rounded text-xs font-bold transition-colors ${
-                                            deviceView === 'mobile' ? 'bg-white/20 text-white' : 'text-gray-400'
-                                        }`}
-                                    >
-                                        Mobile (400px)
-                                    </button>
-                                </div>
+                        {/* Device view switcher & Open in new tab */}
+                        <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                            <div className="flex bg-white/5 rounded-xl p-1 border border-white/5">
+                                <button
+                                    onClick={() => setDeviceView('desktop')}
+                                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
+                                        deviceView === 'desktop' ? 'bg-red-600 text-white' : 'text-gray-400 hover:text-white'
+                                    }`}
+                                >
+                                    Desktop
+                                </button>
+                                <button
+                                    onClick={() => setDeviceView('tablet')}
+                                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
+                                        deviceView === 'tablet' ? 'bg-red-600 text-white' : 'text-gray-400 hover:text-white'
+                                    }`}
+                                >
+                                    Tablet
+                                </button>
+                                <button
+                                    onClick={() => setDeviceView('mobile')}
+                                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
+                                        deviceView === 'mobile' ? 'bg-red-600 text-white' : 'text-gray-400 hover:text-white'
+                                    }`}
+                                >
+                                    Mobile
+                                </button>
                             </div>
 
                             <a
                                 href={currentEmbedUrl}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="text-xs font-bold text-red-400 hover:text-red-300 flex items-center gap-1.5"
+                                className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold text-red-400 hover:text-red-300 border border-white/5 flex items-center gap-1 transition-all"
                             >
-                                Open in new window ↗
+                                <span>Fullscreen</span>
+                                <span>↗</span>
                             </a>
                         </div>
+                    </div>
 
-                        {/* Player Frame Container */}
-                        <div className="flex justify-center">
-                            <div
-                                className={`w-full bg-black rounded-2xl overflow-hidden border border-white/10 shadow-2xl transition-all duration-300 aspect-video ${
-                                    deviceView === 'mobile'
-                                        ? 'max-w-sm'
-                                        : deviceView === 'tablet'
-                                        ? 'max-w-2xl'
-                                        : 'max-w-full'
-                                }`}
-                            >
-                                <iframe
-                                    key={currentEmbedUrl}
-                                    src={currentEmbedUrl}
-                                    className="w-full h-full border-0"
-                                    allowFullScreen
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Iframe Code Box */}
-                        <div className="p-5 rounded-2xl bg-[#111118] border border-white/10 space-y-3">
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-gray-300">
-                                    HTML Iframe Embed Code for your other websites:
-                                </span>
-                                <button
-                                    onClick={() => copyToClipboard(iframeSnippet, 'iframe')}
-                                    className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-xs font-bold text-white transition-colors"
-                                >
-                                    {copiedKey === 'iframe' ? '✓ Copied!' : 'Copy Code'}
-                                </button>
-                            </div>
-                            <pre className="p-4 rounded-xl bg-black/60 border border-white/5 font-mono text-xs text-green-300 overflow-x-auto whitespace-pre-wrap break-all">
-                                {iframeSnippet}
-                            </pre>
+                    {/* Responsive Video Frame */}
+                    <div className="flex justify-center bg-black/80 rounded-2xl p-2 sm:p-4 border border-white/5">
+                        <div
+                            className={`w-full bg-black rounded-xl overflow-hidden border border-white/10 shadow-2xl transition-all duration-300 aspect-video ${
+                                deviceView === 'mobile'
+                                    ? 'max-w-sm'
+                                    : deviceView === 'tablet'
+                                    ? 'max-w-2xl'
+                                    : 'max-w-full'
+                            }`}
+                        >
+                            <iframe
+                                key={`${slug}-${season}-${episode}`}
+                                src={currentEmbedUrl}
+                                className="w-full h-full border-0 bg-black"
+                                allowFullScreen
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                            />
                         </div>
                     </div>
-                )}
 
-                {/* TAB 2: ENCRYPTED API RESPONSE */}
-                {activeTab === 'api' && (
-                    <div className="space-y-6">
-                        {/* API Stats Overview */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                            <div className="p-4 rounded-xl bg-[#111118] border border-white/10">
-                                <span className="text-[11px] font-bold uppercase text-gray-500">Status</span>
-                                <p className="text-lg font-black mt-1 text-emerald-400">
-                                    {httpStatus ? `${httpStatus} OK` : 'Ready'}
-                                </p>
-                            </div>
-                            <div className="p-4 rounded-xl bg-[#111118] border border-white/10">
-                                <span className="text-[11px] font-bold uppercase text-gray-500">Latency</span>
-                                <p className="text-lg font-black mt-1 text-white">
-                                    {responseTime !== null ? `${responseTime} ms` : '-'}
-                                </p>
-                            </div>
-                            <div className="p-4 rounded-xl bg-[#111118] border border-white/10">
-                                <span className="text-[11px] font-bold uppercase text-gray-500">Server</span>
-                                <p className="text-lg font-black mt-1 text-orange-400 truncate">
-                                    {apiResponse?.server || 'RR Nexiplay Server'}
-                                </p>
-                            </div>
-                            <div className="p-4 rounded-xl bg-[#111118] border border-white/10">
-                                <span className="text-[11px] font-bold uppercase text-gray-500">Encryption</span>
-                                <p className="text-lg font-black mt-1 text-purple-400">
-                                    AES-256-CBC
-                                </p>
-                            </div>
+                    {/* Quick Iframe Snippet Copy Bar */}
+                    <div className="p-4 rounded-xl bg-black/60 border border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                        <div className="flex-1 truncate">
+                            <span className="text-[11px] font-bold text-gray-400 block mb-0.5">
+                                📋 HTML Iframe Embed Code (For Blogger, WordPress, or external websites):
+                            </span>
+                            <code className="text-xs font-mono text-green-300 truncate block">
+                                {iframeSnippet}
+                            </code>
                         </div>
+                        <button
+                            onClick={() => copyToClipboard(iframeSnippet, 'iframe')}
+                            className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-xs font-bold text-white transition-colors whitespace-nowrap self-end sm:self-auto shadow-md shadow-red-900/30"
+                        >
+                            {copiedKey === 'iframe' ? '✓ Copied Code!' : 'Copy Iframe Code'}
+                        </button>
+                    </div>
+                </div>
 
-                        {/* Encrypted Token Highlight Card */}
-                        {apiResponse?.token && (
-                            <div className="p-5 rounded-2xl bg-gradient-to-r from-purple-950/40 to-black border border-purple-500/30 space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-purple-400 font-bold text-xs uppercase tracking-wider">
-                                            🔒 Protected Token (Source is hidden)
-                                        </span>
-                                        <span className="text-[11px] text-gray-400">Valid for 2 Hours</span>
+                {/* ============================================================== */}
+                {/* 2. DEVELOPER & ENCRYPTION INSPECTOR SECTION */}
+                {/* ============================================================== */}
+                <div className="space-y-4">
+                    <div className="flex border-b border-white/10">
+                        <button
+                            onClick={() => setBottomTab('api')}
+                            className={`px-6 py-3 text-sm font-bold transition-all relative flex items-center gap-2 ${
+                                bottomTab === 'api' ? 'text-white' : 'text-gray-400 hover:text-gray-200'
+                            }`}
+                        >
+                            <span>🔐 Encrypted Token & API Inspector</span>
+                            {httpStatus && (
+                                <span
+                                    className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                                        httpStatus === 200
+                                            ? 'bg-emerald-500/20 text-emerald-400'
+                                            : 'bg-red-500/20 text-red-400'
+                                    }`}
+                                >
+                                    {httpStatus} OK
+                                </span>
+                            )}
+                            {bottomTab === 'api' && (
+                                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-600 rounded-full" />
+                            )}
+                        </button>
+
+                        <button
+                            onClick={() => setBottomTab('guide')}
+                            className={`px-6 py-3 text-sm font-bold transition-all relative flex items-center gap-2 ${
+                                bottomTab === 'guide' ? 'text-white' : 'text-gray-400 hover:text-gray-200'
+                            }`}
+                        >
+                            <span>📖 Developer Integration Guide</span>
+                            {bottomTab === 'guide' && (
+                                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-600 rounded-full" />
+                            )}
+                        </button>
+                    </div>
+
+                    {/* TAB: API INSPECTOR */}
+                    {bottomTab === 'api' && (
+                        <div className="space-y-4">
+                            {/* Stats Cards */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                <div className="p-4 rounded-xl bg-[#111118] border border-white/10">
+                                    <span className="text-[11px] font-bold uppercase text-gray-500">Status</span>
+                                    <p className="text-lg font-black mt-1 text-emerald-400">
+                                        {httpStatus ? `${httpStatus} OK` : 'Ready'}
+                                    </p>
+                                </div>
+                                <div className="p-4 rounded-xl bg-[#111118] border border-white/10">
+                                    <span className="text-[11px] font-bold uppercase text-gray-500">API Latency</span>
+                                    <p className="text-lg font-black mt-1 text-white">
+                                        {responseTime !== null ? `${responseTime} ms` : '-'}
+                                    </p>
+                                </div>
+                                <div className="p-4 rounded-xl bg-[#111118] border border-white/10">
+                                    <span className="text-[11px] font-bold uppercase text-gray-500">Server</span>
+                                    <p className="text-lg font-black mt-1 text-orange-400 truncate">
+                                        {apiResponse?.server || 'RR Nexiplay Server'}
+                                    </p>
+                                </div>
+                                <div className="p-4 rounded-xl bg-[#111118] border border-white/10">
+                                    <span className="text-[11px] font-bold uppercase text-gray-500">Security Encryption</span>
+                                    <p className="text-lg font-black mt-1 text-purple-400">
+                                        AES-256-CBC
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Encrypted Token Highlight Card */}
+                            {apiResponse?.token && (
+                                <div className="p-5 rounded-2xl bg-gradient-to-r from-purple-950/40 to-black border border-purple-500/30 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-purple-400 font-bold text-xs uppercase tracking-wider">
+                                                🔒 Protected Token (Source Stream URL is 100% Encrypted)
+                                            </span>
+                                            <span className="text-[11px] text-gray-400">Valid for 2 Hours</span>
+                                        </div>
+                                        <button
+                                            onClick={() => copyToClipboard(apiResponse.token!, 'token')}
+                                            className="text-xs text-purple-300 hover:text-white font-bold underline"
+                                        >
+                                            {copiedKey === 'token' ? '✓ Copied Token' : 'Copy Token'}
+                                        </button>
                                     </div>
-                                    <button
-                                        onClick={() => copyToClipboard(apiResponse.token!, 'token')}
-                                        className="text-xs text-purple-300 hover:text-white font-bold underline"
+                                    <p className="font-mono text-xs text-purple-200/80 break-all bg-black/50 p-3 rounded-lg border border-purple-500/20 max-h-24 overflow-y-auto">
+                                        {apiResponse.token}
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Tunneled Playback URL */}
+                            {apiResponse?.playbackUrl && (
+                                <div className="p-5 rounded-2xl bg-white/5 border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                    <div className="truncate w-full sm:w-auto flex-1">
+                                        <span className="text-xs font-bold text-gray-400 block mb-1">
+                                            Direct Tunneled Playback Stream URL (For Hls.js, ExoPlayer, VLC):
+                                        </span>
+                                        <code className="text-xs text-blue-400 font-mono truncate block">
+                                            {apiResponse.playbackUrl}
+                                        </code>
+                                    </div>
+                                    <a
+                                        href={apiResponse.playbackUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-xl text-xs font-bold whitespace-nowrap transition-colors"
                                     >
-                                        {copiedKey === 'token' ? '✓ Copied Token' : 'Copy Token'}
+                                        Open Stream ↗
+                                    </a>
+                                </div>
+                            )}
+
+                            {/* Full JSON Response */}
+                            <div className="p-5 rounded-2xl bg-[#111118] border border-white/10 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold text-gray-400 font-mono">
+                                        GET /api/v1/anime/stream?slug={slug}&season={season}&episode={episode}
+                                    </span>
+                                    <button
+                                        onClick={() =>
+                                            copyToClipboard(JSON.stringify(apiResponse, null, 2), 'json')
+                                        }
+                                        className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-bold text-white transition-colors"
+                                    >
+                                        {copiedKey === 'json' ? '✓ Copied JSON!' : 'Copy JSON'}
                                     </button>
                                 </div>
-                                <p className="font-mono text-xs text-purple-200/80 break-all bg-black/50 p-3 rounded-lg border border-purple-500/20">
-                                    {apiResponse.token}
-                                </p>
+                                <pre className="p-4 rounded-xl bg-black/60 border border-white/5 font-mono text-xs text-amber-200 overflow-x-auto whitespace-pre-wrap break-all max-h-72">
+                                    {apiResponse
+                                        ? JSON.stringify(apiResponse, null, 2)
+                                        : '// Loading response...'}
+                                </pre>
                             </div>
-                        )}
-
-                        {/* Playback URL Direct link */}
-                        {apiResponse?.playbackUrl && (
-                            <div className="p-5 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between gap-4">
-                                <div className="truncate">
-                                    <span className="text-xs font-bold text-gray-400 block mb-1">
-                                        Direct Tunneled Playback URL (For Video Players / Hls.js / ExoPlayer):
-                                    </span>
-                                    <code className="text-xs text-blue-400 font-mono truncate block">
-                                        {apiResponse.playbackUrl}
-                                    </code>
-                                </div>
-                                <a
-                                    href={apiResponse.playbackUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-xl text-xs font-bold whitespace-nowrap"
-                                >
-                                    Open Stream ↗
-                                </a>
-                            </div>
-                        )}
-
-                        {/* Full JSON Response */}
-                        <div className="p-5 rounded-2xl bg-[#111118] border border-white/10 space-y-3">
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-gray-400 font-mono">
-                                    GET /api/v1/anime/stream?slug={slug}&season={season}&episode={episode}
-                                </span>
-                                <button
-                                    onClick={() =>
-                                        copyToClipboard(JSON.stringify(apiResponse, null, 2), 'json')
-                                    }
-                                    className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-bold text-white transition-colors"
-                                >
-                                    {copiedKey === 'json' ? '✓ Copied JSON!' : 'Copy JSON'}
-                                </button>
-                            </div>
-                            <pre className="p-4 rounded-xl bg-black/60 border border-white/5 font-mono text-xs text-amber-200 overflow-x-auto whitespace-pre-wrap break-all max-h-96">
-                                {apiResponse
-                                    ? JSON.stringify(apiResponse, null, 2)
-                                    : '// Click "Run Test" above to inspect response'}
-                            </pre>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {/* TAB 3: INTEGRATION GUIDE */}
-                {activeTab === 'guide' && (
-                    <div className="space-y-6">
+                    {/* TAB: GUIDE */}
+                    {bottomTab === 'guide' && (
                         <div className="p-6 rounded-2xl bg-[#111118] border border-white/10 space-y-6">
                             <div>
                                 <h3 className="text-base font-bold text-white mb-2">1. Quick HTML Iframe (Zero Coding)</h3>
@@ -473,7 +461,7 @@ export default function RRStreamDemoPage() {
                                 </p>
                                 <pre className="p-4 rounded-xl bg-black/60 border border-white/5 font-mono text-xs text-green-300 overflow-x-auto">
 {`<iframe 
-  src="${typeof window !== 'undefined' ? window.location.origin : 'https://nexiplay.vercel.app'}/embed/rr?slug=naruto&season=1&episode=1" 
+  src="${typeof window !== 'undefined' ? window.location.origin : 'https://nexiplay.vercel.app'}/embed/rr?slug=hana-kimi-2026&season=1&episode=1" 
   width="100%" 
   height="500px" 
   frameborder="0" 
@@ -488,7 +476,7 @@ export default function RRStreamDemoPage() {
                                     Fetch stream metadata and playback URLs programmatically:
                                 </p>
                                 <pre className="p-4 rounded-xl bg-black/60 border border-white/5 font-mono text-xs text-blue-300 overflow-x-auto">
-{`const res = await fetch('https://nexiplay.vercel.app/api/v1/anime/stream?slug=solo-leveling&season=1&episode=1');
+{`const res = await fetch('https://nexiplay.vercel.app/api/v1/anime/stream?slug=hana-kimi-2026&season=1&episode=1');
 const data = await res.json();
 
 if (data.success) {
@@ -516,8 +504,8 @@ if (data.success) {
                                 </pre>
                             </div>
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
         </div>
     );
