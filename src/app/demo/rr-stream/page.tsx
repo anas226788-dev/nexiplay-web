@@ -22,7 +22,7 @@ interface ApiResponse {
 }
 
 export default function RRStreamDemoPage() {
-    const [slug, setSlug] = useState('solo-leveling');
+    const [slug, setSlug] = useState('hana-kimi-2026');
     const [season, setSeason] = useState('1');
     const [episode, setEpisode] = useState('1');
     const [activeTab, setActiveTab] = useState<'iframe' | 'api' | 'guide'>('iframe');
@@ -35,8 +35,15 @@ export default function RRStreamDemoPage() {
     const [httpStatus, setHttpStatus] = useState<number | null>(null);
     const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
-    // Auto-detected sample anime from database
-    const [animeSuggestions, setAnimeSuggestions] = useState<{ title: string; slug: string }[]>([]);
+    // Default sample anime from database
+    const [animeSuggestions, setAnimeSuggestions] = useState<{ title: string; slug: string }[]>([
+        { title: 'Hana-Kimi', slug: 'hana-kimi-2026' },
+        { title: 'Kaguya-sama: Love is War', slug: 'kaguya-sama-love-is-war-2019' },
+        { title: 'Classroom of the Elite', slug: 'classroom-of-the-elite-2017' },
+        { title: 'My Hero Academia', slug: 'my-hero-academia-season-1-to-8-2026' },
+        { title: 'Violet Evergarden', slug: 'violet-evergarden-2020' },
+        { title: "Hell's Paradise", slug: 'hell-s-paradise-2026' }
+    ]);
 
     useEffect(() => {
         const loadSuggestions = async () => {
@@ -45,13 +52,10 @@ export default function RRStreamDemoPage() {
                     .from('movies')
                     .select('title, slug')
                     .eq('type', 'anime')
-                    .limit(8);
+                    .limit(10);
 
                 if (data && data.length > 0) {
                     setAnimeSuggestions(data);
-                    if (!slug || slug === 'solo-leveling') {
-                        setSlug(data[0].slug);
-                    }
                 }
             } catch {
                 // Ignore fallback
