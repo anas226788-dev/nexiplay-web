@@ -476,6 +476,25 @@ export default function RRStreamDemoPage() {
                     {/* TAB: GUIDE */}
                     {bottomTab === 'guide' && (
                         <div className="p-6 rounded-2xl bg-[#111118] border border-white/10 space-y-6">
+                            {/* Download PDF Guide Banner */}
+                            <div className="p-4 rounded-xl bg-gradient-to-r from-red-950/40 via-red-900/20 to-black border border-red-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                                <div>
+                                    <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                                        <span>📄</span> Official Developer Integration Guide (PDF)
+                                    </h4>
+                                    <p className="text-xs text-gray-400 mt-0.5">
+                                        Complete API specification, HLS architecture, zero-leak model & universal player code examples.
+                                    </p>
+                                </div>
+                                <a
+                                    href="/docs/Nexiplay_Anime_Stream_API_Developer_Guide.pdf"
+                                    download="Nexiplay_Anime_Stream_API_Developer_Guide.pdf"
+                                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white text-xs font-black transition-all shadow-md shadow-red-950/40 flex items-center gap-2 whitespace-nowrap"
+                                >
+                                    <span>⬇</span> Download PDF Guide
+                                </a>
+                            </div>
+
                             <div>
                                 <h3 className="text-base font-bold text-white mb-2">1. Quick HTML Iframe (Zero Coding)</h3>
                                 <p className="text-xs text-gray-400 mb-3">

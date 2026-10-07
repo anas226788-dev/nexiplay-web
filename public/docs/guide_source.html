@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NexiPlay Protected Anime Stream API — Developer Guide</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 16mm 14mm 16mm 14mm;
+    }
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #1a1a24;
+      background-color: #ffffff;
+      line-height: 1.55;
+      font-size: 13px;
+      margin: 0;
+      padding: 0;
+    }
+    .header-banner {
+      background: linear-gradient(135deg, #0d0d14 0%, #1a1325 50%, #e50914 150%);
+      color: #ffffff;
+      padding: 28px 24px;
+      border-radius: 12px;
+      margin-bottom: 24px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-right: 6px;
+      margin-bottom: 10px;
+    }
+    .badge-red {
+      background: rgba(229, 9, 20, 0.2);
+      color: #ff6b72;
+      border: 1px solid rgba(229, 9, 20, 0.4);
+    }
+    .badge-green {
+      background: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+    .badge-purple {
+      background: rgba(168, 85, 247, 0.2);
+      color: #c084fc;
+      border: 1px solid rgba(168, 85, 247, 0.4);
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 900;
+      margin: 0 0 6px 0;
+      letter-spacing: -0.5px;
+    }
+    .subtitle {
+      font-size: 13px;
+      color: #d1d5db;
+      margin: 0;
+      font-weight: 400;
+    }
+    h2 {
+      font-size: 17px;
+      font-weight: 800;
+      color: #0f172a;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 6px;
+      margin-top: 24px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    h3 {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-top: 16px;
+      margin-bottom: 6px;
+    }
+    p {
+      margin: 0 0 10px 0;
+      color: #334155;
+    }
+    .card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin-bottom: 14px;
+    }
+    .card-security {
+      background: #fdf4ff;
+      border: 1px solid #f0abfc;
+      border-left: 4px solid #a855f7;
+    }
+    .card-note {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-left: 4px solid #3b82f6;
+    }
+    .card-alert {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-left: 4px solid #ef4444;
+    }
+    pre {
+      background: #0f172a;
+      color: #f1f5f9;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-family: "Consolas", "Monaco", "Courier New", monospace;
+      font-size: 11px;
+      line-height: 1.45;
+      overflow-x: auto;
+      margin: 8px 0 14px 0;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    code {
+      font-family: "Consolas", "Monaco", "Courier New", monospace;
+      background: #e2e8f0;
+      color: #0f172a;
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-size: 11.5px;
+    }
+    pre code {
+      background: transparent;
+      color: inherit;
+      padding: 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 16px 0;
+      font-size: 12px;
+    }
+    th, td {
+      border: 1px solid #cbd5e1;
+      padding: 8px 10px;
+      text-align: left;
+    }
+    th {
+      background: #f1f5f9;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    tr:nth-child(even) td {
+      background: #f8fafc;
+    }
+    .token-preview {
+      background: #2e1065;
+      color: #e9d5ff;
+      font-family: monospace;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      word-break: break-all;
+      margin: 6px 0;
+    }
+    .page-break {
+      page-break-before: always;
+    }
+    .avoid-break {
+      page-break-inside: avoid;
+    }
+    .footer {
+      margin-top: 28px;
+      padding-top: 12px;
+      border-top: 1px solid #cbd5e1;
+      font-size: 11px;
+      color: #64748b;
+      display: flex;
+      justify-content: space-between;
+    }
+    .json-key { color: #38bdf8; }
+    .json-str { color: #a7f3d0; }
+    .json-num { color: #fde047; }
+    .json-bool { color: #f472b6; }
+  </style>
+</head>
+<body>
+
+  <!-- PAGE 1: COVER & ARCHITECTURE -->
+  <div class="header-banner">
+    <div>
+      <span class="badge badge-red">NexiPlay Core API</span>
+      <span class="badge badge-green">AES-256-CBC Encrypted</span>
+      <span class="badge badge-purple">Zero Origin Leak</span>
+    </div>
+    <h1>NexiPlay Protected Anime Stream API</h1>
+    <p class="subtitle">Official Developer Integration Guide, Architecture & Universal Player Specification</p>
+  </div>
+
+  <div class="card card-security">
+    <strong style="color: #6b21a8; font-size: 13px;">🔒 Security & Zero-Leak Architecture:</strong>
+    <p style="margin-top: 4px; font-size: 12px; color: #4c1d95;">
+      This API allows third-party developers, mobile apps, and external websites to stream 100% of all anime catalog titles via a single unified endpoint. 
+      The upstream origin hosts (e.g. <code>codedew.com</code>, <code>razorshell.space</code>, <code>*.groovy.monster</code>) are <strong>never</strong> leaked to client network inspectors. 
+      All requests, playlist manifests (<code>.m3u8</code>), and video chunks (<code>.ts</code>) are proxied and tunneled through your NexiPlay instance with dynamic 2-hour encrypted security tokens.
+    </p>
+  </div>
+
+  <h2>1. System Architecture Overview</h2>
+  <p>The streaming pipeline operates across two lightweight, high-performance layers:</p>
+  
+  <div style="background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 14px; font-family: monospace; font-size: 11px; line-height: 1.6; margin-bottom: 14px;">
+    [Your Client / Player / Mobile App]<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;│<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;▼ <strong>1. GET /api/v1/anime/stream?slug={anime}&season=1&episode=1</strong><br>
+    [NexiPlay Protected Stream Gateway]<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;├── Checks Anime & Episode in Database<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;├── Server-side JavaScript Virtual Machine deobfuscates JuicyCodes & extracts master HLS<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;├── Encrypts target stream with AES-256-CBC & 2-Hour TTL token<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;└── Returns JSON containing <code>playbackUrl</code> and security token<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;│<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;▼ <strong>2. Video Player loads: GET /api/v1/anime/playback?token={token}</strong><br>
+    [NexiPlay Tunneled Playback Proxy]<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;├── Decrypts token & verifies signature & expiry timestamp<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;├── Rewrites master & variant .m3u8 playlists pointing to proxy routes<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;└── Serves .ts video segments with 206 Partial Content & Full CORS headers<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;│<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;▼<br>
+    <strong>[Smooth, Ad-Free, 1080p / 720p HLS Video Plays Without Any Iframe!]</strong>
+  </div>
+
+  <h2>2. The Unified Stream API Endpoint</h2>
+  <div class="card">
+    <p><strong>HTTP Method:</strong> <code>GET</code></p>
+    <p><strong>Endpoint URL:</strong> <code>https://your-domain.com/api/v1/anime/stream</code></p>
+    <p><strong>CORS Policy:</strong> <code>Access-Control-Allow-Origin: *</code> (Allows browser cross-origin calls)</p>
+  </div>
+
+  <h3>Query Parameters</h3>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 18%;">Parameter</th>
+        <th style="width: 14%;">Type</th>
+        <th style="width: 15%;">Default</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>slug</code></td>
+        <td>String</td>
+        <td>Required*</td>
+        <td>Anime URL slug (e.g. <code>blue-box-2026</code>, <code>hana-kimi-2026</code>).</td>
+      </tr>
+      <tr>
+        <td><code>id</code></td>
+        <td>UUID</td>
+        <td>Optional*</td>
+        <td>Database ID of anime (either <code>slug</code> or <code>id</code> must be provided).</td>
+      </tr>
+      <tr>
+        <td><code>season</code></td>
+        <td>Integer</td>
+        <td><code>1</code></td>
+        <td>Season number (1, 2, 3...).</td>
+      </tr>
+      <tr>
+        <td><code>episode</code></td>
+        <td>Integer</td>
+        <td><code>1</code></td>
+        <td>Episode number (1, 2, 3... or aliases: <code>ep</code>).</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- PAGE BREAK FOR CLEAN LAYOUT -->
+  <div class="page-break"></div>
+
+  <h2>3. API Response Specification</h2>
+  <p>Calling the endpoint returns a JSON payload with metadata, expiration, token, and the ready-to-play URL:</p>
+
+  <div class="avoid-break">
+    <pre>{
+  <span class="json-key">"success"</span>: <span class="json-bool">true</span>,
+  <span class="json-key">"title"</span>: <span class="json-str">"Blue Box"</span>,
+  <span class="json-key">"type"</span>: <span class="json-str">"anime"</span>,
+  <span class="json-key">"slug"</span>: <span class="json-str">"blue-box-2026"</span>,
+  <span class="json-key">"season"</span>: <span class="json-num">1</span>,
+  <span class="json-key">"episode"</span>: <span class="json-num">1</span>,
+  <span class="json-key">"server"</span>: <span class="json-str">"RR Nexiplay Server"</span>,
+  <span class="json-key">"format"</span>: <span class="json-str">"hls_stream"</span>,
+  <span class="json-key">"expiresInSeconds"</span>: <span class="json-num">7200</span>,
+  <span class="json-key">"token"</span>: <span class="json-str">"b5870d09f28e80c144a1976b581c760c:0b9b2b4ed354a9cf4115455363..."</span>,
+  <span class="json-key">"playbackUrl"</span>: <span class="json-str">"https://your-domain.com/api/v1/anime/playback?token=b5870d09f28e..."</span>,
+  <span class="json-key">"embedUrl"</span>: <span class="json-str">"https://your-domain.com/embed/rr?slug=blue-box-2026&season=1&episode=1"</span>,
+  <span class="json-key">"iframeCode"</span>: <span class="json-str">"&lt;iframe src=\"https://your-domain.com/embed/rr?...\" width=\"100%\"...&gt;&lt;/iframe&gt;"</span>
+}</pre>
+  </div>
+
+  <h3>Key Field Definitions</h3>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 25%;">Field</th>
+        <th style="width: 15%;">Type</th>
+        <th>Purpose</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>playbackUrl</code></td>
+        <td>URL String</td>
+        <td><strong>Primary Stream Target:</strong> Pass this directly into Video.js, Plyr, Hls.js, ExoPlayer, or AVPlayer. No iframe needed!</td>
+      </tr>
+      <tr>
+        <td><code>token</code></td>
+        <td>Hex String</td>
+        <td>AES-256-CBC token encoding the target stream and session state. Valid for 2 hours.</td>
+      </tr>
+      <tr>
+        <td><code>format</code></td>
+        <td>String</td>
+        <td><code>hls_stream</code> (Master HLS playlist for native video playback).</td>
+      </tr>
+      <tr>
+        <td><code>embedUrl</code></td>
+        <td>URL String</td>
+        <td>Optional responsive full-screen web embed player URL.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>4. Client Integration 1: Vanilla HTML5 & HLS.js (No Framework)</h2>
+  <p>To stream directly in any web browser without an iframe:</p>
+
+  <div class="avoid-break">
+    <pre>&lt;!DOCTYPE html&gt;
+&lt;html lang="en"&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;Custom Anime Player&lt;/title&gt;
+  &lt;script src="https://cdn.jsdelivr.net/npm/hls.js@latest"&gt;&lt;/script&gt;
+  &lt;style&gt;
+    .player-container { width: 100%; max-width: 960px; margin: 40px auto; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; }
+    video { width: 100%; height: 100%; object-fit: contain; }
+  &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;div class="player-container"&gt;
+    &lt;video id="videoPlayer" controls playsinline&gt;&lt;/video&gt;
+  &lt;/div&gt;
+
+  &lt;script&gt;
+    async function playAnime(slug, season = 1, episode = 1) {
+      const video = document.getElementById('videoPlayer');
+      const apiUrl = `https://your-domain.com/api/v1/anime/stream?slug=${slug}&season=${season}&episode=${episode}`;
+
+      try {
+        const res = await fetch(apiUrl);
+        const data = await res.json();
+        if (!data.success || !data.playbackUrl) {
+          alert('Stream error: ' + (data.error || 'Failed to resolve stream'));
+          return;
+        }
+
+        const streamUrl = data.playbackUrl;
+
+        // Chrome, Firefox, Edge, Android Browsers:
+        if (Hls.isSupported()) {
+          const hls = new Hls({ enableWorker: true });
+          hls.loadSource(streamUrl);
+          hls.attachMedia(video);
+          hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
+        } 
+        // Safari / iOS Native HLS:
+        else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          video.src = streamUrl;
+          video.addEventListener('loadedmetadata', () => video.play());
+        }
+      } catch (err) {
+        console.error('Playback fetch failed:', err);
+      }
+    }
+
+    // Launch target anime:
+    playAnime('blue-box-2026', 1, 1);
+  &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</pre>
+  </div>
+
+  <!-- PAGE BREAK FOR CLEAN LAYOUT -->
+  <div class="page-break"></div>
+
+  <h2>5. Client Integration 2: React / Next.js Component</h2>
+  <p>Drop-in TypeScript component for modern React, Next.js, or Remix applications:</p>
+
+  <div class="avoid-break">
+    <pre><span style="color: #64748b;">// components/AnimeStreamPlayer.tsx</span>
+<span style="color: #f472b6;">'use client'</span>;
+
+<span style="color: #f472b6;">import</span> { useEffect, useRef, useState } <span style="color: #f472b6;">from</span> <span style="color: #a7f3d0;">'react'</span>;
+<span style="color: #f472b6;">import</span> Hls <span style="color: #f472b6;">from</span> <span style="color: #a7f3d0;">'hls.js'</span>;
+
+<span style="color: #f472b6;">interface</span> PlayerProps {
+  slug: string;
+  season?: number;
+  episode?: number;
+  apiBaseUrl?: string; <span style="color: #64748b;">// e.g. "https://your-domain.com"</span>
+}
+
+<span style="color: #f472b6;">export default function</span> AnimeStreamPlayer({ slug, season = 1, episode = 1, apiBaseUrl = <span style="color: #a7f3d0;">''</span> }: PlayerProps) {
+  <span style="color: #f472b6;">const</span> videoRef = useRef&lt;HTMLVideoElement&gt;(<span style="color: #f472b6;">null</span>);
+  <span style="color: #f472b6;">const</span> [loading, setLoading] = useState(<span style="color: #f472b6;">true</span>);
+  <span style="color: #f472b6;">const</span> [error, setError] = useState&lt;string | <span style="color: #f472b6;">null</span>&gt;(<span style="color: #f472b6;">null</span>);
+
+  useEffect(() => {
+    <span style="color: #f472b6;">let</span> hls: Hls | <span style="color: #f472b6;">null</span> = <span style="color: #f472b6;">null</span>;
+    setLoading(<span style="color: #f472b6;">true</span>);
+    setError(<span style="color: #f472b6;">null</span>);
+
+    <span style="color: #f472b6;">async function</span> initStream() {
+      <span style="color: #f472b6;">try</span> {
+        <span style="color: #f472b6;">const</span> res = <span style="color: #f472b6;">await</span> fetch(
+          `${apiBaseUrl}/api/v1/anime/stream?slug=${encodeURIComponent(slug)}&season=${season}&episode=${episode}`
+        );
+        <span style="color: #f472b6;">const</span> data = <span style="color: #f472b6;">await</span> res.json();
+        <span style="color: #f472b6;">if</span> (!data.success || !data.playbackUrl) {
+          <span style="color: #f472b6;">throw new</span> Error(data.error || <span style="color: #a7f3d0;">'Stream not available'</span>);
+        }
+
+        <span style="color: #f472b6;">const</span> video = videoRef.current;
+        <span style="color: #f472b6;">if</span> (!video) <span style="color: #f472b6;">return</span>;
+
+        <span style="color: #f472b6;">if</span> (Hls.isSupported()) {
+          hls = <span style="color: #f472b6;">new</span> Hls({ enableWorker: <span style="color: #f472b6;">true</span> });
+          hls.loadSource(data.playbackUrl);
+          hls.attachMedia(video);
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            setLoading(<span style="color: #f472b6;">false</span>);
+            video.play().catch(() => {});
+          });
+        } <span style="color: #f472b6;">else if</span> (video.canPlayType(<span style="color: #a7f3d0;">'application/vnd.apple.mpegurl'</span>)) {
+          video.src = data.playbackUrl;
+          video.onloadedmetadata = () => {
+            setLoading(<span style="color: #f472b6;">false</span>);
+            video.play().catch(() => {});
+          };
+        }
+      } <span style="color: #f472b6;">catch</span> (err: any) {
+        setError(err.message || <span style="color: #a7f3d0;">'Playback error'</span>);
+        setLoading(<span style="color: #f472b6;">false</span>);
+      }
+    }
+
+    initStream();
+    <span style="color: #f472b6;">return</span> () => { <span style="color: #f472b6;">if</span> (hls) hls.destroy(); };
+  }, [slug, season, episode, apiBaseUrl]);
+
+  <span style="color: #f472b6;">return</span> (
+    &lt;div className=<span style="color: #a7f3d0;">"relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl"</span>&gt;
+      {loading &amp;&amp; (
+        &lt;div className=<span style="color: #a7f3d0;">"absolute inset-0 flex items-center justify-center bg-black/60 text-white z-10"</span>&gt;
+          &lt;div className=<span style="color: #a7f3d0;">"w-8 h-8 border-2 border-red-500 border-t-transparent rounded-full animate-spin"</span> /&gt;
+        &lt;/div&gt;
+      )}
+      {error &amp;&amp; (
+        &lt;div className=<span style="color: #a7f3d0;">"absolute inset-0 flex items-center justify-center bg-black text-red-400 p-4 z-10 font-bold"</span>&gt;
+          {error}
+        &lt;/div&gt;
+      )}
+      &lt;video ref={videoRef} controls playsInline className=<span style="color: #a7f3d0;">"w-full h-full object-contain"</span> /&gt;
+    &lt;/div&gt;
+  );
+}</pre>
+  </div>
+
+  <h2>6. Client Integration 3: Mobile Apps (Flutter / Android)</h2>
+  <div class="card card-note">
+    <strong>Mobile App Advantage:</strong>
+    Mobile apps should never use web iframes because webviews leak memory and have choppy playback. 
+    With <code>playbackUrl</code>, Flutter, React Native, and Android apps load streams directly via native media hardware decoders (ExoPlayer / AVPlayer).
+  </div>
+
+  <div class="avoid-break">
+    <p><strong>Flutter (using <code>video_player</code> package):</strong></p>
+    <pre><span style="color: #64748b;">// 1. Fetch metadata</span>
+<span style="color: #f472b6;">final</span> res = <span style="color: #f472b6;">await</span> http.get(Uri.parse(
+  <span style="color: #a7f3d0;">'https://your-domain.com/api/v1/anime/stream?slug=blue-box-2026&season=1&episode=1'</span>
+));
+<span style="color: #f472b6;">final</span> data = jsonDecode(res.body);
+<span style="color: #f472b6;">final</span> String playbackUrl = data[<span style="color: #a7f3d0;">'playbackUrl'</span>];
+
+<span style="color: #64748b;">// 2. Feed stream into native player</span>
+_controller = VideoPlayerController.networkUrl(
+  Uri.parse(playbackUrl),
+  formatHint: VideoFormat.hls,
+)..initialize().then((_) {
+  setState(() {});
+  _controller.play();
+});</pre>
+  </div>
+
+  <!-- PAGE BREAK FOR CLEAN LAYOUT -->
+  <div class="page-break"></div>
+
+  <h2>7. Zero-Code HTML Iframe Embed (For WordPress / Blogger)</h2>
+  <p>For bloggers, non-coders, or simple iframe embeds, use the auto-generated <code>embedUrl</code>:</p>
+
+  <div class="avoid-break">
+    <pre>&lt;iframe 
+  src="https://your-domain.com/embed/rr?slug=blue-box-2026&season=1&episode=1" 
+  width="100%" 
+  height="500px" 
+  frameborder="0" 
+  allowfullscreen 
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"&gt;
+&lt;/iframe&gt;</pre>
+  </div>
+
+  <h2>8. Error Handling & HTTP Status Codes</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 15%;">Status Code</th>
+        <th style="width: 25%;">Error Reason</th>
+        <th>Resolution</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>200 OK</code></td>
+        <td>Success</td>
+        <td>Stream token and <code>playbackUrl</code> generated successfully.</td>
+      </tr>
+      <tr>
+        <td><code>400 Bad Request</code></td>
+        <td>Missing parameters</td>
+        <td>Provide at least <code>slug</code> or <code>id</code> in query string.</td>
+      </tr>
+      <tr>
+        <td><code>403 Forbidden</code></td>
+        <td>Invalid or expired token</td>
+        <td>Token has passed its 2-hour TTL. Re-query <code>/api/v1/anime/stream</code> for a fresh token.</td>
+      </tr>
+      <tr>
+        <td><code>404 Not Found</code></td>
+        <td>Anime or episode not found</td>
+        <td>Verify anime slug or season/episode number exists in the database.</td>
+      </tr>
+      <tr>
+        <td><code>500 Server Error</code></td>
+        <td>Extractor timeout / error</td>
+        <td>The upstream deobfuscator encountered a network issue; client should retry with exponential backoff.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>9. Token Security & Best Practices</h2>
+  <div class="card card-security">
+    <ul>
+      <li><strong>Token Rotation:</strong> Every token is strictly tied to an expiration timestamp (120 minutes). If a user pauses a video and returns 3 hours later, your client application should catch <code>403</code> and re-fetch a new stream URL.</li>
+      <li><strong>Hotlink & Source Protection:</strong> Because all video segment URLs are rewritten to proxy through <code>/api/v1/anime/playback</code>, clients can never extract the origin host. Sharing raw segment links without a valid active token results in an immediate <code>403 Forbidden</code>.</li>
+      <li><strong>Cross-Origin Resource Sharing (CORS):</strong> Both the stream metadata API and the playback chunk proxy provide <code>Access-Control-Allow-Origin: *</code>, allowing integration into websites hosted anywhere (Netlify, Vercel, WordPress, GitHub Pages, or local apps).</li>
+    </ul>
+  </div>
+
+  <div class="footer">
+    <span>NexiPlay Protected Streaming Core &copy; 2026</span>
+    <span>API Version: v1.0.0-production &bull; Document Release: 1.0</span>
+  </div>
+
+</body>
+</html>
