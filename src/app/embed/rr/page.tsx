@@ -59,13 +59,31 @@ export default function RREmbedPlayerPage() {
         // Native HLS support (Safari / iOS)
         if (video.canPlayType('application/vnd.apple.mpegurl')) {
             video.src = src;
+            video.play().catch(() => {});
         } else {
             const win = window as any;
             const initHls = () => {
                 if (win.Hls && win.Hls.isSupported()) {
-                    const hls = new win.Hls({ enableWorker: true });
+                    const hls = new win.Hls({
+                        enableWorker: true,
+                        backBufferLength: 90
+                    });
                     hls.loadSource(src);
                     hls.attachMedia(video);
+                    hls.on(win.Hls.Events.MANIFEST_PARSED, () => {
+                        video.play().catch(() => {});
+                    });
+                    hls.on(win.Hls.Events.ERROR, (_event: any, data: any) => {
+                        if (data.fatal) {
+                            if (data.type === win.Hls.ErrorTypes.NETWORK_ERROR) {
+                                hls.startLoad();
+                            } else if (data.type === win.Hls.ErrorTypes.MEDIA_ERROR) {
+                                hls.recoverMediaError();
+                            } else {
+                                hls.destroy();
+                            }
+                        }
+                    });
                 } else {
                     video.src = src;
                 }

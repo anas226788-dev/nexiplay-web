@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { encryptStream } from '@/lib/streamCrypto';
+import { extractRRStream } from '@/lib/rrStreamExtractor';
 
 export const dynamic = 'force-dynamic';
 
@@ -130,13 +131,21 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        // 3. Encrypt the stream URL with expiration (2 hours)
+        // 3. Resolve direct HLS stream if applicable
+        const extracted = await extractRRStream(rrStreamUrl);
+        const resolvedTargetUrl = extracted.m3u8Url || extracted.fallbackUrl || rrStreamUrl;
+        const streamCookies = extracted.cookies || '';
+        const isHls = Boolean(extracted.m3u8Url) || /\.(m3u8|mp4|ts)(?:[?#]|$)/i.test(resolvedTargetUrl);
+
+        // 4. Encrypt the stream URL with expiration (2 hours)
         const now = Date.now();
         const expiresAt = now + 2 * 60 * 60 * 1000;
 
         const token = encryptStream({
-            url: rrStreamUrl,
+            url: resolvedTargetUrl,
             server: 'rareanimes',
+            cookies: streamCookies,
+            format: isHls ? 'hls_stream' : 'embed_stream',
             contentId: movie.id,
             slug: movie.slug,
             season: seasonNum,
@@ -149,8 +158,6 @@ export async function GET(request: NextRequest) {
         const playbackUrl = `${origin}/api/v1/anime/playback?token=${encodeURIComponent(token)}`;
         const embedUrl = `${origin}/embed/rr?slug=${encodeURIComponent(movie.slug)}&season=${seasonNum}&episode=${epNum}`;
 
-        const isDirectVideo = /\.(m3u8|mp4|ts)(?:[?#]|$)/i.test(rrStreamUrl);
-
         return NextResponse.json(
             {
                 success: true,
@@ -160,7 +167,7 @@ export async function GET(request: NextRequest) {
                 season: seasonNum,
                 episode: epNum,
                 server: 'RR Nexiplay Server',
-                format: isDirectVideo ? 'hls_stream' : 'embed_stream',
+                format: isHls ? 'hls_stream' : 'embed_stream',
                 expiresInSeconds: 7200,
                 token,
                 playbackUrl,

@@ -11,6 +11,8 @@ function getEncryptionKey(): Buffer {
 export type EncryptedStreamPayload = {
     url: string;
     server: string;
+    cookies?: string;
+    format?: 'hls_stream' | 'embed_stream';
     contentId?: string;
     slug?: string;
     season?: number;
