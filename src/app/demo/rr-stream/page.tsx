@@ -20,7 +20,7 @@ interface ApiResponse {
     error?: string;
 }
 
-// Verified anime from database that are configured with RR Nexiplay server
+// Verified anime from database configured with RR Nexiplay server
 const VERIFIED_RR_ANIME = [
     { title: 'Hana-Kimi', slug: 'hana-kimi-2026' },
     { title: 'Blue Box', slug: 'blue-box-2026' },
@@ -38,6 +38,8 @@ export default function RRStreamDemoPage() {
     const [episode, setEpisode] = useState('1');
     const [deviceView, setDeviceView] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
     const [bottomTab, setBottomTab] = useState<'api' | 'guide'>('api');
+    const [mounted, setMounted] = useState(false);
+    const [origin, setOrigin] = useState('');
 
     // API state
     const [apiResponse, setApiResponse] = useState<ApiResponse | null>(null);
@@ -45,6 +47,13 @@ export default function RRStreamDemoPage() {
     const [responseTime, setResponseTime] = useState<number | null>(null);
     const [httpStatus, setHttpStatus] = useState<number | null>(null);
     const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+    useEffect(() => {
+        setMounted(true);
+        if (typeof window !== 'undefined') {
+            setOrigin(window.location.origin);
+        }
+    }, []);
 
     const runApiTest = async (targetSlug = slug, targetSeason = season, targetEp = episode) => {
         if (!targetSlug.trim()) return;
@@ -86,13 +95,16 @@ export default function RRStreamDemoPage() {
     };
 
     const copyToClipboard = (text: string, key: string) => {
-        navigator.clipboard.writeText(text);
-        setCopiedKey(key);
-        setTimeout(() => setCopiedKey(null), 2000);
+        if (typeof navigator !== 'undefined' && navigator.clipboard) {
+            navigator.clipboard.writeText(text);
+            setCopiedKey(key);
+            setTimeout(() => setCopiedKey(null), 2000);
+        }
     };
 
     const currentEmbedUrl = `/embed/rr?slug=${encodeURIComponent(slug.trim())}&season=${season}&episode=${episode}`;
-    const iframeSnippet = `<iframe src="${typeof window !== 'undefined' ? window.location.origin : ''}${currentEmbedUrl}" width="100%" height="500px" frameborder="0" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>`;
+    const effectiveOrigin = mounted && origin ? origin : 'http://localhost:3000';
+    const iframeSnippet = `<iframe src="${effectiveOrigin}${currentEmbedUrl}" width="100%" height="500px" frameborder="0" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>`;
 
     return (
         <div className="min-h-screen bg-[#09090e] text-white pt-24 pb-20 px-4 md:px-8">
@@ -134,11 +146,12 @@ export default function RRStreamDemoPage() {
                         <span className="text-xs text-gray-400 font-medium">Quick RR Samples:</span>
                     </div>
 
-                    {/* Quick Suggestions Chips (Only real working RR animes) */}
+                    {/* Quick Suggestions Chips (Only verified RR animes) */}
                     <div className="flex flex-wrap gap-2">
                         {VERIFIED_RR_ANIME.map((item) => (
                             <button
                                 key={item.slug}
+                                type="button"
                                 onClick={() => handleSelectSample(item.slug)}
                                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                                     slug === item.slug
@@ -187,6 +200,7 @@ export default function RRStreamDemoPage() {
 
                         <div className="md:col-span-2">
                             <button
+                                type="button"
                                 onClick={() => runApiTest()}
                                 disabled={loading}
                                 className="w-full py-3 px-5 rounded-xl bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 active:scale-[0.98] text-white text-sm font-black transition-all shadow-lg shadow-red-900/30 flex items-center justify-center gap-2 disabled:opacity-50"
@@ -233,6 +247,7 @@ export default function RRStreamDemoPage() {
                         <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
                             <div className="flex bg-white/5 rounded-xl p-1 border border-white/5">
                                 <button
+                                    type="button"
                                     onClick={() => setDeviceView('desktop')}
                                     className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
                                         deviceView === 'desktop' ? 'bg-red-600 text-white' : 'text-gray-400 hover:text-white'
@@ -241,6 +256,7 @@ export default function RRStreamDemoPage() {
                                     Desktop
                                 </button>
                                 <button
+                                    type="button"
                                     onClick={() => setDeviceView('tablet')}
                                     className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
                                         deviceView === 'tablet' ? 'bg-red-600 text-white' : 'text-gray-400 hover:text-white'
@@ -249,6 +265,7 @@ export default function RRStreamDemoPage() {
                                     Tablet
                                 </button>
                                 <button
+                                    type="button"
                                     onClick={() => setDeviceView('mobile')}
                                     className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
                                         deviceView === 'mobile' ? 'bg-red-600 text-white' : 'text-gray-400 hover:text-white'
@@ -297,11 +314,12 @@ export default function RRStreamDemoPage() {
                             <span className="text-[11px] font-bold text-gray-400 block mb-0.5">
                                 📋 HTML Iframe Embed Code (For Blogger, WordPress, or external websites):
                             </span>
-                            <code className="text-xs font-mono text-green-300 truncate block">
-                                {iframeSnippet}
+                            <code className="text-xs font-mono text-green-300 truncate block" suppressHydrationWarning>
+                                {mounted ? iframeSnippet : ''}
                             </code>
                         </div>
                         <button
+                            type="button"
                             onClick={() => copyToClipboard(iframeSnippet, 'iframe')}
                             className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-xs font-bold text-white transition-colors whitespace-nowrap self-end sm:self-auto shadow-md shadow-red-900/30"
                         >
@@ -316,6 +334,7 @@ export default function RRStreamDemoPage() {
                 <div className="space-y-4">
                     <div className="flex border-b border-white/10">
                         <button
+                            type="button"
                             onClick={() => setBottomTab('api')}
                             className={`px-6 py-3 text-sm font-bold transition-all relative flex items-center gap-2 ${
                                 bottomTab === 'api' ? 'text-white' : 'text-gray-400 hover:text-gray-200'
@@ -339,6 +358,7 @@ export default function RRStreamDemoPage() {
                         </button>
 
                         <button
+                            type="button"
                             onClick={() => setBottomTab('guide')}
                             className={`px-6 py-3 text-sm font-bold transition-all relative flex items-center gap-2 ${
                                 bottomTab === 'guide' ? 'text-white' : 'text-gray-400 hover:text-gray-200'
@@ -393,6 +413,7 @@ export default function RRStreamDemoPage() {
                                             <span className="text-[11px] text-gray-400">Valid for 2 Hours</span>
                                         </div>
                                         <button
+                                            type="button"
                                             onClick={() => copyToClipboard(apiResponse.token!, 'token')}
                                             className="text-xs text-purple-300 hover:text-white font-bold underline"
                                         >
@@ -434,6 +455,7 @@ export default function RRStreamDemoPage() {
                                         GET /api/v1/anime/stream?slug={slug}&season={season}&episode={episode}
                                     </span>
                                     <button
+                                        type="button"
                                         onClick={() =>
                                             copyToClipboard(JSON.stringify(apiResponse, null, 2), 'json')
                                         }
@@ -459,9 +481,9 @@ export default function RRStreamDemoPage() {
                                 <p className="text-xs text-gray-400 mb-3">
                                     Paste this on WordPress, Blogger, or any custom website:
                                 </p>
-                                <pre className="p-4 rounded-xl bg-black/60 border border-white/5 font-mono text-xs text-green-300 overflow-x-auto">
+                                <pre className="p-4 rounded-xl bg-black/60 border border-white/5 font-mono text-xs text-green-300 overflow-x-auto" suppressHydrationWarning>
 {`<iframe 
-  src="${typeof window !== 'undefined' ? window.location.origin : 'https://nexiplay.vercel.app'}/embed/rr?slug=hana-kimi-2026&season=1&episode=1" 
+  src="${mounted && origin ? origin : 'https://nexiplay.vercel.app'}/embed/rr?slug=hana-kimi-2026&season=1&episode=1" 
   width="100%" 
   height="500px" 
   frameborder="0" 
