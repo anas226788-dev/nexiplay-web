@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { decryptStream } from '@/lib/streamCrypto';
 import { extractRRStream } from '@/lib/rrStreamExtractor';
+import { getStreamApiSettings } from '@/lib/streamApiKeyService';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,6 +42,11 @@ export async function GET(request: NextRequest) {
     const token = searchParams.get('token');
     const segUrl = searchParams.get('seg');
     const origin = request.nextUrl.origin;
+
+    const settings = await getStreamApiSettings();
+    if (!settings.isEnabled) {
+        return new NextResponse('Stream API is currently disabled by administrator.', { status: 503 });
+    }
 
     if (!token) {
         return new NextResponse('Access denied: Missing security token.', { status: 400 });

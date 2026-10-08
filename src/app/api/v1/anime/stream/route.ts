@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { encryptStream } from '@/lib/streamCrypto';
 import { extractRRStream } from '@/lib/rrStreamExtractor';
+import { validateApiKeyAccess, recordApiKeyUsage } from '@/lib/streamApiKeyService';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +33,42 @@ function parseMultiConfig(raw: string | null | undefined): Record<string, any> {
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
+
+    // Extract API Key from query params or headers
+    const authHeader = request.headers.get('authorization') || '';
+    const bearerKey = authHeader.toLowerCase().startsWith('bearer ') ? authHeader.substring(7).trim() : null;
+    const apiKey = searchParams.get('apiKey')?.trim() ||
+                   searchParams.get('key')?.trim() ||
+                   searchParams.get('api_key')?.trim() ||
+                   request.headers.get('x-api-key')?.trim() ||
+                   request.headers.get('apikey')?.trim() ||
+                   bearerKey;
+
+    const originHeader = request.headers.get('origin');
+    const refererHeader = request.headers.get('referer');
+    const forwardedFor = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+    const clientIp = forwardedFor || request.headers.get('x-real-ip') || undefined;
+
+    // 1. Validate Access & Key Permission
+    const accessCheck = await validateApiKeyAccess(apiKey, originHeader, refererHeader);
+    if (!accessCheck.allowed) {
+        return NextResponse.json(
+            {
+                success: false,
+                error: accessCheck.reason || 'Access denied.',
+                code: accessCheck.statusCode === 503 ? 'STREAM_API_DISABLED' : 'UNAUTHORIZED_KEY'
+            },
+            {
+                status: accessCheck.statusCode || 403,
+                headers: { 'Access-Control-Allow-Origin': '*' }
+            }
+        );
+    }
+
+    if (apiKey) {
+        recordApiKeyUsage(apiKey, clientIp).catch(() => {});
+    }
+
     const slug = searchParams.get('slug')?.trim();
     const id = searchParams.get('id')?.trim();
     const seasonNum = parseInt(searchParams.get('season') || '1', 10) || 1;
@@ -181,6 +218,7 @@ export async function GET(request: NextRequest) {
                 episode: epNum,
                 server: 'RR Nexiplay Server',
                 format: 'hls_stream',
+                keyType: accessCheck.keyRecord?.type || (apiKey ? 'custom' : 'demo'),
                 expiresInSeconds: 7200,
                 token,
                 playbackUrl,
@@ -191,7 +229,7 @@ export async function GET(request: NextRequest) {
                 headers: {
                     'Access-Control-Allow-Origin': '*',
                     'Access-Control-Allow-Methods': 'GET, OPTIONS',
-                    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+                    'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-api-key, apikey',
                     'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300'
                 }
             }
@@ -210,7 +248,7 @@ export async function OPTIONS() {
         headers: {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-api-key, apikey'
         }
     });
 }
