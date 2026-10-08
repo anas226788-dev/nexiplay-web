@@ -42,6 +42,7 @@ export default function RRStreamDemoPage() {
     const [origin, setOrigin] = useState('');
 
     // API state
+    const [apiKeyInput, setApiKeyInput] = useState('');
     const [apiResponse, setApiResponse] = useState<ApiResponse | null>(null);
     const [loading, setLoading] = useState(false);
     const [responseTime, setResponseTime] = useState<number | null>(null);
@@ -61,7 +62,8 @@ export default function RRStreamDemoPage() {
         const startTime = performance.now();
 
         try {
-            const url = `/api/v1/anime/stream?slug=${encodeURIComponent(targetSlug.trim())}&season=${targetSeason}&episode=${targetEp}`;
+            const keyParam = apiKeyInput.trim() ? `&apiKey=${encodeURIComponent(apiKeyInput.trim())}` : '';
+            const url = `/api/v1/anime/stream?slug=${encodeURIComponent(targetSlug.trim())}&season=${targetSeason}&episode=${targetEp}${keyParam}`;
             const res = await fetch(url);
             const data: ApiResponse = await res.json();
             const duration = Math.round(performance.now() - startTime);
@@ -164,8 +166,8 @@ export default function RRStreamDemoPage() {
                         ))}
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end pt-2">
-                        <div className="md:col-span-6 space-y-1.5">
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end pt-2">
+                        <div className="md:col-span-4 space-y-1.5">
                             <label className="text-xs font-bold text-gray-400">Anime Slug or UUID</label>
                             <input
                                 type="text"
@@ -176,14 +178,25 @@ export default function RRStreamDemoPage() {
                             />
                         </div>
 
-                        <div className="md:col-span-2 space-y-1.5">
+                        <div className="md:col-span-3 space-y-1.5">
+                            <label className="text-xs font-bold text-gray-400">API Key (Optional / টেস্ট)</label>
+                            <input
+                                type="text"
+                                value={apiKeyInput}
+                                onChange={(e) => setApiKeyInput(e.target.value)}
+                                placeholder="nxp_test_... (ফাঁকা রাখলে ফ্রি ডেমো)"
+                                className="w-full px-3 py-3 rounded-xl bg-black/50 border border-white/10 text-xs font-mono text-white placeholder-gray-600 focus:outline-none focus:border-red-500/60"
+                            />
+                        </div>
+
+                        <div className="md:col-span-1 space-y-1.5">
                             <label className="text-xs font-bold text-gray-400">Season</label>
                             <input
                                 type="number"
                                 min="1"
                                 value={season}
                                 onChange={(e) => setSeason(e.target.value)}
-                                className="w-full px-4 py-3 rounded-xl bg-black/50 border border-white/10 text-sm font-mono text-white focus:outline-none focus:border-red-500/60 text-center"
+                                className="w-full px-2 py-3 rounded-xl bg-black/50 border border-white/10 text-sm font-mono text-white focus:outline-none focus:border-red-500/60 text-center"
                             />
                         </div>
 
@@ -194,7 +207,7 @@ export default function RRStreamDemoPage() {
                                 min="1"
                                 value={episode}
                                 onChange={(e) => setEpisode(e.target.value)}
-                                className="w-full px-4 py-3 rounded-xl bg-black/50 border border-white/10 text-sm font-mono text-white focus:outline-none focus:border-red-500/60 text-center"
+                                className="w-full px-2 py-3 rounded-xl bg-black/50 border border-white/10 text-sm font-mono text-white focus:outline-none focus:border-red-500/60 text-center"
                             />
                         </div>
 
