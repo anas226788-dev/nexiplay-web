@@ -104,7 +104,8 @@ export default function RRStreamDemoPage() {
         }
     };
 
-    const currentEmbedUrl = `/embed/rr?slug=${encodeURIComponent(slug.trim())}&season=${season}&episode=${episode}`;
+    const keyParam = apiKeyInput.trim() ? `&apiKey=${encodeURIComponent(apiKeyInput.trim())}` : '';
+    const currentEmbedUrl = `/embed/rr?slug=${encodeURIComponent(slug.trim())}&season=${season}&episode=${episode}${keyParam}`;
     const effectiveOrigin = mounted && origin ? origin : 'http://localhost:3000';
     const iframeSnippet = `<iframe src="${effectiveOrigin}${currentEmbedUrl}" width="100%" height="500px" frameborder="0" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>`;
 
