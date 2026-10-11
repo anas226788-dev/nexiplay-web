@@ -69,37 +69,34 @@ export default function Header() {
 
     return (
         <>
-            <header className="glass fixed top-0 left-0 right-0 z-50 transition-all duration-300 backdrop-blur-xl bg-black/40 border-b border-white/5">
+            <header className="fixed top-0 left-0 right-0 z-50 transition-all duration-300 np-glass border-b border-white/10">
                 <div className="container mx-auto px-4">
                     <div className="flex items-center justify-between h-16 md:h-20 relative z-20 bg-transparent">
                         {/* Logo with Glow */}
                         <Link href="/" className="flex items-center gap-3 group relative z-20">
-                            <div className="absolute inset-0 bg-red-600/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-full" />
-                            <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-dark-800 to-black border border-white/10 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
-                                <span className="text-red-600 font-bold text-xl">N</span>
+                            <div className="absolute inset-0 bg-[#E51D48]/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-full" />
+                            <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-[#1B1E31] to-[#0B0D16] border border-white/10 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+                                <span className="text-[#E51D48] font-black text-xl">N</span>
                             </div>
-                            <span className="text-xl md:text-2xl font-black tracking-tight text-white group-hover:text-red-500 transition-colors">
-                                NEXI<span className="text-red-600">PLAY</span>
+                            <span className="text-xl md:text-2xl font-black tracking-tight text-[#F7F8FC] group-hover:text-[#E51D48] transition-colors">
+                                NEXI<span className="text-[#E51D48]">PLAY</span>
                             </span>
                         </Link>
 
                         {/* Desktop Navigation */}
-                        <nav className="hidden md:flex items-center bg-black/20 p-1.5 rounded-full border border-white/5 backdrop-blur-md relative z-20">
+                        <nav className="hidden md:flex items-center bg-[#141625]/80 p-1.5 rounded-full border border-white/10 shadow-np-inset relative z-20">
                             {navLinks.map((link) => {
                                 const active = isActive(link.href);
                                 return (
                                     <Link
                                         key={link.href}
                                         href={link.href}
-                                        className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 relative ${active
-                                            ? 'text-white bg-white/10 shadow-lg'
-                                            : 'text-gray-400 hover:text-white hover:bg-white/5'
+                                        className={`px-5 py-2 rounded-full text-sm font-semibold transition-all duration-200 relative ${active
+                                            ? 'text-white bg-gradient-to-r from-[#E51D48] to-[#A70F35] shadow-[0_4px_16px_rgba(229,29,72,0.45)]'
+                                            : 'text-[#A7AABD] hover:text-white hover:bg-white/5'
                                             }`}
                                     >
                                         {link.label}
-                                        {active && (
-                                            <span className="absolute inset-0 rounded-full ring-1 ring-white/10 animate-pulse-glow" />
-                                        )}
                                     </Link>
                                 );
                             })}
@@ -124,9 +121,9 @@ export default function Header() {
                             {/* Interactive Search Button */}
                             <button
                                 onClick={() => setIsSearchOpen(!isSearchOpen)}
-                                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${isSearchOpen
-                                    ? 'bg-red-600 text-white rotate-90'
-                                    : 'text-gray-400 hover:text-white hover:bg-white/10'
+                                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 ${isSearchOpen
+                                    ? 'bg-[#E51D48] text-white rotate-90 shadow-[0_4px_16px_rgba(229,29,72,0.55)]'
+                                    : 'text-[#A7AABD] hover:text-white hover:bg-white/10'
                                     }`}
                             >
                                 {isSearchOpen ? (
@@ -149,14 +146,13 @@ export default function Header() {
 
                 {/* SLIDE DOWN SEARCH BAR */}
                 <div
-                    className={`absolute top-full left-0 w-full bg-dark-900/95 backdrop-blur-xl border-b border-white/10 shadow-2xl transition-all duration-300 origin-top overflow-hidden ${isSearchOpen ? 'opacity-100 translate-y-0 max-h-32' : 'opacity-0 -translate-y-4 max-h-0'
+                    className={`absolute top-full left-0 w-full np-glass border-b border-white/10 shadow-2xl transition-all duration-300 origin-top overflow-hidden ${isSearchOpen ? 'opacity-100 translate-y-0 max-h-32' : 'opacity-0 -translate-y-4 max-h-0'
                         }`}
                 >
                     <div className="container mx-auto px-4 py-6">
                         <div className="max-w-3xl mx-auto relative group">
-                            <div className="absolute inset-0 bg-red-600/10 rounded-2xl blur opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
-                            <div className="relative flex items-center bg-black/40 border border-white/10 rounded-2xl overflow-hidden focus-within:border-red-500/50 focus-within:ring-1 focus-within:ring-red-500/20 transition-all shadow-inner">
-                                <span className="pl-4 text-gray-500">
+                            <div className="relative flex items-center bg-[#0F111C] border border-white/10 rounded-2xl overflow-hidden focus-within:border-[#E51D48] focus-within:ring-2 focus-within:ring-[#E51D48]/25 transition-all shadow-np-inset">
+                                <span className="pl-4 text-[#A7AABD]">
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                     </svg>
@@ -167,8 +163,8 @@ export default function Header() {
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     onKeyDown={handleKeyDown}
-                                    placeholder="Search movies, series, or anime..."
-                                    className="w-full bg-transparent border-none px-4 py-3.5 text-white placeholder-gray-500 focus:outline-none focus:ring-0"
+                                    placeholder="Search movies, anime, or series..."
+                                    className="w-full bg-transparent border-none px-4 py-3.5 text-white placeholder-[#A7AABD]/70 focus:outline-none focus:ring-0"
                                 />
                                 {searchQuery && (
                                     <button

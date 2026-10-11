@@ -114,8 +114,8 @@ export default function HeroSlider({ movies }: HeroSliderProps) {
                                     className="object-cover"
                                     priority
                                 />
-                                <div className="absolute inset-0 bg-gradient-to-t from-dark-900 via-dark-900/40 to-transparent"></div>
-                                <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_50%,rgba(0,0,0,0.8)_0%,transparent_100%)]"></div>
+                                <div className="absolute inset-0 bg-gradient-to-t from-[#0B0D16] via-[#0B0D16]/50 to-transparent" />
+                                <div className="absolute inset-0 bg-gradient-to-r from-[#0B0D16] via-[#0B0D16]/75 to-transparent" />
                             </div>
 
                             {/* Background Image (Mobile) */}
@@ -127,7 +127,7 @@ export default function HeroSlider({ movies }: HeroSliderProps) {
                                     className="object-cover"
                                     priority
                                 />
-                                <div className="absolute inset-0 bg-gradient-to-t from-dark-900 via-transparent to-transparent"></div>
+                                <div className="absolute inset-0 bg-gradient-to-t from-[#0B0D16] via-[#0B0D16]/70 to-transparent" />
                             </div>
 
                             {/* Content */}
@@ -137,28 +137,28 @@ export default function HeroSlider({ movies }: HeroSliderProps) {
 
                                         {/* Type Badge */}
                                         <div className="flex items-center gap-3">
-                                            <span className="px-3 py-1 bg-red-600 text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-lg shadow-red-600/20">
+                                            <span className="px-3 py-1 bg-[#E51D48] text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-[0_2px_12px_rgba(229,29,72,0.4)]">
                                                 {movie.type}
                                             </span>
                                             {movie.is_adult && (
-                                                <span className="px-3 py-1 bg-gradient-to-r from-red-700 to-red-600 text-white text-xs font-black uppercase tracking-wider rounded-full shadow-lg shadow-red-900/40 border border-red-500/30">
+                                                <span className="px-3 py-1 bg-[#E51D48] text-white text-xs font-black uppercase tracking-wider rounded-full shadow-[0_2px_12px_rgba(229,29,72,0.4)] border border-red-400/40">
                                                     🔞 18+
                                                 </span>
                                             )}
                                             {movie.release_year && (
-                                                <span className="text-gray-300 font-medium text-sm drop-shadow-md">
+                                                <span className="text-[#A7AABD] font-medium text-sm drop-shadow-md">
                                                     {movie.release_year}
                                                 </span>
                                             )}
                                         </div>
 
                                         {/* Title */}
-                                        <h1 className="text-4xl md:text-6xl font-black text-white leading-tight drop-shadow-2xl">
+                                        <h1 className="text-4xl md:text-6xl font-black text-[#F7F8FC] leading-tight drop-shadow-2xl">
                                             {movie.title}
                                         </h1>
 
                                         {/* Description (Desktop only) */}
-                                        <p className="hidden md:block text-gray-300 text-lg line-clamp-3 max-w-xl drop-shadow-md">
+                                        <p className="hidden md:block text-[#A7AABD] text-base md:text-lg line-clamp-3 max-w-xl drop-shadow-md">
                                             {movie.description}
                                         </p>
 
@@ -167,9 +167,9 @@ export default function HeroSlider({ movies }: HeroSliderProps) {
                                             <Link
                                                 href={getContentUrl(movie)}
                                                 onClick={(e) => handleBannerClick(e, movie)}
-                                                className="px-8 py-3.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl flex items-center gap-2 transition-all hover:scale-105 hover:shadow-lg hover:shadow-red-600/30 group/btn"
+                                                className="px-8 py-3.5 np-clay-btn text-white font-bold rounded-xl flex items-center gap-2.5 transition-all hover:scale-105 group/btn"
                                             >
-                                                <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
+                                                <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
                                                     <path d="M8 5v14l11-7z" />
                                                 </svg>
                                                 Watch Now
@@ -177,9 +177,9 @@ export default function HeroSlider({ movies }: HeroSliderProps) {
 
                                             <Link
                                                 href={getContentUrl(movie)}
-                                                className="px-8 py-3.5 glass-button text-white font-bold rounded-xl flex items-center gap-2"
+                                                className="px-7 py-3.5 np-ghost-btn text-white font-semibold rounded-xl flex items-center gap-2 hover:scale-105 transition-all"
                                             >
-                                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <svg className="w-5 h-5 text-[#A7AABD]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                 </svg>
                                                 Details
@@ -193,23 +193,24 @@ export default function HeroSlider({ movies }: HeroSliderProps) {
                 ))}
 
                 {/* Navigation Arrows - Always visible, left and right sides */}
-                <button className="swiper-button-prev !w-10 !h-10 md:!w-12 md:!h-12 !rounded-full !bg-black/40 backdrop-blur-md !border !border-white/10 !text-white hover:!bg-red-600 hover:!border-red-600 transition-all !left-3 md:!left-6 !after:!text-sm md:!after:!text-lg"></button>
-                <button className="swiper-button-next !w-10 !h-10 md:!w-12 md:!h-12 !rounded-full !bg-black/40 backdrop-blur-md !border !border-white/10 !text-white hover:!bg-red-600 hover:!border-red-600 transition-all !right-3 md:!right-6 !after:!text-sm md:!after:!text-lg"></button>
+                <button className="swiper-button-prev !w-10 !h-10 md:!w-12 md:!h-12 !rounded-full !bg-[#141625]/80 !backdrop-blur-md !border !border-white/15 !text-white hover:!bg-[#E51D48] hover:!border-[#E51D48] transition-all !left-3 md:!left-6 !after:!text-sm md:!after:!text-lg"></button>
+                <button className="swiper-button-next !w-10 !h-10 md:!w-12 md:!h-12 !rounded-full !bg-[#141625]/80 !backdrop-blur-md !border !border-white/15 !text-white hover:!bg-[#E51D48] hover:!border-[#E51D48] transition-all !right-3 md:!right-6 !after:!text-sm md:!after:!text-lg"></button>
             </Swiper>
 
             {/* Custom Styles for Swiper Pagination */}
             <style jsx global>{`
                 .swiper-pagination-bullet {
                     background: white;
-                    opacity: 0.5;
-                    width: 10px;
-                    height: 10px;
+                    opacity: 0.4;
+                    width: 8px;
+                    height: 8px;
                 }
                 .swiper-pagination-bullet-active {
-                    background: #dc2626;
+                    background: #E51D48;
                     opacity: 1;
                     width: 24px;
-                    border-radius: 5px;
+                    border-radius: 4px;
+                    box-shadow: 0 0 10px rgba(229, 29, 72, 0.6);
                     transition: width 0.3s ease;
                 }
                 .swiper-button-next::after, .swiper-button-prev::after {

@@ -180,8 +180,8 @@ export default function EpisodeList({ seasons, running_status, contentId = '', c
                 />
             )}
             {/* Season Tabs */}
-            <div className="flex flex-wrap gap-2">
-                <span className="text-white font-medium py-2 mr-2">Season:</span>
+            <div className="flex flex-wrap gap-2 items-center">
+                <span className="text-[#A7AABD] font-bold text-sm uppercase mr-2">Season:</span>
                 {seasons
                     .sort((a, b) => a.season_number - b.season_number)
                     .map((season) => (
@@ -193,30 +193,30 @@ export default function EpisodeList({ seasons, running_status, contentId = '', c
                                 setActiveResolution(null);
                             }}
                             className={`
-                                px-5 py-2 rounded-lg font-bold text-sm transition-all
+                                px-4 py-1.5 rounded-full font-bold text-xs md:text-sm transition-all
                                 ${activeSeason === season.season_number
-                                    ? 'bg-red-600 text-white shadow-lg shadow-red-900/30 scale-105'
-                                    : 'bg-dark-700 text-gray-400 hover:bg-dark-600 hover:text-white border border-white/5'
+                                    ? 'np-clay-btn text-white shadow-md'
+                                    : 'np-chip hover:text-white'
                                 }
                             `}
                         >
-                            {season.season_number}
+                            Season {season.season_number}
                         </button>
                     ))}
             </div>
 
             {/* Current Season Card */}
             {currentSeason && (
-                <div className="bg-dark-800/80 rounded-2xl border border-white/5 overflow-hidden shadow-xl">
+                <div className="np-glass-solid rounded-np-panel border border-white/10 overflow-hidden shadow-xl">
                     {/* Season Header & ZIP Download */}
-                    <div className="p-6 border-b border-white/5 bg-gradient-to-b from-white/5 to-transparent">
+                    <div className="p-6 border-b border-white/10 bg-gradient-to-b from-white/5 to-transparent">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div>
-                                <h3 className="text-xl font-bold text-white mb-1">
+                                <h3 className="text-xl font-bold text-[#F7F8FC] mb-1">
                                     Season {currentSeason.season_number}
-                                    {currentSeason.season_title && <span className="text-gray-400 font-normal ml-2">{currentSeason.season_title}</span>}
+                                    {currentSeason.season_title && <span className="text-[#A7AABD] font-normal ml-2">{currentSeason.season_title}</span>}
                                 </h3>
-                                <p className="text-sm text-gray-400">{episodes.length} Episodes</p>
+                                <p className="text-sm text-[#A7AABD]">{episodes.length} Episodes</p>
                             </div>
 
                             {/* ZIP Download Button */}
@@ -260,26 +260,26 @@ export default function EpisodeList({ seasons, running_status, contentId = '', c
                                     const availableRes = getAvailableResolutions(episode);
 
                                     return (
-                                        <div key={episode.id} className="bg-dark-700/50 rounded-xl border border-white/5 overflow-hidden">
+                                        <div key={episode.id} className="bg-[#141625] rounded-xl border border-white/10 overflow-hidden transition-colors hover:border-white/20">
                                             {/* Episode Header */}
                                             <div
-                                                className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer hover:bg-dark-600/50 transition-colors"
+                                                className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer hover:bg-[#1B1E31]/50 transition-colors"
                                                 onClick={() => handleEpisodeClick(episode.id)}
                                             >
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-lg bg-red-600/20 text-red-400 flex items-center justify-center font-bold text-sm">
+                                                    <div className="w-10 h-10 rounded-lg bg-[#E51D48]/15 text-[#E51D48] flex items-center justify-center font-bold text-sm border border-[#E51D48]/30">
                                                         {episode.episode_number}
                                                     </div>
                                                     <div>
-                                                        <h4 className="font-medium text-white flex items-center gap-2">
+                                                        <h4 className="font-medium text-[#F7F8FC] flex items-center gap-2">
                                                             Episode {episode.episode_number}
                                                             {running_status === 'Ongoing' && episode.episode_number === Math.max(...episodes.map(e => e.episode_number)) && (
-                                                                <span className="px-1.5 py-0.5 bg-red-600/20 text-red-500 text-[10px] font-bold rounded border border-red-500/20 animate-pulse">
+                                                                <span className="px-1.5 py-0.5 bg-[#E51D48]/20 text-[#E51D48] text-[10px] font-bold rounded border border-[#E51D48]/40 animate-pulse">
                                                                     NEW
                                                                 </span>
                                                             )}
                                                             {episode.episode_title && (
-                                                                <span className="text-gray-400 font-normal ml-2">
+                                                                <span className="text-[#A7AABD] font-normal ml-2">
                                                                     - {episode.episode_title}
                                                                 </span>
                                                             )}

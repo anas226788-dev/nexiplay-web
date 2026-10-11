@@ -192,19 +192,19 @@ export default function DownloadPanel({ downloadLinks, contentId, contentType }:
                             onClick={() => isAvailable && handleResolutionClick(resolution)}
                             disabled={!isAvailable}
                             className={`
-                                flex-1 sm:flex-none px-6 py-3 rounded-xl font-bold text-sm sm:text-base
-                                transition-all duration-300 border
+                                flex-1 sm:flex-none px-6 py-2.5 rounded-full font-bold text-sm sm:text-base
+                                transition-all duration-300
                                 ${isActive
-                                    ? 'bg-red-600 text-white border-red-500 shadow-lg shadow-red-900/30 scale-105'
+                                    ? 'np-clay-btn text-white shadow-md scale-105'
                                     : isAvailable
-                                        ? 'bg-dark-700 text-white border-white/10 hover:bg-dark-600 hover:border-white/20'
-                                        : 'bg-dark-800 text-gray-600 border-white/5 cursor-not-allowed opacity-50'
+                                        ? 'np-chip hover:text-white'
+                                        : 'bg-[#141625]/40 text-gray-600 border border-white/5 cursor-not-allowed opacity-40'
                                 }
                             `}
                         >
                             <span className="block">{resolution}</span>
                             {link?.file_size && isAvailable && (
-                                <span className="block text-xs opacity-70 mt-0.5">{link.file_size}</span>
+                                <span className="block text-xs opacity-75 mt-0.5">{link.file_size}</span>
                             )}
                         </button>
                     );
@@ -219,12 +219,12 @@ export default function DownloadPanel({ downloadLinks, contentId, contentType }:
                 `}
             >
                 {activeResolution && (
-                    <div className="glass p-4 sm:p-6 rounded-2xl border border-white/10 shadow-2xl shadow-black/50 mt-2">
-                        <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                            <span className="w-1 h-6 bg-red-500 rounded-full"></span>
+                    <div className="np-glass-solid p-4 sm:p-6 rounded-np-panel border border-white/10 shadow-2xl mt-2">
+                        <h3 className="text-lg font-bold text-[#F7F8FC] mb-4 flex items-center gap-2.5">
+                            <span className="w-1.5 h-5 bg-gradient-to-b from-[#E51D48] to-[#A70F35] rounded-full shadow-[0_0_8px_rgba(229,29,72,0.6)]"></span>
                             Download {activeResolution}
                             {linksByResolution[activeResolution]?.file_size && (
-                                <span className="text-sm font-normal text-gray-400">
+                                <span className="text-sm font-normal text-[#A7AABD]">
                                     ({linksByResolution[activeResolution].file_size})
                                 </span>
                             )}

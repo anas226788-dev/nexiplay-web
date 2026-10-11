@@ -81,10 +81,10 @@ export default function SearchBar({ className = '' }: SearchBarProps) {
                         }}
                         onFocus={() => setIsOpen(true)}
                         placeholder="Search movies, series, anime..."
-                        className="w-full h-12 pl-12 pr-4 bg-dark-700/80 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-red-500/50 focus:bg-dark-600/80 transition-all duration-300"
+                        className="w-full h-12 pl-12 pr-4 bg-[#141625]/90 border border-white/10 rounded-xl text-[#F7F8FC] placeholder-[#A7AABD] focus:outline-none focus:border-[#E51D48]/70 focus:bg-[#1B1E31] focus:ring-1 focus:ring-[#E51D48]/30 transition-all duration-200 np-inset"
                     />
                     <svg
-                        className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500"
+                        className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#A7AABD]"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -98,7 +98,7 @@ export default function SearchBar({ className = '' }: SearchBarProps) {
                     </svg>
                     {isLoading && (
                         <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                            <div className="w-5 h-5 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+                            <div className="w-5 h-5 border-2 border-[#E51D48] border-t-transparent rounded-full animate-spin" />
                         </div>
                     )}
                 </div>
@@ -106,9 +106,9 @@ export default function SearchBar({ className = '' }: SearchBarProps) {
 
             {/* Search Results Dropdown */}
             {isOpen && query.length >= 2 && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-dark-700 border border-white/10 rounded-xl overflow-hidden shadow-2xl z-50 max-h-[400px] overflow-y-auto">
+                <div className="absolute top-full left-0 right-0 mt-2 bg-[#0B0D16]/95 backdrop-blur-xl border border-white/15 rounded-xl overflow-hidden shadow-2xl z-50 max-h-[400px] overflow-y-auto">
                     {results.length > 0 ? (
-                        <div>
+                        <div className="divide-y divide-white/5">
                             {(hideNsfw ? results.filter(r => !r.is_adult) : results).map((movie) => (
                                 <Link
                                     key={movie.id}
@@ -120,9 +120,9 @@ export default function SearchBar({ className = '' }: SearchBarProps) {
                                             checkAdultGate(`/${movie.type}/${movie.slug}`, true);
                                         }
                                     }}
-                                    className="flex items-center gap-3 p-3 hover:bg-white/5 transition-colors"
+                                    className="flex items-center gap-3 p-3 hover:bg-white/10 transition-colors"
                                 >
-                                    <div className="w-12 h-16 rounded-lg overflow-hidden bg-dark-600 flex-shrink-0">
+                                    <div className="w-12 h-16 rounded-lg overflow-hidden bg-[#141625] flex-shrink-0 border border-white/10">
                                         {movie.poster_url ? (
                                             <Image
                                                 src={movie.poster_url}
@@ -133,20 +133,20 @@ export default function SearchBar({ className = '' }: SearchBarProps) {
                                             />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center">
-                                                <svg className="w-6 h-6 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+                                                <svg className="w-6 h-6 text-white/20" fill="currentColor" viewBox="0 0 24 24">
                                                     <path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z" />
                                                 </svg>
                                             </div>
                                         )}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="font-medium text-white truncate flex items-center gap-2">
+                                        <p className="font-medium text-[#F7F8FC] truncate flex items-center gap-2">
                                             {movie.title}
                                             {movie.is_adult && (
-                                                <span className="px-1.5 py-0.5 text-[9px] font-black rounded bg-red-600 text-white uppercase shrink-0">18+</span>
+                                                <span className="px-1.5 py-0.5 text-[9px] font-black rounded bg-[#E51D48] text-white uppercase shrink-0">18+</span>
                                             )}
                                         </p>
-                                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                                        <div className="flex items-center gap-2 text-xs text-[#A7AABD]">
                                             <span className="uppercase">{movie.type}</span>
                                             {movie.release_year && <span>• {movie.release_year}</span>}
                                         </div>
@@ -156,13 +156,13 @@ export default function SearchBar({ className = '' }: SearchBarProps) {
                             <Link
                                 href={`/search?q=${encodeURIComponent(query)}`}
                                 onClick={() => setIsOpen(false)}
-                                className="block p-3 text-center text-sm text-red-400 hover:bg-white/5 border-t border-white/5"
+                                className="block p-3 text-center text-sm font-semibold text-[#E51D48] hover:bg-white/5 transition-colors"
                             >
                                 View all results for &quot;{query}&quot;
                             </Link>
                         </div>
                     ) : (
-                        <div className="p-6 text-center text-gray-500">
+                        <div className="p-6 text-center text-[#A7AABD]">
                             No results found for &quot;{query}&quot;
                         </div>
                     )}

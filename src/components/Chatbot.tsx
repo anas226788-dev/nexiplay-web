@@ -403,35 +403,35 @@ export default function Chatbot() {
             {/* Toggle Button (FAB) + Floating Message */}
             {!isOpen && (
                 <div className="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-50 flex items-end gap-2 md:gap-3">
-                    <div className="animate-float bg-white text-gray-800 px-3 py-2 md:px-4 md:py-2.5 rounded-2xl rounded-br-sm shadow-xl text-xs md:text-sm font-medium max-w-[160px] md:max-w-[200px] relative">
+                    <div className="animate-float bg-[#141625]/95 text-[#F7F8FC] border border-white/15 px-3 py-2 md:px-4 md:py-2.5 rounded-2xl rounded-br-sm shadow-2xl text-xs md:text-sm font-medium max-w-[160px] md:max-w-[200px] relative backdrop-blur-md">
                         <span>Need help? Chat with me! 💬</span>
-                        <div className="absolute -right-2 bottom-2 w-0 h-0 border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent border-l-[8px] border-l-white"></div>
+                        <div className="absolute -right-2 bottom-2 w-0 h-0 border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent border-l-[8px] border-l-[#141625]"></div>
                     </div>
                     <button onClick={() => setIsOpen(true)}
-                        className="p-0 w-14 h-14 md:w-16 md:h-16 bg-gradient-to-br from-red-500 to-red-700 hover:from-red-600 hover:to-red-800 rounded-full shadow-lg shadow-red-900/40 transition-all duration-300 hover:scale-110 active:scale-95 flex items-center justify-center group overflow-hidden flex-shrink-0">
+                        className="p-0 w-14 h-14 md:w-16 md:h-16 np-clay-btn rounded-full shadow-[0_12px_28px_rgba(229,29,72,0.45)] border border-white/20 transition-all duration-300 hover:scale-108 active:scale-95 flex items-center justify-center group overflow-hidden flex-shrink-0"
+                        aria-label="Open AI Chatbot">
                         <svg className="w-7 h-7 md:w-8 md:h-8 text-white relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                         </svg>
-                        <span className="absolute top-1.5 right-1.5 md:top-2 md:right-2 w-3 h-3 md:w-3.5 md:h-3.5 bg-green-400 border-2 border-red-600 rounded-full z-20 animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.6)]"></span>
+                        <span className="absolute top-1.5 right-1.5 md:top-2 md:right-2 w-3.5 h-3.5 bg-[#28D391] border-2 border-[#141625] rounded-full z-20 animate-pulse shadow-[0_0_8px_rgba(40,211,145,0.7)]"></span>
                     </button>
                 </div>
             )}
 
             {/* Chat Window */}
             {isOpen && (
-                <div className="fixed bottom-0 left-0 right-0 md:bottom-6 md:left-auto md:right-6 z-50 w-full md:w-[380px] h-[85vh] md:h-[550px] md:max-h-[80vh] flex flex-col bg-dark-900/95 backdrop-blur-xl border-t md:border border-white/10 md:rounded-2xl shadow-2xl overflow-hidden animate-fade-in-up ring-1 ring-white/5">
+                <div className="fixed bottom-0 left-0 right-0 md:bottom-6 md:left-auto md:right-6 z-50 w-full md:w-[390px] h-[85vh] md:h-[560px] md:max-h-[82vh] flex flex-col bg-[#0B0D16]/95 backdrop-blur-2xl border-t md:border border-white/15 md:rounded-np-sheet shadow-[0_20px_50px_rgba(0,0,0,0.85)] overflow-hidden animate-fade-in-up">
                     {/* Header */}
-                    <div className="p-4 bg-gradient-to-r from-red-600 to-red-700 flex items-center justify-between relative overflow-hidden">
-                        <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
+                    <div className="p-4 bg-gradient-to-r from-[#E51D48] to-[#A70F35] flex items-center justify-between relative overflow-hidden shadow-md">
                         <div className="flex items-center gap-3 relative z-10">
-                            <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-xl shadow-inner border border-white/10">🤖</div>
+                            <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-xl shadow-inner border border-white/20">🤖</div>
                             <div>
                                 <h3 className="font-bold text-white text-sm tracking-wide flex items-center gap-1.5">
                                     {settings?.bot_name || 'NexiBot AI'}
-                                    <span className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded-full font-medium tracking-wider">SMART AI</span>
+                                    <span className="text-[9px] bg-black/25 px-1.5 py-0.5 rounded-full font-medium tracking-wider border border-white/15">HYBRID AI</span>
                                 </h3>
                                 <div className="flex items-center gap-1.5 h-4">
-                                    <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.6)]"></span>
+                                    <span className="w-2 h-2 bg-[#28D391] rounded-full animate-pulse shadow-[0_0_8px_rgba(40,211,145,0.8)]"></span>
                                     <span className="text-[11px] text-white/90 font-medium animate-fade-in">
                                         {activeAgent ? `Connected: ${formatAgentName(activeAgent)}` : headerText}
                                     </span>
@@ -449,18 +449,18 @@ export default function Chatbot() {
                     </div>
 
                     {/* Messages Area */}
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-black/40 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#0B0D16]/60 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
                         {messages.map((msg, idx) => (
                             <div key={idx} className={`flex ${msg.isBot ? 'justify-start' : 'justify-end'} animate-fade-in group`}>
                                 <div className={`flex flex-col ${msg.isBot ? 'items-start' : 'items-end'} max-w-[85%]`}>
                                     <div className={`relative p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm w-full ${msg.isBot
-                                        ? 'bg-dark-700 text-gray-100 rounded-tl-sm border border-white/5'
-                                        : 'bg-red-600 text-white rounded-tr-sm shadow-red-900/20 shadow-lg'}`}>
+                                        ? 'bg-[#141625] text-[#F7F8FC] rounded-tl-sm border border-white/10'
+                                        : 'bg-[#E51D48] text-white rounded-tr-sm shadow-[0_4px_14px_rgba(229,29,72,0.35)]'}`}>
                                         {msg.text}
                                     </div>
                                     {msg.isBot && msg.agent && (
-                                        <div className="text-[10px] text-gray-500 mt-1 ml-1 flex items-center gap-1">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>
+                                        <div className="text-[10px] text-[#A7AABD] mt-1 ml-1 flex items-center gap-1">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-[#28D391] inline-block"></span>
                                             <span>Active Agent: {formatAgentName(msg.agent)}</span>
                                         </div>
                                     )}
@@ -474,11 +474,11 @@ export default function Chatbot() {
                         {/* Fallback typing indicator (when no steps yet) */}
                         {isTyping && currentSteps.length === 0 && (
                             <div className="flex justify-start animate-fade-in">
-                                <div className="bg-dark-700 px-4 py-3 rounded-2xl rounded-tl-sm flex gap-1.5 items-center border border-white/5">
-                                    <span className="w-2 h-2 bg-red-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                                    <span className="w-2 h-2 bg-red-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                                    <span className="w-2 h-2 bg-red-400 rounded-full animate-bounce"></span>
-                                    <span className="text-[10px] text-gray-500 ml-2">AI is thinking...</span>
+                                <div className="bg-[#141625] px-4 py-3 rounded-2xl rounded-tl-sm flex gap-1.5 items-center border border-white/10">
+                                    <span className="w-2 h-2 bg-[#E51D48] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                                    <span className="w-2 h-2 bg-[#E51D48] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                                    <span className="w-2 h-2 bg-[#E51D48] rounded-full animate-bounce"></span>
+                                    <span className="text-[10px] text-[#A7AABD] ml-2">AI is thinking...</span>
                                 </div>
                             </div>
                         )}
@@ -486,24 +486,24 @@ export default function Chatbot() {
                     </div>
 
                     {/* Input Area */}
-                    <div className="p-3 bg-dark-800 border-t border-white/5">
-                        <div className="flex items-center gap-2 bg-dark-900/80 p-1.5 rounded-xl border border-white/5 focus-within:border-red-500/50 focus-within:ring-1 focus-within:ring-red-500/20 transition-all shadow-inner">
+                    <div className="p-3 bg-[#141625] border-t border-white/10">
+                        <div className="flex items-center gap-2 bg-[#0B0D16] p-1.5 rounded-xl border border-white/10 focus-within:border-[#E51D48]/60 focus-within:ring-1 focus-within:ring-[#E51D48]/30 transition-all shadow-inner">
                             <input ref={inputRef} type="text" value={inputText}
                                 onChange={(e) => setInputText(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                                 placeholder="Ask anything or search content..."
                                 disabled={isTyping}
-                                className="flex-1 bg-transparent px-3 text-sm text-white placeholder-gray-500 focus:outline-none disabled:opacity-50" />
+                                className="flex-1 bg-transparent px-3 text-sm text-[#F7F8FC] placeholder-[#A7AABD]/60 focus:outline-none disabled:opacity-50" />
                             <button onClick={handleSend} disabled={!inputText.trim() || isTyping}
-                                className="p-2.5 bg-red-600 hover:bg-red-500 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg transition-all active:scale-95 shadow-lg shadow-red-900/20">
+                                className="p-2.5 np-clay-btn text-white rounded-lg transition-all active:scale-95 shadow-md disabled:opacity-40 disabled:cursor-not-allowed">
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                                 </svg>
                             </button>
                         </div>
-                        <p className="text-center text-[10px] text-gray-600 mt-1.5 px-2">
+                        <p className="text-center text-[10px] text-[#A7AABD]/70 mt-1.5 px-2">
                             ⚡ AI ভুল করতে পারে। সঠিক তথ্যের জন্য যাচাই করুন।
-                            <span className="text-gray-700"> • </span>
+                            <span className="text-[#A7AABD]/40"> • </span>
                             AI can make mistakes. Please verify.
                         </p>
                     </div>

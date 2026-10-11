@@ -517,17 +517,17 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
     return (
         <div className="space-y-6">
             {/* Player controls / Info */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 bg-dark-900/50 rounded-2xl border border-white/5">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 np-player-bar rounded-np-panel border border-white/10 shadow-lg">
                 {/* Server Switcher */}
                 <div className="flex flex-wrap gap-2 items-center">
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider mr-2">Servers:</span>
+                    <span className="text-xs font-bold text-[#A7AABD] uppercase tracking-wider mr-2">Servers:</span>
                     {customUrl && isServerEnabled(movie.scraper_source === 'toonplay' ? 'toonplay' : 'custom') && (
                         <button
                             onClick={() => setActiveServerId('custom')}
-                            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
                                 activeServerId === 'custom'
-                                    ? 'bg-red-600 text-white shadow-lg shadow-red-900/30'
-                                    : 'bg-dark-850 text-gray-400 hover:bg-dark-750 hover:text-white'
+                                    ? 'np-clay-btn text-white shadow-md'
+                                    : 'np-chip hover:text-white'
                             }`}
                         >
                             <span>{movie.scraper_source === 'toonplay' ? '🔒' : '⭐'}</span>
@@ -544,11 +544,11 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
                             <button
                                 key={srv.id}
                                 onClick={() => setActiveServerId(srv.id)}
-                                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
                                     activeServerId === srv.id
-                                        ? 'bg-red-600 text-white shadow-lg shadow-red-900/30'
-                                        : 'bg-dark-850 text-gray-400 hover:bg-dark-750 hover:text-white'
-                                    }`}
+                                        ? 'np-clay-btn text-white shadow-md'
+                                        : 'np-chip hover:text-white'
+                                }`}
                             >
                                 <span>{srv.icon}</span>
                                 <span>{srv.name}</span>
@@ -564,10 +564,10 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
                             <button
                                 key={srv.id}
                                 onClick={() => setActiveServerId(srv.id)}
-                                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
                                     activeServerId === srv.id
-                                        ? 'bg-red-600 text-white shadow-lg shadow-red-900/30'
-                                        : 'bg-dark-850 text-gray-400 hover:bg-dark-750 hover:text-white'
+                                        ? 'np-clay-btn text-white shadow-md'
+                                        : 'np-chip hover:text-white'
                                 }`}
                             >
                                 <span>{srv.icon}</span>
@@ -587,8 +587,8 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
                                 onChange={(e) => setSandboxMode(e.target.checked)}
                                 className="sr-only peer"
                             />
-                            <div className="w-9 h-5 bg-dark-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
-                            <span className="ml-2.5 text-xs font-bold text-gray-300">
+                            <div className="w-9 h-5 bg-[#0B0D16] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#28D391]"></div>
+                            <span className="ml-2.5 text-xs font-bold text-[#F7F8FC]">
                                 {sandboxMode ? '🛡️ Ad-Blocker Mode (On)' : 'Compatible Mode'}
                             </span>
                         </label>
@@ -599,11 +599,11 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
             {/* Video Container (Responsive Iframe or Native HLS Player) */}
             <div
                 ref={playerShellRef}
-                className="nexiplay-player-shell relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/10 group"
+                className="nexiplay-player-shell relative w-full aspect-video bg-black rounded-np-panel overflow-hidden shadow-2xl border border-white/15 group"
             >
                 {isResolving ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 p-6">
-                        <div className="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin mb-3" />
+                        <div className="w-10 h-10 border-4 border-[#E51D48] border-t-transparent rounded-full animate-spin mb-3" />
                         <p className="font-bold text-white">Resolving server...</p>
                         <p className="text-xs text-gray-500 mt-1">Connecting to streaming source</p>
                     </div>
@@ -645,11 +645,11 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
 
             {/* TV Show / Anime Episode Selector */}
             {isSeriesOrAnime && sortedSeasons.length > 0 && (
-                <div className="bg-dark-900/30 p-6 rounded-2xl border border-white/5 space-y-4">
+                <div className="np-player-bar p-6 rounded-np-panel border border-white/10 space-y-4">
                     {/* Season selection */}
                     {sortedSeasons.length > 1 && (
                         <div className="flex flex-wrap gap-2 items-center">
-                            <span className="text-xs font-bold text-gray-400 uppercase mr-2">Season:</span>
+                            <span className="text-xs font-bold text-[#A7AABD] uppercase mr-2">Season:</span>
                             {sortedSeasons.map((season) => (
                                 <button
                                     key={season.id}
@@ -657,10 +657,10 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
                                         setCurrentSeasonNum(season.season_number);
                                         setCurrentEpisodeNum(1);
                                     }}
-                                    className={`px-4 py-2 rounded-lg text-xs font-black transition-all ${
+                                    className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
                                         currentSeasonNum === season.season_number
-                                            ? 'bg-red-600 text-white shadow-lg'
-                                            : 'bg-dark-800 text-gray-400 hover:bg-dark-750 hover:text-white'
+                                            ? 'np-clay-btn text-white shadow-md'
+                                            : 'np-chip hover:text-white'
                                     }`}
                                 >
                                     S{season.season_number}
@@ -671,7 +671,7 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
 
                     {/* Episode selection */}
                     <div className="space-y-2">
-                        <span className="text-xs font-bold text-gray-400 uppercase block mb-2">
+                        <span className="text-xs font-bold text-[#A7AABD] uppercase block mb-2">
                             Select Episode: {activeEpisode?.episode_title ? `(S${currentSeasonNum} E${currentEpisodeNum} - ${activeEpisode.episode_title})` : `(Episode ${currentEpisodeNum})`}
                         </span>
                         <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-10 gap-2">
@@ -679,18 +679,18 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
                                 <button
                                     key={ep.id}
                                     onClick={() => setCurrentEpisodeNum(ep.episode_number)}
-                                    className={`py-3 rounded-lg text-xs font-bold transition-all text-center flex flex-col items-center justify-center relative ${
+                                    className={`py-3 rounded-xl text-xs font-bold transition-all text-center flex flex-col items-center justify-center relative ${
                                         currentEpisodeNum === ep.episode_number
-                                            ? 'bg-gradient-to-r from-red-600 to-orange-600 text-white shadow-lg scale-105'
-                                            : 'bg-dark-850 hover:bg-dark-750 text-gray-300 border border-white/5'
+                                            ? 'bg-gradient-to-r from-[#E51D48] to-[#A70F35] text-white shadow-lg scale-105 border border-[#E51D48]/50'
+                                            : 'bg-[#141625] hover:bg-[#1B1E31] text-[#F7F8FC] border border-white/10'
                                     }`}
                                 >
-                                    <span className="text-[10px] opacity-65 mb-0.5">EP</span>
+                                    <span className="text-[10px] opacity-70 mb-0.5">EP</span>
                                     <span className="text-sm font-black">{ep.episode_number}</span>
                                     
                                     {/* Indicator for custom stream URL overrides */}
                                     {ep.streaming_url && (
-                                        <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-purple-500 rounded-full" title="Custom stream override available" />
+                                        <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-[#28D391] rounded-full" title="Custom stream override available" />
                                     )}
                                 </button>
                             ))}
@@ -700,12 +700,12 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
             )}
 
             {/* Helper Notice */}
-            <div className="text-xs text-gray-500 bg-white/5 p-4 rounded-xl border border-white/5 flex gap-2">
+            <div className="text-xs text-[#A7AABD] np-glass-solid p-4 rounded-xl border border-white/10 flex gap-2">
                 <span className="text-sm">💡</span>
                 <p>
                     <strong>Tip:</strong> If the video shows an error or fails to load, try switching servers. 
                     Some servers block sandboxing; if you see a "Disable Adblock" message, toggle 
-                    <strong> Compatible Mode</strong> above to restore playback.
+                    <strong className="text-white"> Compatible Mode</strong> above to restore playback.
                 </p>
             </div>
         </div>

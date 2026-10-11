@@ -5,6 +5,7 @@ import AnimatedTelegramCTA from '@/components/AnimatedTelegramCTA';
 import ClientChatbot from '@/components/ClientChatbot';
 import AdultGateProvider from '@/components/AdultGateProvider';
 import UserAnalyticsTracker from '@/components/UserAnalyticsTracker';
+import MobileBottomNav from '@/components/MobileBottomNav';
 
 export default function SiteLayout({
     children,
@@ -18,10 +19,11 @@ export default function SiteLayout({
             <Header />
             <AnimatedTelegramCTA />
             <AdultGateProvider>
-                <main className="flex-1">{children}</main>
+                <main className="flex-1 pb-16 md:pb-0">{children}</main>
             </AdultGateProvider>
             <ClientChatbot />
             <Footer />
+            <MobileBottomNav />
         </div>
     );
 }
