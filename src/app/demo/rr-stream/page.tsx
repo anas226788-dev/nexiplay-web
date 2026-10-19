@@ -116,7 +116,7 @@ export default function RRStreamDemoPage() {
                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-white/10 pb-6">
                     <div>
                         <div className="flex items-center gap-3 mb-2">
-                            <span className="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-red-600/20 text-red-400 border border-red-500/30">
+                            <span className="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-violet-600/20 text-violet-300 border border-red-500/30">
                                 Protected Stream API
                             </span>
                             <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-semibold bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
@@ -158,7 +158,7 @@ export default function RRStreamDemoPage() {
                                 onClick={() => handleSelectSample(item.slug)}
                                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                                     slug === item.slug
-                                        ? 'bg-gradient-to-r from-red-600 to-orange-600 text-white font-bold shadow-md shadow-red-600/30 scale-105'
+                                        ? 'bg-gradient-to-r from-violet-600 to-violet-700 text-white font-bold shadow-md shadow-red-600/30 scale-105'
                                         : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/5'
                                 }`}
                             >
@@ -175,7 +175,7 @@ export default function RRStreamDemoPage() {
                                 value={slug}
                                 onChange={(e) => setSlug(e.target.value)}
                                 placeholder="e.g. hana-kimi-2026 or blue-box-2026"
-                                className="w-full px-4 py-3 rounded-xl bg-black/50 border border-white/10 text-sm font-mono text-white placeholder-gray-600 focus:outline-none focus:border-red-500/60"
+                                className="w-full px-4 py-3 rounded-xl bg-black/50 border border-white/10 text-sm font-mono text-white placeholder-gray-600 focus:outline-none focus:border-violet-400/60"
                             />
                         </div>
 
@@ -186,7 +186,7 @@ export default function RRStreamDemoPage() {
                                 value={apiKeyInput}
                                 onChange={(e) => setApiKeyInput(e.target.value)}
                                 placeholder="nxp_test_... (ফাঁকা রাখলে ফ্রি ডেমো)"
-                                className="w-full px-3 py-3 rounded-xl bg-black/50 border border-white/10 text-xs font-mono text-white placeholder-gray-600 focus:outline-none focus:border-red-500/60"
+                                className="w-full px-3 py-3 rounded-xl bg-black/50 border border-white/10 text-xs font-mono text-white placeholder-gray-600 focus:outline-none focus:border-violet-400/60"
                             />
                         </div>
 
@@ -197,7 +197,7 @@ export default function RRStreamDemoPage() {
                                 min="1"
                                 value={season}
                                 onChange={(e) => setSeason(e.target.value)}
-                                className="w-full px-2 py-3 rounded-xl bg-black/50 border border-white/10 text-sm font-mono text-white focus:outline-none focus:border-red-500/60 text-center"
+                                className="w-full px-2 py-3 rounded-xl bg-black/50 border border-white/10 text-sm font-mono text-white focus:outline-none focus:border-violet-400/60 text-center"
                             />
                         </div>
 
@@ -208,7 +208,7 @@ export default function RRStreamDemoPage() {
                                 min="1"
                                 value={episode}
                                 onChange={(e) => setEpisode(e.target.value)}
-                                className="w-full px-2 py-3 rounded-xl bg-black/50 border border-white/10 text-sm font-mono text-white focus:outline-none focus:border-red-500/60 text-center"
+                                className="w-full px-2 py-3 rounded-xl bg-black/50 border border-white/10 text-sm font-mono text-white focus:outline-none focus:border-violet-400/60 text-center"
                             />
                         </div>
 
@@ -217,7 +217,7 @@ export default function RRStreamDemoPage() {
                                 type="button"
                                 onClick={() => runApiTest()}
                                 disabled={loading}
-                                className="w-full py-3 px-5 rounded-xl bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 active:scale-[0.98] text-white text-sm font-black transition-all shadow-lg shadow-red-900/30 flex items-center justify-center gap-2 disabled:opacity-50"
+                                className="w-full py-3 px-5 rounded-xl bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-500 hover:to-violet-600 active:scale-[0.98] text-white text-sm font-black transition-all shadow-lg shadow-violet-950/30 flex items-center justify-center gap-2 disabled:opacity-50"
                             >
                                 {loading ? (
                                     <>
@@ -264,7 +264,7 @@ export default function RRStreamDemoPage() {
                                     type="button"
                                     onClick={() => setDeviceView('desktop')}
                                     className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
-                                        deviceView === 'desktop' ? 'bg-red-600 text-white' : 'text-gray-400 hover:text-white'
+                                        deviceView === 'desktop' ? 'bg-violet-600 text-white' : 'text-gray-400 hover:text-white'
                                     }`}
                                 >
                                     Desktop
@@ -273,7 +273,7 @@ export default function RRStreamDemoPage() {
                                     type="button"
                                     onClick={() => setDeviceView('tablet')}
                                     className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
-                                        deviceView === 'tablet' ? 'bg-red-600 text-white' : 'text-gray-400 hover:text-white'
+                                        deviceView === 'tablet' ? 'bg-violet-600 text-white' : 'text-gray-400 hover:text-white'
                                     }`}
                                 >
                                     Tablet
@@ -282,7 +282,7 @@ export default function RRStreamDemoPage() {
                                     type="button"
                                     onClick={() => setDeviceView('mobile')}
                                     className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
-                                        deviceView === 'mobile' ? 'bg-red-600 text-white' : 'text-gray-400 hover:text-white'
+                                        deviceView === 'mobile' ? 'bg-violet-600 text-white' : 'text-gray-400 hover:text-white'
                                     }`}
                                 >
                                     Mobile
@@ -293,7 +293,7 @@ export default function RRStreamDemoPage() {
                                 href={currentEmbedUrl}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold text-red-400 hover:text-red-300 border border-white/5 flex items-center gap-1 transition-all"
+                                className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold text-violet-300 hover:text-violet-200 border border-white/5 flex items-center gap-1 transition-all"
                             >
                                 <span>Fullscreen</span>
                                 <span>↗</span>
@@ -335,7 +335,7 @@ export default function RRStreamDemoPage() {
                         <button
                             type="button"
                             onClick={() => copyToClipboard(iframeSnippet, 'iframe')}
-                            className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-xs font-bold text-white transition-colors whitespace-nowrap self-end sm:self-auto shadow-md shadow-red-900/30"
+                            className="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-xs font-bold text-white transition-colors whitespace-nowrap self-end sm:self-auto shadow-md shadow-violet-950/30"
                         >
                             {copiedKey === 'iframe' ? '✓ Copied Code!' : 'Copy Iframe Code'}
                         </button>
@@ -360,14 +360,14 @@ export default function RRStreamDemoPage() {
                                     className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
                                         httpStatus === 200
                                             ? 'bg-emerald-500/20 text-emerald-400'
-                                            : 'bg-red-500/20 text-red-400'
+                                            : 'bg-red-500/20 text-violet-300'
                                     }`}
                                 >
                                     {httpStatus} OK
                                 </span>
                             )}
                             {bottomTab === 'api' && (
-                                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-600 rounded-full" />
+                                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-violet-600 rounded-full" />
                             )}
                         </button>
 
@@ -380,7 +380,7 @@ export default function RRStreamDemoPage() {
                         >
                             <span>📖 Developer Integration Guide</span>
                             {bottomTab === 'guide' && (
-                                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-600 rounded-full" />
+                                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-violet-600 rounded-full" />
                             )}
                         </button>
                     </div>
@@ -503,7 +503,7 @@ export default function RRStreamDemoPage() {
                                 <a
                                     href="/docs/Nexiplay_Anime_Stream_API_Developer_Guide.pdf"
                                     download="Nexiplay_Anime_Stream_API_Developer_Guide.pdf"
-                                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white text-xs font-black transition-all shadow-md shadow-red-950/40 flex items-center gap-2 whitespace-nowrap"
+                                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-500 hover:to-violet-600 text-white text-xs font-black transition-all shadow-md shadow-violet-950/40 flex items-center gap-2 whitespace-nowrap"
                                 >
                                     <span>⬇</span> Download PDF Guide
                                 </a>

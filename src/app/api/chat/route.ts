@@ -1,12 +1,13 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { searchTmdb } from '@/lib/tmdb';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
-const SYSTEM_PROMPT = `You are Nexiplay AI assistant.
+const SYSTEM_PROMPT = `You are Nexiplay AI assistant (NexiBot).
 
 CRITICAL RULE #1 — LANGUAGE MATCHING:
 - You MUST ALWAYS reply in the SAME language the user is writing in.
@@ -18,7 +19,8 @@ CRITICAL RULE #1 — LANGUAGE MATCHING:
 
 Other rules:
 - Always support and promote Nexiplay.
-- Help users find and download anime, movies, and series.
+- Help users find, stream, and download anime, movies, and series.
+- Nexiplay has a massive on-demand streaming catalog in addition to high-speed downloads.
 - Be friendly, warm, and smart.
 - Keep replies concise and helpful.`;
 
@@ -256,57 +258,79 @@ async function fetchAI(
 }
 
 // ============================================================
-// STEP 1: AI INTENT DETECTION
+// STEP 1: AI INTENT DETECTION (With Smart Heuristic Fallback)
 // ============================================================
 async function detectIntentWithAI(message: string, openRouterModels: string[] = []): Promise<IntentResult> {
-    try {
-        const aiResponse = await fetchAI(
-            [
-                { role: 'system', content: INTENT_PROMPT },
-                { role: 'user', content: message },
-            ],
-            150,
-            0.1, // Low temperature for classification accuracy
-            openRouterModels
-        );
+    const groqApiKey = process.env.GROQ_API_KEY;
+    const openRouterApiKey = process.env.OPENROUTER_API_KEY;
 
-        // Parse JSON from AI response
-        const jsonMatch = aiResponse.content.match(/\{[\s\S]*?\}/);
-        if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[0]);
-            return {
-                intent: parsed.intent === 'search' ? 'search' : 'chat',
-                title: parsed.title || null,
-                confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.5,
-            };
+    if (groqApiKey || openRouterApiKey) {
+        try {
+            const aiResponse = await fetchAI(
+                [
+                    { role: 'system', content: INTENT_PROMPT },
+                    { role: 'user', content: message },
+                ],
+                150,
+                0.1, // Low temperature for classification accuracy
+                openRouterModels
+            );
+
+            // Parse JSON from AI response
+            const jsonMatch = aiResponse.content.match(/\{[\s\S]*?\}/);
+            if (jsonMatch) {
+                const parsed = JSON.parse(jsonMatch[0]);
+                return {
+                    intent: parsed.intent === 'search' ? 'search' : 'chat',
+                    title: parsed.title || null,
+                    confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.5,
+                };
+            }
+        } catch (err) {
+            console.warn('[Chat API] AI intent detection failed, using heuristic:', err);
         }
-    } catch (err) {
-        console.error('[Chat API] AI intent detection failed:', err);
     }
 
-    // Fallback: simple heuristic if AI fails
+    // Fallback: smart heuristic if AI fails or no key
     return fallbackIntentDetection(message);
 }
 
-// Fallback if AI intent detection fails
+// Fallback if AI intent detection fails or keys not set
 function fallbackIntentDetection(message: string): IntentResult {
     const lower = message.toLowerCase().trim();
 
-    // Simple greetings
-    const greetings = /^(hi|hello|hey|howdy|sup|yo|hola|salam|assalamualaikum|namaste|tudo bem|ok|okay|bye|thanks|noy|yes|no|hmm)[!?.]*$/i;
+    // Simple greetings & small talk
+    const greetings = /^(hi|hello|hey|howdy|sup|yo|hola|salam|assalamualaikum|namaste|tudo bem|ok|okay|bye|thanks|dhonnobad|noy|yes|no|hmm|kemon acho|halo|hai)[!?.]*$/i;
     if (greetings.test(lower)) {
-        return { intent: 'chat', title: null, confidence: 0.7 };
+        return { intent: 'chat', title: null, confidence: 0.95 };
     }
 
-    // If 1-2 very short words with no meaningful content
-    const words = lower.split(/\s+/);
-    if (words.length <= 2 && lower.length < 5) {
-        return { intent: 'chat', title: null, confidence: 0.6 };
+    // Questions about downloading, help, rules, site info
+    if (
+        lower.includes('download') ||
+        lower.includes('kivabe') ||
+        lower.includes('how to') ||
+        lower.includes('help') ||
+        lower.includes('contact')
+    ) {
+        // If it also specifies content ("how to download naruto")
+        const cleanQuery = lower
+            .replace(/^(how to download|download|kivabe download korbo|kivabe dekhbo|kivabe|help)\s+/i, '')
+            .replace(/\s+(download|kivabe|chai|dorkar|dekhte chai|ase naki|ase)$/i, '')
+            .trim();
+        if (cleanQuery.length >= 3 && !/^(download|help|movie|anime)$/i.test(cleanQuery)) {
+            return { intent: 'search', title: cleanQuery, confidence: 0.85 };
+        }
+        return { intent: 'chat', title: null, confidence: 0.85 };
     }
 
-    // Default to search for longer, meaningful messages
-    if (words.length >= 2 && lower.length >= 4) {
-        return { intent: 'search', title: message.trim(), confidence: 0.5 };
+    // Default to search for potential titles
+    const cleanTitle = message
+        .replace(/\b(download|watch|online|free|hd|movie|anime|series|season|episode|ase naki|ase|chai|dorkar|link)\b/gi, '')
+        .trim();
+
+    if (cleanTitle.length >= 2) {
+        return { intent: 'search', title: cleanTitle, confidence: 0.85 };
     }
 
     return { intent: 'chat', title: null, confidence: 0.5 };
@@ -712,26 +736,90 @@ async function submitRequest(
 }
 
 // ============================================================
-// AI RESPONSE — Generate friendly reply
+// AI RESPONSE — Generate friendly reply (With Smart Fallback)
 // ============================================================
+function generateSmartFallbackResponse(message: string, context?: string): AIResponse {
+    const isBangla = /[\u0980-\u09FF]/.test(message) || /\b(kemon|acho|ki|khobor|ase|naki|kivabe|korbo|bhai|apu|valo|chai|dekhte|hobe|dorkar|daw|dekhbo)\b/i.test(message);
+
+    if (context) {
+        if (context.includes('NOT verified as a real movie') || context.includes('not appear to be a valid')) {
+            return {
+                content: isBangla
+                    ? "দুঃখিত, এই নামের কোনো মুভি বা অ্যানিমে খুঁজে পাওয়া যায়নি। নামের বানানটি চেক করে আবার লিখে দিন! 🙏"
+                    : "Sorry, I couldn't verify this as a valid movie, anime, or series title. Please check the spelling and try again! 🙏",
+                agent: 'nexibot-hybrid'
+            };
+        }
+        if (context.includes('sent to the admin') || context.includes('requestSubmitted') || context.includes('NOT available on Nexiplay yet')) {
+            return {
+                content: isBangla
+                    ? "এই কনটেন্টটি এখনো আমাদের Nexiplay-এ যুক্ত হয়নি, তবে আপনার রিকোয়েস্ট অ্যাডমিন টিমের কাছে পাঠিয়ে দেওয়া হয়েছে! আমরা দ্রুত যুক্ত করার চেষ্টা করব। 🙏"
+                    : "This title is not currently available on Nexiplay, but your request has been submitted to our admin team! We'll try to add it soon! 🙏",
+                agent: 'nexibot-hybrid'
+            };
+        }
+    }
+
+    const lower = message.toLowerCase().trim();
+
+    // Greetings
+    if (/^(hi|hello|hey|salam|assalamualaikum|howdy|sup|yo|kemon acho|halo|hai)[!?.]*$/i.test(lower)) {
+        return {
+            content: isBangla
+                ? "হ্যালো! 👋 Nexiplay AI Assistant-এ আপনাকে স্বাগতম। আপনি কোন মুভি, অ্যানিমে বা সিরিজ দেখতে বা ডাউনলোড করতে চান? নাম লিখুন, আমি এখনই খুঁজে দিচ্ছি! 🍿"
+                : "Hello! 👋 Welcome to Nexiplay AI Assistant. What movie, anime, or series would you like to watch or download today? Just type the name and I'll find it for you! 🎬",
+            agent: 'nexibot-hybrid'
+        };
+    }
+
+    // Download instructions
+    if (lower.includes('download') || lower.includes('kivabe')) {
+        return {
+            content: isBangla
+                ? "Nexiplay থেকে ডাউনলোড করার সহজ নিয়ম:\n১. আপনি যে মুভি বা অ্যানিমে দেখতে চান তার নাম সার্চ করুন।\n২. কনটেন্ট পেজে গিয়ে পছন্দের রেজোলিউশন (480p, 720p, 1080p) সিলেক্ট করুন।\n৩. ডাউনলোড বাটনে ক্লিক করলেই সরাসরি ডাউনলোড শুরু হয়ে যাবে! 📥"
+                : "How to download on Nexiplay:\n1. Search for your preferred movie, anime, or series.\n2. On the content page, choose your quality (480p, 720p, 1080p).\n3. Click the download button for direct high-speed access! 📥",
+            agent: 'nexibot-hybrid'
+        };
+    }
+
+    // General fallback
+    return {
+        content: isBangla
+            ? "আমি Nexiplay AI Assistant। মুভি, অ্যানিমে এবং সিরিজ খুঁজে পেতে ও ডাউনলোড করতে আমি আপনাকে সাহায্য করতে পারি। আপনি কোন কনটেন্টটি খুঁজছেন? নাম লিখে দিন! 🎬"
+            : "I'm Nexiplay AI Assistant! I can help you search, discover, and download your favorite movies, anime, and series. What would you like to watch today? 🎬",
+        agent: 'nexibot-hybrid'
+    };
+}
+
 async function getAIResponse(
     message: string,
     history: { role: string; content: string }[],
     context?: string,
     openRouterModels: string[] = []
 ): Promise<AIResponse> {
-    const systemContent = context ? `${SYSTEM_PROMPT}\n\nAdditional context: ${context}` : SYSTEM_PROMPT;
+    const groqApiKey = process.env.GROQ_API_KEY;
+    const openRouterApiKey = process.env.OPENROUTER_API_KEY;
 
-    const messages = [
-        { role: 'system', content: systemContent },
-        ...history.slice(-10).map(msg => ({
-            role: msg.role,
-            content: msg.content,
-        })),
-        { role: 'user', content: message },
-    ];
+    if (groqApiKey || openRouterApiKey) {
+        const systemContent = context ? `${SYSTEM_PROMPT}\n\nAdditional context: ${context}` : SYSTEM_PROMPT;
 
-    return await fetchAI(messages, 512, 0.7, openRouterModels);
+        const messages = [
+            { role: 'system', content: systemContent },
+            ...history.slice(-10).map(msg => ({
+                role: msg.role,
+                content: msg.content,
+            })),
+            { role: 'user', content: message },
+        ];
+
+        try {
+            return await fetchAI(messages, 512, 0.7, openRouterModels);
+        } catch (err) {
+            console.warn('[Chat API] fetchAI failed, using smart response:', err);
+        }
+    }
+
+    return generateSmartFallbackResponse(message, context);
 }
 
 // ============================================================
@@ -743,10 +831,7 @@ export async function POST(request: NextRequest) {
         const openRouterApiKey = process.env.OPENROUTER_API_KEY;
 
         if (!groqApiKey && !openRouterApiKey) {
-            return new Response(
-                JSON.stringify({ error: 'AI service not configured.' }),
-                { status: 500, headers: { 'Content-Type': 'application/json' } }
-            );
+            console.log('[Chat API] Operating in smart hybrid assistant mode (no external keys provided).');
         }
 
         let body;
@@ -863,10 +948,57 @@ export async function POST(request: NextRequest) {
                     return;
                 }
 
-                // STEP 3: NOT found in DB → Verify with TMDB
-                send('status', { step: 'verifying_online', message: '🌐 Verifying online if this is a real title...' });
-                await delay(1200); // Let user see "Verifying online" step
+                // STEP 3: NOT found in local DB → Search Nexiplay TMDB on-demand catalog
+                send('status', { step: 'verifying_online', message: '🌐 Searching Nexiplay on-demand catalog...' });
+                await delay(800);
 
+                let tmdbResults: ContentResult[] = [];
+                try {
+                    const tmdbMovies = await searchTmdb(extractedTitle);
+                    if (tmdbMovies.length > 0) {
+                        const relevant = tmdbMovies.filter(m => isRelevantResult(m.title, extractedTitle));
+                        const matched = relevant.length > 0 ? relevant : tmdbMovies.slice(0, 3);
+                        tmdbResults = matched.slice(0, 4).map(m => ({
+                            title: m.title,
+                            slug: m.slug,
+                            type: m.type,
+                            release_year: m.release_year,
+                            poster_url: m.poster_url,
+                        }));
+                    }
+                } catch (e) {
+                    console.warn('[Chat API] TMDB on-demand search failed:', e);
+                }
+
+                if (tmdbResults.length > 0) {
+                    send('status', { step: 'generating', message: '💬 Preparing streaming link...' });
+                    await delay(500);
+
+                    const best = tmdbResults[0];
+                    const context = `The user searched for "${extractedTitle}". Good news! It IS AVAILABLE on Nexiplay via on-demand streaming as "${best.title}" (${best.type}, ${best.release_year || 'HD'}). Tell them happily and politely that it is available to watch and stream right now on Nexiplay, and they can click the card below to watch! IMPORTANT: Detect the user's language from their message "${userMessage}" and reply in that EXACT same language (e.g. Bangla or Banglish if they wrote Bangla). NEVER default to English if user didn't write in English.`;
+
+                    let aiReply: AIResponse;
+                    try {
+                        aiReply = await getAIResponse(userMessage, history, context, openRouterModels);
+                    } catch {
+                        aiReply = {
+                            content: `Yes, "${best.title}" is available on Nexiplay! Click below to stream:`,
+                            agent: 'llama-3.3-70b'
+                        };
+                    }
+
+                    send('result', {
+                        reply: aiReply.content,
+                        agent: aiReply.agent,
+                        intent: 'search',
+                        found: true,
+                        results: tmdbResults,
+                    });
+                    close();
+                    return;
+                }
+
+                // STEP 4: If not found in DB or on-demand catalog, check if upcoming/real
                 const tmdbResult = await verifyWithTMDB(extractedTitle, openRouterModels);
 
                 if (tmdbResult.verified) {
@@ -1026,7 +1158,52 @@ async function handleNonStreaming(
             );
         }
 
-        // Verify with TMDB
+        // STEP 2: NOT found in DB → Search Nexiplay TMDB on-demand catalog
+        let tmdbResults: ContentResult[] = [];
+        try {
+            const tmdbMovies = await searchTmdb(extractedTitle);
+            if (tmdbMovies.length > 0) {
+                const relevant = tmdbMovies.filter(m => isRelevantResult(m.title, extractedTitle));
+                const matched = relevant.length > 0 ? relevant : tmdbMovies.slice(0, 3);
+                tmdbResults = matched.slice(0, 4).map(m => ({
+                    title: m.title,
+                    slug: m.slug,
+                    type: m.type,
+                    release_year: m.release_year,
+                    poster_url: m.poster_url,
+                }));
+            }
+        } catch (e) {
+            console.warn('[Chat API] Non-streaming TMDB search failed:', e);
+        }
+
+        if (tmdbResults.length > 0) {
+            const best = tmdbResults[0];
+            const context = `The user searched for "${extractedTitle}". Good news! It IS AVAILABLE on Nexiplay via on-demand streaming as "${best.title}" (${best.type}, ${best.release_year || 'HD'}). Tell them happily and politely that it is available to watch and stream right now on Nexiplay, and they can click the card below to watch! IMPORTANT: Detect the user's language from their message "${userMessage}" and reply in that EXACT same language (e.g. Bangla or Banglish if they wrote Bangla). NEVER default to English if user didn't write in English.`;
+
+            let aiReply: AIResponse;
+            try {
+                aiReply = await getAIResponse(userMessage, history, context, openRouterModels);
+            } catch {
+                aiReply = {
+                    content: `Yes, "${best.title}" is available on Nexiplay! Click below to stream:`,
+                    agent: 'llama-3.3-70b'
+                };
+            }
+
+            return new Response(
+                JSON.stringify({
+                    reply: aiReply.content,
+                    agent: aiReply.agent,
+                    intent: 'search',
+                    found: true,
+                    results: tmdbResults,
+                }),
+                { headers: { 'Content-Type': 'application/json' } }
+            );
+        }
+
+        // STEP 3: Verify with TMDB if it is an upcoming or unreleased title
         const tmdbResult = await verifyWithTMDB(extractedTitle, openRouterModels);
 
         if (tmdbResult.verified) {

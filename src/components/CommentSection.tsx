@@ -23,6 +23,12 @@ export default function CommentSection({ movieId }: CommentSectionProps) {
     }, [movieId]);
 
     async function fetchComments() {
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(movieId);
+        if (!isUuid) {
+            setLoading(false);
+            return;
+        }
+
         const { data } = await supabase
             .from('comments')
             .select('id, name, message, created_at')

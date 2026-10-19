@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "../nexiplay-admin-main"
+		},
+		{
+			"path": "."
+		},
+		{
+			"path": "../Nexiplay App"
+		}
+	],
+	"settings": {}
+}

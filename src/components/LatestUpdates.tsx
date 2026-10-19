@@ -44,11 +44,26 @@ export default function LatestUpdates({ updates, adLink }: LatestUpdatesProps) {
 
     const handleCardClick = (e: React.MouseEvent, slug: string) => {
         e.preventDefault();
-        // Open ad link in new tab if configured
+        // If ad configured, perform True Tab-Under: movie in front tab, ad in back tab
         if (adLink) {
-            window.open(adLink, '_blank', 'noopener,noreferrer');
+            try {
+                sessionStorage.setItem('nexiplay_splash_seen', 'true');
+                localStorage.setItem('nexiplay_splash_seen', Date.now().toString());
+            } catch (err) {}
+
+            const newTab = window.open(slug, '_blank');
+            if (newTab) {
+                setTimeout(() => {
+                    try {
+                        window.location.replace(adLink);
+                    } catch {
+                        window.location.href = adLink;
+                    }
+                }, 200);
+                return;
+            }
         }
-        // Navigate to content page in same tab
+        // Navigate to content page in same tab if no ad or popup blocked
         router.push(slug);
     };
 
@@ -75,9 +90,9 @@ export default function LatestUpdates({ updates, adLink }: LatestUpdatesProps) {
         <section className="mb-12">
             <div className="flex items-center justify-between mb-6">
                 <h2 className="section-title flex items-center gap-2">
-                    <span className="w-1 h-6 bg-red-600 rounded-full"></span>
+                    <span className="w-1 h-6 bg-violet-600 rounded-full"></span>
                     Latest Updates
-                    <span className="px-2 py-0.5 text-[10px] font-bold bg-red-600/20 text-red-400 rounded-full border border-red-500/20 animate-pulse">
+                    <span className="px-2 py-0.5 text-[10px] font-bold bg-violet-600/20 text-violet-300 rounded-full border border-red-500/20 animate-pulse">
                         LIVE
                     </span>
                 </h2>
@@ -88,7 +103,7 @@ export default function LatestUpdates({ updates, adLink }: LatestUpdatesProps) {
                         onClick={() => scroll('left')}
                         className={`w-9 h-9 rounded-full border flex items-center justify-center transition-all duration-300 ${
                             canScrollLeft
-                                ? 'border-white/20 bg-white/5 hover:bg-red-600 hover:border-red-600 text-white cursor-pointer'
+                                ? 'border-white/20 bg-white/5 hover:bg-violet-600 hover:border-red-600 text-white cursor-pointer'
                                 : 'border-white/5 bg-white/[0.02] text-gray-600 cursor-not-allowed'
                         }`}
                         disabled={!canScrollLeft}
@@ -102,7 +117,7 @@ export default function LatestUpdates({ updates, adLink }: LatestUpdatesProps) {
                         onClick={() => scroll('right')}
                         className={`w-9 h-9 rounded-full border flex items-center justify-center transition-all duration-300 ${
                             canScrollRight
-                                ? 'border-white/20 bg-white/5 hover:bg-red-600 hover:border-red-600 text-white cursor-pointer'
+                                ? 'border-white/20 bg-white/5 hover:bg-violet-600 hover:border-red-600 text-white cursor-pointer'
                                 : 'border-white/5 bg-white/[0.02] text-gray-600 cursor-not-allowed'
                         }`}
                         disabled={!canScrollRight}
@@ -163,7 +178,7 @@ export default function LatestUpdates({ updates, adLink }: LatestUpdatesProps) {
 
                                 {/* NEW Badge - top left */}
                                 <div className="absolute top-2 left-2">
-                                    <span className="px-2 py-0.5 text-[10px] font-black rounded bg-red-600 text-white shadow-lg shadow-red-900/40 uppercase tracking-wider animate-pulse">
+                                    <span className="px-2 py-0.5 text-[10px] font-black rounded bg-violet-600 text-white shadow-lg shadow-violet-950/40 uppercase tracking-wider animate-pulse">
                                         NEW
                                     </span>
                                 </div>
@@ -177,7 +192,7 @@ export default function LatestUpdates({ updates, adLink }: LatestUpdatesProps) {
 
                                 {/* Update Badge - bottom left */}
                                 <div className="absolute bottom-2 left-2">
-                                    <span className="px-2.5 py-1 text-[10px] font-black rounded-md bg-red-600 text-white uppercase tracking-wide shadow-lg shadow-red-900/50">
+                                    <span className="px-2.5 py-1 text-[10px] font-black rounded-md bg-violet-600 text-white uppercase tracking-wide shadow-lg shadow-violet-950/50">
                                         {getUpdateBadge(item)}
                                     </span>
                                 </div>
@@ -185,7 +200,7 @@ export default function LatestUpdates({ updates, adLink }: LatestUpdatesProps) {
 
                             {/* Title */}
                             <div className="mt-2 px-0.5">
-                                <h3 className="font-medium text-sm text-gray-200 line-clamp-2 group-hover:text-red-400 transition-colors leading-tight">
+                                <h3 className="font-medium text-sm text-gray-200 line-clamp-2 group-hover:text-violet-300 transition-colors leading-tight">
                                     {item.title}
                                 </h3>
                             </div>

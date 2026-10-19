@@ -73,7 +73,7 @@ export default function UpcomingSection({ items }: UpcomingSectionProps) {
 
                         {/* Title and Badge */}
                         <div className="mt-3 px-1">
-                            <h3 className="font-medium text-sm md:text-base text-gray-100 line-clamp-2 group-hover:text-red-400 transition-colors">
+                            <h3 className="font-medium text-sm md:text-base text-gray-100 line-clamp-2 group-hover:text-violet-300 transition-colors">
                                 {item.title}
                             </h3>
                             <p className="text-xs text-gray-400 mt-1 font-medium">

@@ -33,6 +33,9 @@ export async function GET(request: NextRequest) {
         } else if (targetUrl.includes('hakunaymatata.com')) {
             headers['Referer'] = 'https://netfilm.world/';
             headers['Origin'] = 'https://netfilm.world';
+        } else if (targetUrl.includes('vidvault.to') || targetUrl.includes('workers.dev')) {
+            headers['Referer'] = 'https://vidvault.to/';
+            headers['Origin'] = 'https://vidvault.to';
         }
 
         const res = await fetch(targetUrl, { headers });

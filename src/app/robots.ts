@@ -15,12 +15,18 @@ export default function robots(): MetadataRoute.Robots {
         'Diffbot',
         'FacebookBot',
         'facebookexternalhit',
-        'Applebot',
+        'Applebot-Extended',
         'Twitterbot',
         'Slackbot',
         'Omgilibot',
         'Omgili',
         'WebCopier',
+        'Scrapy',
+        'cohere-ai',
+        'Amazonbot',
+        'img2dataset',
+        'Barkrowler',
+        'Timpibot',
     ];
 
     return {
@@ -28,7 +34,7 @@ export default function robots(): MetadataRoute.Robots {
             {
                 userAgent: '*',
                 allow: '/',
-                disallow: ['/api/'],
+                disallow: ['/api/', '/embed/', '/watch/'],
             },
             ...aiBots.map((bot) => ({
                 userAgent: bot,

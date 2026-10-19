@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Movie, Season, Episode } from '@/lib/types';
@@ -64,33 +64,420 @@ const saveContentVerification = (contentId: string, contentType: string) => {
 interface Server {
     id: string;
     name: string;
-    icon: string;
+    icon?: string;
+    badge?: string;
+    isHindi?: boolean;
     getUrl: (movieId: string, tmdbId?: string, imdbId?: string, malId?: string, season?: number, episode?: number) => string | null;
     animeOnly?: boolean;
     movieOnly?: boolean;
 }
 
+function ServerSvgIcon({ id, isHindi, className = "w-4 h-4" }: { id: string; isHindi?: boolean; className?: string }) {
+    const cleanId = (id || '').toLowerCase();
+
+    // Trailer
+    if (cleanId === 'trailer') {
+        return (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none" />
+            </svg>
+        );
+    }
+
+    // Hindi Dubbed / Multi-Audio / Soundwave
+    if (isHindi || ['superembed', 'autoembed', 'moviesnexus', 'multiembed', 'vixsrc', 'twoembed', 'vidsrc_su', 'anyembed', 'frembed', 'smashystream', 'toonstream', 'rareanimes'].includes(cleanId)) {
+        return (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 10v4M6 7v10M10 4v16M14 8v8M18 11v2M22 9v6" />
+            </svg>
+        );
+    }
+
+    // Ultra Fast Speed / Zap
+    if (['vidlink', 'vidfast', 'vidcore', 'vidsrc_pm', 'vidsrc_to', 'vidsrc_io', 'vidsrc_sh', 'vidapi', 'animerulz', 'animixstream'].includes(cleanId)) {
+        return (
+            <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+                <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z" />
+            </svg>
+        );
+    }
+
+    // Premium VIP / Crown
+    if (cleanId === 'vidking') {
+        return (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14" />
+            </svg>
+        );
+    }
+
+    // Cloud Stream / Direct CDN / Server Stack
+    if (['vidvault_stream', 'custom', 'animeworld'].includes(cleanId) || cleanId.startsWith('multi_')) {
+        return (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <rect width="20" height="7" x="2" y="3" rx="2" />
+                <rect width="20" height="7" x="2" y="14" rx="2" />
+                <line x1="6" x2="6.01" y1="6.5" y2="6.5" strokeWidth={3} />
+                <line x1="6" x2="6.01" y1="17.5" y2="17.5" strokeWidth={3} />
+                <line x1="10" x2="18" y1="6.5" y2="6.5" />
+                <line x1="10" x2="18" y1="17.5" y2="17.5" />
+            </svg>
+        );
+    }
+
+    // Nexiplay Private Server / Core
+    if (cleanId === 'toonplay') {
+        return (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2 2 7l10 5 10-5-10-5Z" />
+                <path d="m2 17 10 5 10-5" />
+                <path d="m2 12 10 5 10-5" />
+            </svg>
+        );
+    }
+
+    // 4K Ultra HD Sparkle
+    if (cleanId === 'vidrock') {
+        return (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M4.93 19.07l14.14-14.14" />
+            </svg>
+        );
+    }
+
+    // Cinema / Film / Default Video Player
+    return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <rect width="20" height="15" x="2" y="5" rx="3" />
+            <polyline points="2 10 22 10" />
+            <circle cx="7" cy="7.5" r="1" fill="currentColor" />
+            <circle cx="12" cy="7.5" r="1" fill="currentColor" />
+            <circle cx="17" cy="7.5" r="1" fill="currentColor" />
+            <polygon points="10 13 15 16 10 19 10 13" fill="currentColor" stroke="none" />
+        </svg>
+    );
+}
+
 const BUILT_IN_SERVERS: Server[] = [
     {
-        id: 'vidsrc_to',
-        name: 'Server VidSrc (Pro)',
-        icon: '⚡',
+        id: 'vidrock',
+        name: 'VidRock',
+        icon: 'sparkle',
+        badge: 'FAST HD',
         getUrl: (id, tmdb, imdb, mal, s, e) => {
-            if (!tmdb) return null;
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
             return s !== undefined && e !== undefined
-                ? `https://vidsrc.to/embed/tv/${tmdb}/${s}/${e}`
-                : `https://vidsrc.to/embed/movie/${tmdb}`;
+                ? `https://vidrock.net/tv/${targetId}/${s}/${e}`
+                : `https://vidrock.net/movie/${targetId}`;
         }
     },
     {
-        id: 'vidsrc_me',
-        name: 'Server VidSrc.me',
-        icon: '🚀',
+        id: 'videasy',
+        name: 'Videasy HD',
+        icon: 'zap',
+        badge: 'FAST HD',
         getUrl: (id, tmdb, imdb, mal, s, e) => {
-            if (!tmdb) return null;
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
             return s !== undefined && e !== undefined
-                ? `https://vidsrc.me/embed/tv?tmdb=${tmdb}&season=${s}&episode=${e}`
-                : `https://vidsrc.me/embed/movie?tmdb=${tmdb}`;
+                ? `https://player.videasy.net/tv/${targetId}/${s}/${e}`
+                : `https://player.videasy.net/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'vidzee',
+        name: 'VidZee',
+        icon: 'film',
+        badge: 'FAST HD',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://player.vidzee.wtf/embed/tv/${targetId}/${s}/${e}`
+                : `https://player.vidzee.wtf/embed/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'vidlink',
+        name: 'VidLink (Ultra)',
+        icon: 'zap',
+        badge: '1080P ULTRA',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://vidlink.pro/tv/${targetId}/${s}/${e}`
+                : `https://vidlink.pro/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'vidsrc_pm',
+        name: 'VidSrc (PM)',
+        icon: 'zap',
+        badge: 'HD STREAM',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://vidsrc.pm/embed/tv/${targetId}/${s}/${e}`
+                : `https://vidsrc.pm/embed/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'autoembed',
+        name: 'AutoEmbed (Multi-Audio)',
+        icon: 'audio',
+        badge: 'MULTI-AUDIO',
+        isHindi: true,
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://autoembed.co/tv/tmdb/${targetId}/${s}/${e}`
+                : `https://autoembed.co/movie/tmdb/${targetId}`;
+        }
+    },
+    {
+        id: 'vidfast',
+        name: 'VidFast',
+        icon: 'zap',
+        badge: '1080P FAST',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://vidfast.pro/tv/${targetId}/${s}/${e}`
+                : `https://vidfast.pro/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'vidsrc_to',
+        name: 'VidSrc.to',
+        icon: 'zap',
+        badge: 'PRO STREAM',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://vidsrc.to/embed/tv/${targetId}/${s}/${e}`
+                : `https://vidsrc.to/embed/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'twoembed',
+        name: '2Embed (Multi-Audio)',
+        icon: 'audio',
+        badge: 'MULTI-AUDIO',
+        isHindi: true,
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://www.2embed.cc/embedtv/${targetId}&s=${s}&e=${e}`
+                : `https://www.2embed.cc/embed/${targetId}`;
+        }
+    },
+    {
+        id: 'vidking',
+        name: 'VidKing',
+        icon: 'sparkle',
+        badge: 'FAST HD',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://www.vidking.net/embed/tv/${targetId}/${s}/${e}`
+                : `https://www.vidking.net/embed/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'vidsrc_cc',
+        name: 'VidSrc CC',
+        icon: 'film',
+        badge: 'MULTI',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://vidsrc.cc/v2/embed/tv/${targetId}/${s}/${e}`
+                : `https://vidsrc.cc/v2/embed/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'moviesapi',
+        name: 'MoviesAPI',
+        icon: 'film',
+        badge: 'HD STREAM',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://moviesapi.to/tv/${targetId}/${s}/${e}`
+                : `https://moviesapi.to/movie/${targetId}`;
+        }
+    },
+    {
+        id: '111movies',
+        name: '111Movies',
+        icon: 'film',
+        badge: 'FAST HD',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://111movies.com/tv/${targetId}/${s}/${e}`
+                : `https://111movies.com/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'vixsrc',
+        name: 'VixSrc (Multi-Lang)',
+        icon: 'audio',
+        badge: 'MULTI-LANG',
+        isHindi: true,
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://vixsrc.to/tv/${targetId}/${s}/${e}`
+                : `https://vixsrc.to/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'smashystream',
+        name: 'SmashyStream (Multi-Server)',
+        icon: 'zap',
+        badge: 'MULTI-SERVER',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://embed.smashystream.com/playere.php?tmdb=${targetId}&season=${s}&episode=${e}`
+                : `https://embed.smashystream.com/playere.php?tmdb=${targetId}`;
+        }
+    },
+    {
+        id: 'nontongo',
+        name: 'Nontongo',
+        icon: 'film',
+        badge: 'ULTRA HD',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://nontongo.win/embed/tv/${targetId}/${s}/${e}`
+                : `https://nontongo.win/embed/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'multiembed',
+        name: 'MultiEmbed (Hindi)',
+        icon: 'audio',
+        badge: 'MULTI',
+        isHindi: true,
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://multiembed.mov/?video_id=${targetId}&tmdb=1&s=${s}&e=${e}`
+                : `https://multiembed.mov/?video_id=${targetId}&tmdb=1`;
+        }
+    },
+    {
+        id: 'godrive',
+        name: 'GDrivePlayer',
+        icon: 'sparkle',
+        badge: 'DIRECT',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = imdb || tmdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://database.gdriveplayer.us/player.php?imdb=${targetId}&s=${s}&e=${e}`
+                : `https://database.gdriveplayer.us/player.php?imdb=${targetId}`;
+        }
+    },
+    {
+        id: 'vidapi',
+        name: 'VidAPI',
+        icon: 'film',
+        badge: 'FAST HD',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://vaplayer.ru/embed/tv/${targetId}/${s}/${e}`
+                : `https://vaplayer.ru/embed/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'vidcore',
+        name: 'VidCore (Fast HD)',
+        icon: 'zap',
+        badge: '1080P ULTRA',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://vidcore.org/embed/tv/${targetId}/${s}/${e}`
+                : `https://vidcore.org/embed/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'vidsrc_su',
+        name: 'VidSrc SU (Multi)',
+        icon: 'audio',
+        badge: 'MULTI-AUDIO',
+        isHindi: true,
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://vidsrc.su/embed/tv/${targetId}/${s}/${e}`
+                : `https://vidsrc.su/embed/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'anyembed',
+        name: 'AnyEmbed (Multi-Audio)',
+        icon: 'audio',
+        badge: 'MULTI-AUDIO',
+        isHindi: true,
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://anyembed.xyz/embed/tmdb-tv-${targetId}-${s}-${e}`
+                : `https://anyembed.xyz/embed/tmdb-movie-${targetId}`;
+        }
+    },
+    {
+        id: 'frembed',
+        name: 'FrEmbed (Multi-Lang)',
+        icon: 'audio',
+        badge: 'MULTI-LANG',
+        isHindi: true,
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://frembed.pro/api/serie.php?id=${targetId}&s=${s}&e=${e}`
+                : `https://frembed.pro/api/film.php?id=${targetId}`;
+        }
+    },
+    {
+        id: 'superembed',
+        name: 'SuperEmbed (Multi)',
+        icon: 'audio',
+        badge: 'MULTI-AUDIO',
+        isHindi: true,
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://www.2embed.cc/embedtv/${targetId}&s=${s}&e=${e}`
+                : `https://www.2embed.cc/embed/${targetId}`;
         }
     }
 ];
@@ -98,7 +485,7 @@ const BUILT_IN_SERVERS: Server[] = [
 const SERVERS: Server[] = BUILT_IN_SERVERS;
 
 const AD_BLOCK_SANDBOX =
-    'allow-scripts allow-same-origin allow-forms allow-popups allow-presentation allow-pointer-lock allow-orientation-lock allow-modals allow-downloads allow-storage-access-by-user-activation';
+    'allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock allow-orientation-lock allow-modals';
 
 const DISABLED_MULTI_SERVER_IDS = new Set(['muse_india', 'anione_india']);
 
@@ -156,7 +543,7 @@ function normalizePlayerUrl(url: string): string {
     return `https://www.youtube-nocookie.com/embed/${youtubeId}?rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&fs=1`;
 }
 
-function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void }) {
+function HLSVideoPlayer({ src, onEnded, onErrorFallback }: { src: string; onEnded?: () => void; onErrorFallback?: () => void }) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const hlsRef = useRef<any>(null);
     const [hlsLoaded, setHlsLoaded] = useState(false);
@@ -208,7 +595,7 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
         }
 
         const currentActiveSide = leftSkipActiveRef.current ? 'left' : (rightSkipActiveRef.current ? 'right' : null);
-        
+
         if (currentActiveSide && currentActiveSide !== side) {
             setLeftActive(false);
             setRightActive(false);
@@ -224,7 +611,7 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
         }
 
         setAccumulatedSkip(prev => prev + 10);
-        
+
         if (side === 'left') {
             setLeftActive(true);
             setRightActive(false);
@@ -247,28 +634,28 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
         const rect = e.currentTarget.getBoundingClientRect();
         const clickX = e.clientX - rect.left;
         const isLeft = clickX < rect.width / 2;
-        
+
         const currentTime = new Date().getTime();
         const tapDelay = currentTime - lastTapRef.current.time;
-        
+
         if (tapDelay < 350 && tapDelay > 0) {
             // Double click/tap detected!
             if (clickTimeoutRef.current) {
                 clearTimeout(clickTimeoutRef.current);
                 clickTimeoutRef.current = null;
             }
-            
+
             triggerSkip(isLeft ? 'left' : 'right');
         } else {
             // Single tap/click - delay toggle to wait for double tap
             lastTapRef.current = { time: currentTime, x: clickX };
-            
+
             if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
-            
+
             clickTimeoutRef.current = setTimeout(() => {
                 if (videoRef.current) {
                     if (videoRef.current.paused) {
-                        videoRef.current.play().catch(() => {});
+                        videoRef.current.play().catch(() => { });
                     } else {
                         videoRef.current.pause();
                     }
@@ -295,7 +682,7 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
                 e.preventDefault();
                 if (videoRef.current) {
                     if (videoRef.current.paused) {
-                        videoRef.current.play().catch(() => {});
+                        videoRef.current.play().catch(() => { });
                     } else {
                         videoRef.current.pause();
                     }
@@ -339,14 +726,17 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
             hlsRef.current = null;
         }
 
-        // Loading timeout — if video doesn't start within 20s, show error
+        // Loading timeout — if video doesn't start within 15s, show error and auto-switch
         if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
         loadingTimeoutRef.current = setTimeout(() => {
             if (video.readyState < 2) {
-                setVideoError('Video failed to load. No response from server.');
+                setVideoError('Video failed to load from this server. Auto-switching...');
                 setIsLoading(false);
+                if (onErrorFallback) {
+                    setTimeout(() => onErrorFallback(), 1200);
+                }
             }
-        }, 20000);
+        }, 15000);
 
         const isMp4 = src.toLowerCase().includes('.mp4') || src.includes('mp4');
 
@@ -359,12 +749,12 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
             hlsRef.current = hls;
             hls.loadSource(src);
             hls.attachMedia(video);
-            
+
             hls.on(Hls.Events.MANIFEST_PARSED, () => {
                 setIsLoading(false);
                 setVideoError(null);
                 if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
-                
+
                 // Read and set quality levels
                 const levels = hls.levels || [];
                 setHlsLevels(levels);
@@ -373,10 +763,10 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
                 const tracks = hls.audioTracks || [];
                 setAudioTracks(tracks);
                 setCurrentTrackIndex(hls.audioTrack);
-                
+
                 if (tracks.length > 0) {
-                    const hindiIdx = tracks.findIndex((t: any) => 
-                        t.name.toLowerCase().includes('hindi') || 
+                    const hindiIdx = tracks.findIndex((t: any) =>
+                        t.name.toLowerCase().includes('hindi') ||
                         t.name.toLowerCase().includes('hin') ||
                         t.lang?.toLowerCase().startsWith('hi')
                     );
@@ -398,11 +788,14 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
                     console.warn(`[HLSPlayer] Fatal error (attempt ${retryCountRef.current}/${MAX_RETRIES}):`, data.type, data.details);
 
                     if (retryCountRef.current >= MAX_RETRIES) {
-                        // Max retries reached — show error
-                        setVideoError('Video could not be loaded. Server or link issue.');
+                        // Max retries reached — show error and auto-switch
+                        setVideoError('Video could not be loaded. Auto-switching to next server...');
                         setIsLoading(false);
                         if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
                         hls.destroy();
+                        if (onErrorFallback) {
+                            setTimeout(() => onErrorFallback(), 1200);
+                        }
                         return;
                     }
 
@@ -424,7 +817,7 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
             });
         } else {
             video.src = src;
-            
+
             // For non-HLS (mp4), listen for native errors
             video.onerror = () => {
                 setVideoError('Video failed to load.');
@@ -450,9 +843,9 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
                     });
 
                     const isHindi = track.language?.toLowerCase().startsWith('hi') ||
-                                    track.label?.toLowerCase().includes('hindi') ||
-                                    track.label?.toLowerCase().includes('hin');
-                    
+                        track.label?.toLowerCase().includes('hindi') ||
+                        track.label?.toLowerCase().includes('hin');
+
                     if (isHindi) {
                         hasHindi = true;
                         hindiIdx = i;
@@ -484,7 +877,7 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
             if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
         };
         video.addEventListener('canplay', handleCanPlay);
-        
+
         return () => {
             video.removeEventListener('loadedmetadata', handleLoadedMetadata);
             video.removeEventListener('canplay', handleCanPlay);
@@ -526,7 +919,7 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
                 if (screen.orientation && screen.orientation.unlock) {
                     try {
                         screen.orientation.unlock();
-                    } catch (e) {}
+                    } catch (e) { }
                 }
             }
         };
@@ -642,7 +1035,8 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
 
     return (
         <div ref={containerRef} className="absolute inset-0 w-full h-full bg-[#000000] flex flex-col justify-between group">
-            <style dangerouslySetInnerHTML={{__html: `
+            <style dangerouslySetInnerHTML={{
+                __html: `
                 @keyframes rippleExpandLeft {
                     0% {
                         transform: translate(-50%, -50%) scale(0.2);
@@ -709,7 +1103,7 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
                     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm">
                         <div className="flex flex-col items-center gap-4 p-6 max-w-md text-center">
                             <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center">
-                                <svg className="w-8 h-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <svg className="w-8 h-8 text-violet-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
                                 </svg>
                             </div>
@@ -717,16 +1111,25 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
                                 <h3 className="text-white font-bold text-lg mb-1">Video Unavailable</h3>
                                 <p className="text-gray-400 text-sm">{videoError}</p>
                             </div>
-                            <div className="flex gap-3">
+                            <div className="flex flex-wrap justify-center gap-3">
                                 <button
                                     onClick={handleRetry}
-                                    className="px-5 py-2.5 bg-gradient-to-r from-red-600 to-orange-600 text-white font-bold text-sm rounded-xl hover:from-red-500 hover:to-orange-500 transition-all shadow-lg shadow-red-900/30 flex items-center gap-2"
+                                    className="px-5 py-2.5 bg-gradient-to-r from-violet-600 to-violet-700 text-white font-bold text-sm rounded-xl hover:from-violet-500 hover:to-violet-600 transition-all shadow-lg shadow-violet-950/30 flex items-center gap-2"
                                 >
                                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
                                     </svg>
                                     Retry
                                 </button>
+                                {onErrorFallback && (
+                                    <button
+                                        onClick={onErrorFallback}
+                                        className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-sm rounded-xl hover:from-emerald-500 hover:to-teal-500 transition-all shadow-lg shadow-emerald-950/30 flex items-center gap-2"
+                                    >
+                                        <span>⚡ Next Server</span>
+                                        <span>➔</span>
+                                    </button>
+                                )}
                             </div>
                             <p className="text-gray-500 text-xs mt-2">Try switching to a different server if the problem persists.</p>
                         </div>
@@ -766,21 +1169,20 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
                                 >
                                     <span>⚙️</span>
                                     <span>
-                                        {currentQualityIndex === -1 
-                                            ? 'Auto' 
+                                        {currentQualityIndex === -1
+                                            ? 'Auto'
                                             : getQualityLabel(hlsLevels[currentQualityIndex], currentQualityIndex)}
                                     </span>
                                 </button>
-                                
+
                                 {showQualityMenu && (
                                     <div className="absolute right-0 mt-2 w-28 bg-[#0f0f0f]/95 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl overflow-hidden py-1 z-50 max-h-60 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10">
                                         <button
                                             onClick={() => handleQualityChange(-1)}
-                                            className={`w-full text-left px-3.5 py-1.5 text-[10px] md:text-xs font-black transition-colors ${
-                                                currentQualityIndex === -1
-                                                    ? 'bg-red-600 text-white'
+                                            className={`w-full text-left px-3.5 py-1.5 text-[10px] md:text-xs font-black transition-colors ${currentQualityIndex === -1
+                                                    ? 'bg-violet-600 text-white'
                                                     : 'text-gray-300 hover:bg-white/15 hover:text-white'
-                                            }`}
+                                                }`}
                                         >
                                             Auto
                                         </button>
@@ -788,11 +1190,10 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
                                             <button
                                                 key={idx}
                                                 onClick={() => handleQualityChange(idx)}
-                                                className={`w-full text-left px-3.5 py-1.5 text-[10px] md:text-xs font-black transition-colors ${
-                                                    currentQualityIndex === idx
-                                                        ? 'bg-red-600 text-white'
+                                                className={`w-full text-left px-3.5 py-1.5 text-[10px] md:text-xs font-black transition-colors ${currentQualityIndex === idx
+                                                        ? 'bg-violet-600 text-white'
                                                         : 'text-gray-300 hover:bg-white/15 hover:text-white'
-                                                }`}
+                                                    }`}
                                             >
                                                 {getQualityLabel(level, idx)}
                                             </button>
@@ -814,7 +1215,7 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
                                 <span>⏱️</span>
                                 <span>{playbackSpeed === 1.0 ? 'Normal' : `${playbackSpeed}x`}</span>
                             </button>
-                            
+
                             {showSpeedMenu && (
                                 <div className="absolute right-0 mt-2 w-32 bg-[#0f0f0f]/95 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl overflow-hidden py-1 z-50 max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10">
                                     {[0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0].map((speed) => (
@@ -824,16 +1225,15 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
                                                 setPlaybackSpeed(speed);
                                                 setShowSpeedMenu(false);
                                             }}
-                                            className={`w-full text-left px-3.5 py-1.5 text-[10px] md:text-xs font-black transition-colors ${
-                                                playbackSpeed === speed
-                                                    ? 'bg-red-600 text-white'
+                                            className={`w-full text-left px-3.5 py-1.5 text-[10px] md:text-xs font-black transition-colors ${playbackSpeed === speed
+                                                    ? 'bg-violet-600 text-white'
                                                     : 'text-gray-300 hover:bg-white/15 hover:text-white'
-                                            }`}
+                                                }`}
                                         >
                                             {speed === 1.0 ? '1.0x (Normal)' : `${speed}x`}
                                         </button>
                                     ))}
-                                    
+
                                     {/* Custom Speed Form */}
                                     <div className="border-t border-white/10 px-3 py-2 mt-1 bg-white/[0.02]">
                                         <span className="text-[9px] text-gray-500 font-black uppercase tracking-wider block mb-1">Custom Speed</span>
@@ -846,7 +1246,7 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
                                                 value={customSpeedVal}
                                                 onChange={(e) => setCustomSpeedVal(e.target.value)}
                                                 placeholder="1.0"
-                                                className="w-12 px-1.5 py-1 text-[10px] bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-red-500 font-black text-center"
+                                                className="w-12 px-1.5 py-1 text-[10px] bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-violet-400 font-black text-center"
                                             />
                                             <button
                                                 onClick={() => {
@@ -858,7 +1258,7 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
                                                         alert("Please enter a speed between 0.1 and 5.0");
                                                     }
                                                 }}
-                                                className="px-2 py-1 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 rounded-lg text-[9px] font-black text-white shadow-md transition-all active:scale-95"
+                                                className="px-2 py-1 bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-500 hover:to-violet-600 rounded-lg text-[9px] font-black text-white shadow-md transition-all active:scale-95"
                                             >
                                                 Set
                                             </button>
@@ -886,9 +1286,9 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
                         </button>
                     </div>
                 )}
-                
+
                 {/* Click overlay for double-click skip & play/pause toggling */}
-                <div 
+                <div
                     onPointerDown={handlePointerDown}
                     className="absolute top-0 left-0 w-full h-[85%] cursor-pointer z-10 select-none touch-none"
                 />
@@ -898,18 +1298,18 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
                     <div className="absolute left-0 top-0 bottom-0 w-1/2 pointer-events-none z-20 overflow-hidden rounded-l-3xl flex flex-col items-center justify-center">
                         {/* Ripple background */}
                         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[180%] aspect-square bg-white/[0.04] rounded-full animate-ripple-expand-left" />
-                        
+
                         {/* Chevrons and text */}
                         <div className="relative z-30 flex flex-col items-center justify-center">
                             <div className="flex items-center justify-center gap-0.5 text-white mb-2">
                                 <svg className="w-6 h-6 animate-chevron-3-left fill-current text-white/90" viewBox="0 0 24 24">
-                                    <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+                                    <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
                                 </svg>
                                 <svg className="w-6 h-6 animate-chevron-2-left fill-current text-white/90" viewBox="0 0 24 24">
-                                    <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+                                    <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
                                 </svg>
                                 <svg className="w-6 h-6 animate-chevron-1-left fill-current text-white/90" viewBox="0 0 24 24">
-                                    <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+                                    <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
                                 </svg>
                             </div>
                             <span className="text-xs font-black text-white/90 tracking-widest uppercase bg-black/30 px-3 py-1 rounded-full backdrop-blur-sm border border-white/5 shadow-md">
@@ -924,18 +1324,18 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
                     <div className="absolute right-0 top-0 bottom-0 w-1/2 pointer-events-none z-20 overflow-hidden rounded-r-3xl flex flex-col items-center justify-center">
                         {/* Ripple background */}
                         <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[180%] aspect-square bg-white/[0.04] rounded-full animate-ripple-expand-right" />
-                        
+
                         {/* Chevrons and text */}
                         <div className="relative z-30 flex flex-col items-center justify-center">
                             <div className="flex items-center justify-center gap-0.5 text-white mb-2">
                                 <svg className="w-6 h-6 animate-chevron-1-right fill-current text-white/90" viewBox="0 0 24 24">
-                                    <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                                    <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
                                 </svg>
                                 <svg className="w-6 h-6 animate-chevron-2-right fill-current text-white/90" viewBox="0 0 24 24">
-                                    <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                                    <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
                                 </svg>
                                 <svg className="w-6 h-6 animate-chevron-3-right fill-current text-white/90" viewBox="0 0 24 24">
-                                    <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                                    <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
                                 </svg>
                             </div>
                             <span className="text-xs font-black text-white/90 tracking-widest uppercase bg-black/30 px-3 py-1 rounded-full backdrop-blur-sm border border-white/5 shadow-md">
@@ -956,11 +1356,10 @@ function HLSVideoPlayer({ src, onEnded }: { src: string; onEnded?: () => void })
                             <button
                                 key={idx}
                                 onClick={() => handleAudioTrackChange(idx)}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1 ${
-                                    currentTrackIndex === idx
-                                        ? 'bg-gradient-to-r from-red-600 to-orange-600 text-white shadow-lg shadow-red-900/20 scale-105'
+                                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1 ${currentTrackIndex === idx
+                                        ? 'bg-gradient-to-r from-violet-600 to-violet-700 text-white shadow-lg shadow-violet-950/20 scale-105'
                                         : 'bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white'
-                                }`}
+                                    }`}
                             >
                                 <span>{currentTrackIndex === idx ? '🟢' : '⚪'}</span>
                                 <span>{track.name || `Track ${idx + 1}`}</span>
@@ -980,8 +1379,66 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
     const [currentSeasonNum, setCurrentSeasonNum] = useState<number>(1);
     const [currentEpisodeNum, setCurrentEpisodeNum] = useState<number>(1);
     const [activeServerId, setActiveServerId] = useState<string>('');
-    const [sandboxMode, setSandboxMode] = useState<boolean>(true);
+    const [clientTmdbId, setClientTmdbId] = useState<string | null>(movie.tmdb_id || null);
+
+    useEffect(() => {
+        if (!clientTmdbId && !movie.imdb_id && movie.title) {
+            fetch(`/api/tmdb/resolve?title=${encodeURIComponent(movie.title)}&type=${movie.type}&id=${movie.id}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data?.success && data?.tmdb_id) {
+                        setClientTmdbId(String(data.tmdb_id));
+                    }
+                })
+                .catch(() => {});
+        }
+    }, [clientTmdbId, movie.imdb_id, movie.title, movie.type, movie.id]);
     const [autoNext, setAutoNext] = useState<boolean>(true);
+    const [failedServerIds, setFailedServerIds] = useState<Set<string>>(new Set());
+    const [serverFilter, setServerFilter] = useState<'all' | 'hindi' | 'fast'>('all');
+    const [switchNotification, setSwitchNotification] = useState<string | null>(null);
+    const [isServerDropdownOpen, setIsServerDropdownOpen] = useState<boolean>(false);
+    const [serverSearchQuery, setServerSearchQuery] = useState<string>('');
+    const serverDropdownRef = useRef<HTMLDivElement>(null);
+
+    // Player AdBlocker: Blocks popups & new tabs from 3rd-party video servers (does not affect site ads)
+    const [playerAdBlocker, setPlayerAdBlocker] = useState<boolean>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('nexiplay_player_adblocker');
+            return saved !== null ? saved === 'true' : true;
+        }
+        return true;
+    });
+
+    const togglePlayerAdBlocker = useCallback(() => {
+        setPlayerAdBlocker(prev => {
+            const next = !prev;
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('nexiplay_player_adblocker', String(next));
+            }
+            setSwitchNotification(next ? '🛡️ Player AdBlocker Enabled: Popups & New Tabs Blocked' : '⚠️ Player AdBlocker Disabled');
+            setTimeout(() => setSwitchNotification(null), 3000);
+            return next;
+        });
+    }, []);
+
+    // Auto-close dropdown when clicking outside or pressing Escape
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (serverDropdownRef.current && !serverDropdownRef.current.contains(e.target as Node)) {
+                setIsServerDropdownOpen(false);
+            }
+        };
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setIsServerDropdownOpen(false);
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, []);
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [relatedMovies, setRelatedMovies] = useState<any[]>([]);
     const [watchedEpisodes, setWatchedEpisodes] = useState<string[]>([]);
@@ -1004,6 +1461,13 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
     });
     const [showAdVerification, setShowAdVerification] = useState<boolean>(false);
     const [pendingServerId, setPendingServerId] = useState<string>('');
+
+    // Fast Direct Download Modal State
+    const [showVaultModal, setShowVaultModal] = useState<boolean>(false);
+    const [vaultLoadingQuality, setVaultLoadingQuality] = useState<string | null>(null);
+    const [vaultError, setVaultError] = useState<string | null>(null);
+    const [vaultLinks, setVaultLinks] = useState<Record<string, string>>({});
+    const [vaultCopiedQuality, setVaultCopiedQuality] = useState<string | null>(null);
 
     useEffect(() => {
         setCanUseFullscreenAssist(canRequestPlayerFullscreen());
@@ -1117,17 +1581,18 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
             if (activeServerId === 'toonplay') return 'Toonplay';
             if (activeServerId === 'animerulz') return 'Animerulz';
             if (activeServerId === 'custom') return 'Custom';
-            
+
             // Find name in availableServers
             const srv = availableServers.find(s => s.id === activeServerId);
             return srv ? srv.name : activeServerId;
         })();
 
         // Insert initial 0m watch event
+        const isMovieUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(movie.id);
         trackEvent({
             id: eventId,
             event_type: 'watch',
-            movie_id: movie.id,
+            movie_id: isMovieUuid ? movie.id : null,
             episode_id: isSeriesOrAnime ? activeEpisode?.id : null,
             content_type: movie.type,
             content_title: movie.title,
@@ -1267,7 +1732,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                 if (lastPart.startsWith('series-') || lastPart.startsWith('anime-')) {
                     return lastPart;
                 }
-            } catch {}
+            } catch { }
         }
         return trimmed;
     };
@@ -1343,17 +1808,32 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
     };
 
     const isServerEnabled = (serverId: string) => {
+        if (serverId === 'trailer') return true;
         if (DISABLED_MULTI_SERVER_IDS.has(serverId.toLowerCase())) return false;
         if (!adSettings || !adSettings.socialBarCode) return true;
         const enabledList = adSettings.socialBarCode.split(',').map(s => s.trim().toLowerCase());
-        return enabledList.includes(serverId.toLowerCase());
+
+        // If explicitly disabled in admin settings
+        if (enabledList.includes('none')) return false;
+        if (enabledList.includes(`!${serverId.toLowerCase()}`) || enabledList.includes(`disable_${serverId.toLowerCase()}`)) return false;
+
+        // If explicitly in the enabled list
+        if (enabledList.includes(serverId.toLowerCase())) return true;
+
+        // Built-in servers are always available so all 20+ servers render for movies & series
+        const isBuiltIn = BUILT_IN_SERVERS.some(s => s.id === serverId);
+        if (isBuiltIn) return true;
+
+        return false;
     };
 
-    const availableServers = SERVERS.filter(srv => {
-        if (srv.animeOnly && movie.type !== 'anime') return false;
-        if (srv.movieOnly && isSeriesOrAnime) return false;
-        return true;
-    });
+    const availableServers = useMemo(() => {
+        return SERVERS.filter(srv => {
+            if (srv.animeOnly && movie.type !== 'anime') return false;
+            if (srv.movieOnly && isSeriesOrAnime) return false;
+            return true;
+        });
+    }, [isSeriesOrAnime, movie.type]);
 
     // Gate server selection behind ad verification
     const handleServerSelect = useCallback((serverId: string) => {
@@ -1381,10 +1861,15 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
             const currentServer = activeServerId;
             setActiveServerId('');
             setTimeout(() => setActiveServerId(currentServer), 0);
+        } else {
+            const firstEnabled = availableServers.find(srv => isServerEnabled(srv.id));
+            if (firstEnabled) {
+                setActiveServerId(firstEnabled.id);
+            }
         }
-    }, [movie.id, movie.type, pendingServerId, activeServerId]);
+    }, [movie.id, movie.type, pendingServerId, activeServerId, availableServers]);
 
-    // Auto-select server
+    // Auto-select server: ALWAYS prioritize actual streaming players
     useEffect(() => {
         if ((toonplaySeriesId || toonplayUrl) && isServerEnabled('toonplay')) {
             setActiveServerId('toonplay');
@@ -1397,31 +1882,48 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
             } else if (customUrl && !customUrl.trim().startsWith('{') && isServerEnabled('custom')) {
                 setActiveServerId('custom');
             } else {
-                const firstEnabled = availableServers.find(srv => isServerEnabled(srv.id));
-                if (firstEnabled) {
-                    setActiveServerId(firstEnabled.id);
+                const isUpcomingOrFuture = Boolean(
+                    (movie.release_year && movie.release_year >= new Date().getFullYear() && !movie.streaming_url) ||
+                    (!movie.streaming_url && movie.trailer_url)
+                );
+                const isTrailerOnly = movie.streaming_url === 'trailer' || (isUpcomingOrFuture && Boolean(movie.trailer_url));
+
+                if (isTrailerOnly && movie.trailer_url && isServerEnabled('trailer')) {
+                    setActiveServerId('trailer');
                 } else {
-                    if (toonplaySeriesId || toonplayUrl) {
-                        setActiveServerId('toonplay');
-                    } else if (animerulzUrl) {
-                        setActiveServerId('animerulz');
+                    const isHindiTitle = movie.language?.toLowerCase().includes('hindi');
+                    const hindiServer = isHindiTitle ? availableServers.find(srv => srv.isHindi && isServerEnabled(srv.id)) : null;
+                    const firstStreaming = availableServers.find(srv => srv.id !== 'trailer' && isServerEnabled(srv.id));
+                    const firstEnabled = firstStreaming || hindiServer || availableServers.find(srv => isServerEnabled(srv.id));
+                    if (firstEnabled) {
+                        setActiveServerId(firstEnabled.id);
                     } else {
-                        const firstMulti = Object.keys(multiStreams).find(k => isServerEnabled(k));
-                        if (firstMulti) {
-                            setActiveServerId(`multi_${firstMulti}`);
-                        } else if (customUrl && !customUrl.trim().startsWith('{')) {
-                            setActiveServerId('custom');
+                        if (toonplaySeriesId || toonplayUrl) {
+                            setActiveServerId('toonplay');
+                        } else if (animerulzUrl) {
+                            setActiveServerId('animerulz');
                         } else {
-                            setActiveServerId('');
+                            const firstMulti = Object.keys(multiStreams).find(k => isServerEnabled(k));
+                            if (firstMulti) {
+                                setActiveServerId(`multi_${firstMulti}`);
+                            } else if (customUrl && !customUrl.trim().startsWith('{')) {
+                                setActiveServerId('custom');
+                            } else {
+                                setActiveServerId('');
+                            }
                         }
                     }
                 }
             }
         }
-    }, [customUrl, toonplayUrl, toonplaySeriesId, animerulzUrl, movie.id, currentEpisodeNum, currentSeasonNum, adSettings, JSON.stringify(multiStreams)]);
+    }, [customUrl, toonplayUrl, toonplaySeriesId, animerulzUrl, movie.id, movie.release_year, movie.language, currentEpisodeNum, currentSeasonNum, adSettings, JSON.stringify(multiStreams)]);
 
     // Build embed URL
     const getEmbedUrl = (): string => {
+        if (activeServerId === 'trailer') {
+            const ytId = getYouTubeVideoId(movie.trailer_url || '');
+            return ytId ? `https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&rel=0` : '';
+        }
         if (activeServerId.startsWith('multi_')) {
             const key = activeServerId.replace('multi_', '');
             return normalizePlayerUrl(multiStreams[key] || '');
@@ -1439,9 +1941,10 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
         const server = availableServers.find(s => s.id === activeServerId);
         if (!server) return '';
 
+        const effectiveTmdb = clientTmdbId || movie.tmdb_id || undefined;
         const serverUrl = isSeriesOrAnime
-            ? server.getUrl(movie.id, movie.tmdb_id || undefined, movie.imdb_id || undefined, movie.mal_id || undefined, currentSeasonNum, currentEpisodeNum) || ''
-            : server.getUrl(movie.id, movie.tmdb_id || undefined, movie.imdb_id || undefined, movie.mal_id || undefined) || '';
+            ? server.getUrl(movie.id, effectiveTmdb, movie.imdb_id || undefined, movie.mal_id || undefined, currentSeasonNum, currentEpisodeNum) || ''
+            : server.getUrl(movie.id, effectiveTmdb, movie.imdb_id || undefined, movie.mal_id || undefined) || '';
         return normalizePlayerUrl(serverUrl);
     };
 
@@ -1454,12 +1957,12 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
             return;
         }
 
-        const isWebPage = embedUrl.includes('toonstream') || 
-                          embedUrl.includes('watchanimeworld') ||
-                          embedUrl.includes('animeworld') ||
-                          embedUrl.includes('netfilm') ||
-                          embedUrl.includes('moviebox') ||
-                          embedUrl.includes('sflix');
+        const isWebPage = embedUrl.includes('toonstream') ||
+            embedUrl.includes('watchanimeworld') ||
+            embedUrl.includes('animeworld') ||
+            embedUrl.includes('netfilm') ||
+            embedUrl.includes('moviebox') ||
+            embedUrl.includes('sflix');
 
         if (isWebPage) {
             setResolvingUrl(true);
@@ -1557,16 +2060,307 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
         activeServerId === 'animerulz' ||
         activeServerId.startsWith('multi_')
     ) && isM3U8Active;
-    // VidSrc actively rejects sandboxed iframes. Keep the ad-block sandbox for
-    // compatible providers, but let the known built-in embeds run normally.
-    const isBuiltInIframeServer = activeServerId === 'vidsrc_to' || activeServerId === 'vidsrc_me';
-    const shouldSandboxIframe = sandboxMode &&
-        !isBuiltInIframeServer &&
-        activeServerId !== 'custom' &&
-        activeServerId !== 'toonplay' &&
-        activeServerId !== 'animerulz' &&
-        !activeServerId.startsWith('multi_');
+
     const isIframePlayerActive = !!resolvedUrl && !isNativeStreamActive;
+
+    // Structured list of all enabled streaming servers
+    type ActiveServerItem = {
+        id: string;
+        name: string;
+        icon?: string;
+        badge?: string;
+        isHindi?: boolean;
+        isFailed: boolean;
+        isActive: boolean;
+        index: number;
+    };
+
+    const allActiveServersList = useMemo<ActiveServerItem[]>(() => {
+        const list: ActiveServerItem[] = [];
+
+        if ((toonplaySeriesId || toonplayUrl) && isServerEnabled('toonplay')) {
+            list.push({
+                id: 'toonplay',
+                name: 'Nexiplay Private Server',
+                icon: 'private',
+                badge: 'HINDI DUBBED',
+                isHindi: true,
+                isFailed: failedServerIds.has('toonplay'),
+                isActive: activeServerId === 'toonplay',
+                index: list.length + 1
+            });
+        }
+
+        if (animerulzUrl && isServerEnabled('animerulz')) {
+            list.push({
+                id: 'animerulz',
+                name: 'AnimeR Server',
+                icon: 'zap',
+                badge: 'FAST ANIME',
+                isHindi: false,
+                isFailed: failedServerIds.has('animerulz'),
+                isActive: activeServerId === 'animerulz',
+                index: list.length + 1
+            });
+        }
+
+        if (customUrl && !customUrl.trim().startsWith('{') && isServerEnabled('custom')) {
+            list.push({
+                id: 'custom',
+                name: 'Server Nexiplay',
+                icon: 'server',
+                badge: 'DIRECT CDN',
+                isHindi: false,
+                isFailed: failedServerIds.has('custom'),
+                isActive: activeServerId === 'custom',
+                index: list.length + 1
+            });
+        }
+
+        Object.entries(multiStreams).forEach(([serverKey, streamUrl]) => {
+            if (!streamUrl || !isServerEnabled(serverKey)) return;
+            const serverNames: Record<string, string> = {
+                custom: 'Server Nexiplay',
+                animeworld: 'AnimeWorld Server',
+                animixstream: 'Nexiplay Ani Server',
+                toonstream: 'Nexiplay T Server',
+                rareanimes: 'RR Nexiplay Server'
+            };
+            const srvId = `multi_${serverKey}`;
+            const isHindi = ['toonstream', 'rareanimes'].includes(serverKey);
+            list.push({
+                id: srvId,
+                name: serverNames[serverKey] || `${serverKey.toUpperCase()} Server`,
+                icon: isHindi ? 'audio' : 'server',
+                badge: isHindi ? 'HINDI DUBBED' : 'MULTI-AUDIO',
+                isHindi,
+                isFailed: failedServerIds.has(srvId),
+                isActive: activeServerId === srvId,
+                index: list.length + 1
+            });
+        });
+
+        availableServers.forEach(srv => {
+            if (!isServerEnabled(srv.id)) return;
+            const effectiveTmdb = clientTmdbId || movie.tmdb_id || undefined;
+            const url = isSeriesOrAnime
+                ? srv.getUrl(movie.id, effectiveTmdb, movie.imdb_id || undefined, movie.mal_id || undefined, currentSeasonNum, currentEpisodeNum)
+                : srv.getUrl(movie.id, effectiveTmdb, movie.imdb_id || undefined, movie.mal_id || undefined);
+            if (!url) return;
+
+            list.push({
+                id: srv.id,
+                name: srv.name,
+                icon: srv.icon,
+                badge: srv.badge,
+                isHindi: !!srv.isHindi,
+                isFailed: failedServerIds.has(srv.id),
+                isActive: activeServerId === srv.id,
+                index: list.length + 1
+            });
+        });
+
+        if (movie.trailer_url && getYouTubeVideoId(movie.trailer_url)) {
+            list.push({
+                id: 'trailer',
+                name: 'Official Trailer (HD)',
+                icon: 'trailer',
+                badge: 'OFFICIAL 4K',
+                isHindi: false,
+                isFailed: failedServerIds.has('trailer'),
+                isActive: activeServerId === 'trailer',
+                index: list.length + 1
+            });
+        }
+
+        return list;
+    }, [toonplaySeriesId, toonplayUrl, animerulzUrl, customUrl, multiStreams, availableServers, isSeriesOrAnime, movie.id, movie.tmdb_id, movie.imdb_id, movie.mal_id, movie.trailer_url, clientTmdbId, currentSeasonNum, currentEpisodeNum, adSettings, activeServerId, failedServerIds]);
+
+    const allActiveServerIds = useMemo(() => {
+        return allActiveServersList.map(s => s.id);
+    }, [allActiveServersList]);
+
+    const activeServerName = useMemo(() => {
+        if (!activeServerId) return 'Default Server';
+        if (activeServerId.startsWith('multi_')) {
+            const key = activeServerId.replace('multi_', '');
+            return `${key.toUpperCase()} (Multi)`;
+        }
+        if (activeServerId === 'toonplay') return 'Nexiplay Private Server';
+        if (activeServerId === 'trailer') return 'Official Trailer (HD)';
+        if (activeServerId === 'animerulz') return 'AnimeR Server';
+        if (activeServerId === 'custom') return 'Server Nexiplay';
+
+        const srv = availableServers.find(s => s.id === activeServerId);
+        return srv ? srv.name : activeServerId;
+    }, [activeServerId, availableServers]);
+
+    const currentServerIndex = useMemo(() => {
+        return Math.max(0, allActiveServerIds.indexOf(activeServerId));
+    }, [allActiveServerIds, activeServerId]);
+
+    const hindiServersCount = useMemo(() => {
+        return allActiveServersList.filter(s => s.isHindi && s.id !== 'trailer').length;
+    }, [allActiveServersList]);
+
+    const isCurrentServerHindi = useMemo(() => {
+        const item = allActiveServersList.find(s => s.id === activeServerId);
+        return !!item?.isHindi;
+    }, [activeServerId, allActiveServersList]);
+
+    const activeServerObj = useMemo(() => {
+        return allActiveServersList.find(s => s.id === activeServerId) || allActiveServersList[0] || {
+            id: activeServerId,
+            name: activeServerName || 'Default Server',
+            icon: 'film',
+            badge: 'FAST HD',
+            isHindi: false,
+            isActive: true,
+            isFailed: false,
+            index: 1
+        };
+    }, [allActiveServersList, activeServerId, activeServerName]);
+
+    const topQuickServers = useMemo(() => {
+        const hindi = allActiveServersList.filter(s => s.isHindi && s.id !== 'trailer');
+        const fast = allActiveServersList.filter(s => !s.isHindi && s.id !== 'trailer');
+        const result: ActiveServerItem[] = [];
+
+        // Add top fast servers from MovieBari stack
+        if (fast[0]) result.push(fast[0]);
+        if (fast[1]) result.push(fast[1]);
+        if (fast[2]) result.push(fast[2]);
+        // Add top multi-audio / Hindi servers
+        if (hindi[0] && !result.some(r => r.id === hindi[0].id)) result.push(hindi[0]);
+        if (hindi[1] && !result.some(r => r.id === hindi[1].id)) result.push(hindi[1]);
+        if (hindi[2] && !result.some(r => r.id === hindi[2].id)) result.push(hindi[2]);
+
+        for (const s of allActiveServersList) {
+            if (result.length >= 6) break;
+            if (s.id !== 'trailer' && !result.some(r => r.id === s.id)) result.push(s);
+        }
+        return result;
+    }, [allActiveServersList]);
+
+    const filteredDropdownServers = useMemo(() => {
+        return allActiveServersList.filter(s => {
+            if (serverFilter === 'hindi' && !s.isHindi) return false;
+            if (serverFilter === 'fast' && s.isHindi) return false;
+            if (serverSearchQuery.trim()) {
+                const q = serverSearchQuery.toLowerCase();
+                return s.name.toLowerCase().includes(q) || (s.badge && s.badge.toLowerCase().includes(q));
+            }
+            return true;
+        });
+    }, [allActiveServersList, serverFilter, serverSearchQuery]);
+
+    // Fast switch to next working server with failure tracking
+    const handleNextServer = useCallback((failedId?: string) => {
+        if (allActiveServerIds.length <= 1) return;
+        const currentFailed = failedId || activeServerId;
+
+        if (currentFailed) {
+            setFailedServerIds(prev => {
+                const next = new Set(prev);
+                next.add(currentFailed);
+                return next;
+            });
+        }
+
+        const currentIndex = allActiveServerIds.indexOf(activeServerId);
+
+        // Find next non-failed server
+        let nextIndex = -1;
+        for (let offset = 1; offset < allActiveServerIds.length; offset++) {
+            const candidateIdx = (currentIndex + offset) % allActiveServerIds.length;
+            const candidateId = allActiveServerIds[candidateIdx];
+            if (!failedServerIds.has(candidateId) && candidateId !== currentFailed) {
+                nextIndex = candidateIdx;
+                break;
+            }
+        }
+
+        if (nextIndex === -1) {
+            nextIndex = (currentIndex + 1) % allActiveServerIds.length;
+        }
+
+        const nextServerId = allActiveServerIds[nextIndex];
+        const nextServerObj = availableServers.find(s => s.id === nextServerId);
+        const nextName = nextServerObj ? nextServerObj.name : nextServerId;
+
+        handleServerSelect(nextServerId);
+        setSwitchNotification(`Switched to Server #${nextIndex + 1}: ${nextName}`);
+        setTimeout(() => setSwitchNotification(null), 3500);
+    }, [allActiveServerIds, activeServerId, failedServerIds, availableServers, handleServerSelect]);
+
+    // Embed player error message listener (cross-origin window.postMessage)
+    useEffect(() => {
+        const handleWindowMessage = (event: MessageEvent) => {
+            try {
+                const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+                if (!data) return;
+                const isErr = data.event === 'error' ||
+                    data.type === 'error' ||
+                    data.event === 'PLAYER_ERROR' ||
+                    data.status === 'error' ||
+                    data?.error;
+                if (isErr && activeServerId) {
+                    console.warn('[Nexiplay AutoSwitch] Detected error from embed player:', data);
+                    handleNextServer(activeServerId);
+                }
+            } catch {
+                // Ignore non-json
+            }
+        };
+
+        window.addEventListener('message', handleWindowMessage);
+        return () => window.removeEventListener('message', handleWindowMessage);
+    }, [activeServerId, handleNextServer]);
+
+    // Fast Direct MKV Downloader
+    const handleVaultDownload = async (quality: string) => {
+        setVaultLoadingQuality(quality);
+        setVaultError(null);
+        try {
+            const targetId = movie.tmdb_id || movie.imdb_id || movie.id;
+            const isTv = isSeriesOrAnime;
+            const res = await fetch('/api/download/vault', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: isTv ? 'tv' : 'movie',
+                    id: targetId,
+                    season: isTv ? currentSeasonNum : undefined,
+                    episode: isTv ? currentEpisodeNum : undefined,
+                    quality,
+                    title: movie.title,
+                })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success || !data.url) {
+                throw new Error(data.error || 'Failed to fetch direct download link.');
+            }
+            const cleanUrl = data.url.startsWith('/')
+                ? `${window.location.origin}${data.url}`
+                : data.url;
+            setVaultLinks(prev => ({ ...prev, [quality]: cleanUrl }));
+
+            // Trigger direct browser download
+            const a = document.createElement('a');
+            a.href = cleanUrl;
+            a.download = data.fileName || `${(movie.title || 'media').replace(/[^a-zA-Z0-9_\- ]/g, '')}${isTv ? `_S${currentSeasonNum}E${currentEpisodeNum}` : ''}_${quality}.mkv`;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        } catch (err: any) {
+            console.error('[Direct Download Error]:', err);
+            setVaultError(err.message || 'Error generating download link. Please try another quality.');
+        } finally {
+            setVaultLoadingQuality(null);
+        }
+    };
 
     // Filter episodes by search query
     const filteredEpisodes = episodes.filter(ep => {
@@ -1586,14 +2380,14 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
 
         return (
             <div className="glass-panel p-5 rounded-3xl space-y-4">
-                
+
                 {/* Season dropdown / title */}
                 <div className="flex items-center justify-between gap-2 border-b border-white/5 pb-3">
                     <div className="flex items-center gap-2">
                         <span className="text-sm">📁</span>
                         <span className="text-sm font-black text-gray-400 uppercase tracking-wider">Episodes</span>
                     </div>
-                    
+
                     {/* Season Selector */}
                     {sortedSeasons.length > 1 && (
                         <select
@@ -1622,10 +2416,10 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                         placeholder="Search episode number..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-gray-500 outline-none focus:border-red-500/50 transition-colors"
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-gray-500 outline-none focus:border-violet-400/50 transition-colors"
                     />
                     {searchQuery && (
-                        <button 
+                        <button
                             onClick={() => setSearchQuery('')}
                             className="absolute right-3 top-3 text-xs text-gray-500 hover:text-white"
                         >
@@ -1651,22 +2445,20 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                                         setCurrentEpisodeNum(ep.episode_number);
                                         updateUrlParams(currentSeasonNum, ep.episode_number);
                                     }}
-                                    className={`w-full p-3 rounded-xl border text-left transition-all flex items-center justify-between gap-3 group ${
-                                        isActive
-                                            ? 'bg-gradient-to-r from-red-600/20 to-orange-600/10 border-red-500/50 shadow-md'
+                                    className={`w-full p-3 rounded-xl border text-left transition-all flex items-center justify-between gap-3 group ${isActive
+                                            ? 'bg-gradient-to-r from-violet-600/20 to-violet-700/10 border-red-500/50 shadow-md'
                                             : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.06] hover:border-white/10'
-                                    }`}
+                                        }`}
                                 >
                                     <div className="flex items-center gap-3 min-w-0">
-                                        <div className={`w-8 h-8 rounded-lg font-bold text-xs flex items-center justify-center flex-shrink-0 ${
-                                            isActive
-                                                ? 'bg-gradient-to-r from-red-600 to-orange-600 text-white'
+                                        <div className={`w-8 h-8 rounded-lg font-bold text-xs flex items-center justify-center flex-shrink-0 ${isActive
+                                                ? 'bg-gradient-to-r from-violet-600 to-violet-700 text-white'
                                                 : 'bg-white/5 text-gray-400 group-hover:text-white transition-colors'
-                                        }`}>
+                                            }`}>
                                             {ep.episode_number}
                                         </div>
                                         <div className="min-w-0">
-                                            <div className={`text-xs font-bold truncate ${isActive ? 'text-red-500' : 'text-gray-300'}`}>
+                                            <div className={`text-xs font-bold truncate ${isActive ? 'text-violet-300' : 'text-gray-300'}`}>
                                                 Episode {ep.episode_number}
                                             </div>
                                             {ep.episode_title && (
@@ -1679,7 +2471,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
 
                                     <div className="flex items-center gap-1.5 flex-shrink-0">
                                         {isActive && (
-                                            <span className="text-[10px] font-black text-red-500 uppercase tracking-widest flex items-center gap-1 animate-pulse">
+                                            <span className="text-[10px] font-black text-violet-300 uppercase tracking-widest flex items-center gap-1 animate-pulse">
                                                 <span>🔴</span> PLAYING
                                             </span>
                                         )}
@@ -1697,7 +2489,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
     };
 
     return (
-        <div className="min-h-screen bg-[#050505] text-white py-6">
+        <div className="min-h-screen bg-[#050505] text-white pt-20 pb-6 md:pt-24">
             {/* Background ambient lighting */}
             <div className="absolute top-0 left-0 w-full h-[60vh] overflow-hidden pointer-events-none z-0" suppressHydrationWarning>
                 {movie.poster_url && (
@@ -1713,7 +2505,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
             </div>
 
             <div className="container mx-auto px-4 max-w-7xl relative z-10 space-y-6">
-                
+
                 {/* Header navigation bar */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/[0.02] border border-white/5 rounded-2xl p-4 backdrop-blur-md">
                     <div className="flex items-center gap-4">
@@ -1727,16 +2519,16 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                         </Link>
                         <div>
                             <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
-                                <Link href="/" className="hover:text-red-500 transition-colors">Home</Link>
+                                <Link href="/" className="hover:text-violet-300 transition-colors">Home</Link>
                                 <span>›</span>
-                                <Link href={`/${type}`} className="hover:text-red-500 transition-colors capitalize">{type}</Link>
+                                <Link href={`/${type}`} className="hover:text-violet-300 transition-colors capitalize">{type}</Link>
                                 <span>›</span>
                                 <span className="text-white truncate max-w-[150px]">{movie.title}</span>
                             </div>
                             <h1 className="text-xl md:text-2xl font-black text-white flex items-center gap-2">
                                 {movie.title}
                                 {isSeriesOrAnime && (
-                                    <span className="text-red-500 font-bold text-sm md:text-base bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">
+                                    <span className="text-violet-300 font-bold text-sm md:text-base bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">
                                         S{currentSeasonNum} E{currentEpisodeNum}
                                     </span>
                                 )}
@@ -1754,7 +2546,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                                     onChange={(e) => setAutoNext(e.target.checked)}
                                     className="sr-only peer"
                                 />
-                                <div className="w-9 h-5 bg-dark-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600"></div>
+                                <div className="w-9 h-5 bg-dark-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-violet-600"></div>
                                 <span className="ml-2 text-xs font-bold text-gray-300 whitespace-nowrap">
                                     ⏭️ Auto Next Episode
                                 </span>
@@ -1765,10 +2557,10 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
 
                 {/* Main Content Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                    
+
                     {/* LEFT COLUMN: Player & Info */}
                     <div className="lg:col-span-8 xl:col-span-9 space-y-6">
-                        
+
                         {/* Video Container */}
                         <div
                             ref={playerShellRef}
@@ -1801,19 +2593,26 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                                 </div>
                             ) : resolvedUrl ? (
                                 isNativeStreamActive ? (
-                                    <HLSVideoPlayer 
-                                        src={`/api/proxy-stream?url=${encodeURIComponent(resolvedUrl)}`} 
+                                    <HLSVideoPlayer
+                                        src={`/api/proxy-stream?url=${encodeURIComponent(resolvedUrl)}`}
                                         onEnded={handleVideoEnded}
+                                        onErrorFallback={() => handleNextServer(activeServerId)}
                                     />
                                 ) : (
                                     <iframe
                                         ref={playerIframeRef}
                                         src={resolvedUrl}
                                         title="Streaming player"
-                                        className="nexiplay-player-frame absolute inset-0 w-full h-full bg-black"
+                                        className="nexiplay-player-frame absolute inset-0 w-full h-full bg-black overflow-hidden"
+                                        scrolling="no"
                                         {...FULLSCREEN_IFRAME_ATTRS}
-                                        sandbox={shouldSandboxIframe ? AD_BLOCK_SANDBOX : undefined}
+                                        sandbox={
+                                            playerAdBlocker && activeServerId !== 'trailer' && activeServerId !== 'twoembed' && !isNativeStreamActive
+                                                ? "allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock allow-orientation-lock allow-modals"
+                                                : undefined
+                                        }
                                         referrerPolicy={isYouTubeActive ? 'strict-origin-when-cross-origin' : 'no-referrer'}
+                                        onError={() => handleNextServer(activeServerId)}
                                     />
                                 )
                             ) : (
@@ -1822,6 +2621,17 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                                     <p className="font-bold">Select a server or episode to start streaming</p>
                                 </div>
                             )}
+
+
+
+                            {/* Toast Notification when server switches */}
+                            {switchNotification && (
+                                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 px-4 py-2 bg-dark-950/90 backdrop-blur-md border border-violet-500/50 rounded-2xl text-xs font-bold text-white shadow-2xl flex items-center gap-2 animate-in fade-in zoom-in-95 duration-200">
+                                    <span className="text-emerald-400">⚡</span>
+                                    <span>{switchNotification}</span>
+                                </div>
+                            )}
+
                             {isIframePlayerActive && canUseFullscreenAssist && (
                                 <button
                                     type="button"
@@ -1860,149 +2670,459 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                                 )}
                             </div>
 
-                            {/* Sandbox Mode / Compatible Switcher */}
-                            {activeServerId !== 'custom' && (
-                                <div className="flex items-center gap-2">
-                                    <label className="relative inline-flex items-center cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={sandboxMode}
-                                            onChange={(e) => setSandboxMode(e.target.checked)}
-                                            className="sr-only peer"
-                                        />
-                                        <div className="w-9 h-5 bg-dark-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
-                                        <span className="ml-2.5 text-xs font-bold text-gray-300">
-                                            {sandboxMode ? '🛡️ Ad-Blocker Mode (On)' : 'Compatible Mode'}
-                                        </span>
-                                    </label>
-                                </div>
-                            )}
+                            {/* Middle Actions: Fast Direct Download (shown only if manual download links are absent) */}
+                            {(() => {
+                                const currentSeasonObj = seasons.find((s) => s.season_number === currentSeasonNum);
+                                const currentEpObj = currentSeasonObj?.episodes?.find((e) => e.episode_number === currentEpisodeNum);
+                                const hasManualLinks = isSeriesOrAnime
+                                    ? !!(currentEpObj?.download_links && currentEpObj.download_links.length > 0)
+                                    : !!((movie as any).download_links && (movie as any).download_links.length > 0);
+
+                                return (
+                                    <div className="flex items-center gap-2">
+                                        {hasManualLinks ? (
+                                            <a
+                                                href={`/${type}/${slug}#downloads`}
+                                                className="px-4 py-2.5 bg-white/5 hover:bg-white/10 text-gray-200 hover:text-white font-bold text-xs rounded-xl border border-white/10 hover:border-white/20 transition-all flex items-center gap-2"
+                                                title="View download links on details page"
+                                            >
+                                                <svg className="w-4 h-4 text-violet-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                                    <polyline points="7 10 12 15 17 10" />
+                                                    <line x1="12" y1="15" x2="12" y2="3" />
+                                                </svg>
+                                                <span>Download Links</span>
+                                            </a>
+                                        ) : (
+                                            <button
+                                                onClick={() => setShowVaultModal(true)}
+                                                className="px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black text-xs rounded-xl shadow-lg shadow-emerald-950/40 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                                                title="Instant direct MKV download (360p, 480p, 720p, 1080p)"
+                                            >
+                                                <svg className="w-4 h-4 text-white shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                                                    <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z" />
+                                                </svg>
+                                                <span>Fast Download</span>
+                                                <span className="hidden sm:inline-block px-1.5 py-0.5 bg-black/30 rounded text-[9px] font-black uppercase tracking-wider text-emerald-200">
+                                                    DIRECT MKV
+                                                </span>
+                                            </button>
+                                        )}
+                                    </div>
+                                );
+                            })()}
+
+
                         </div>
 
-                        {/* Servers Card */}
-                        <div className="glass-panel p-6 rounded-3xl space-y-4">
-                            <div className="flex items-center gap-2.5 border-b border-white/5 pb-3">
-                                <span className="text-lg">🔒</span>
-                                <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest">Select Streaming Server</h3>
-                            </div>
-                            <div className="flex flex-wrap gap-2.5">
-                                {/* Toonplay Stream Button */}
-                                {(toonplaySeriesId || toonplayUrl) && isServerEnabled('toonplay') && (
-                                    <button
-                                        onClick={() => handleServerSelect('toonplay')}
-                                        className={`px-5 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-                                            activeServerId === 'toonplay'
-                                                ? 'bg-gradient-to-r from-red-600 to-orange-600 text-white shadow-lg shadow-red-900/30'
-                                                : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white border border-white/5'
-                                        }`}
-                                    >
-                                        <span className="text-red-500">🔥</span>
-                                        <span>Nexiplay Private Server</span>
-                                    </button>
-                                )}
-
-                                {/* Animerulz Stream Button */}
-                                {animerulzUrl && isServerEnabled('animerulz') && (
-                                    <button
-                                        onClick={() => handleServerSelect('animerulz')}
-                                        className={`px-5 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-                                            activeServerId === 'animerulz'
-                                                ? 'bg-gradient-to-r from-red-600 to-orange-600 text-white shadow-lg shadow-red-900/30'
-                                                : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white border border-white/5'
-                                        }`}
-                                    >
-                                        <span className="text-orange-500">⚡</span>
-                                        <span>AnimeR Server</span>
-                                    </button>
-                                )}
-
-                                {/* Custom/Manual Stream Button */}
-                                {customUrl && !customUrl.trim().startsWith('{') && isServerEnabled('custom') && (
-                                    <button
-                                        onClick={() => handleServerSelect('custom')}
-                                        className={`px-5 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-                                            activeServerId === 'custom'
-                                                ? 'bg-gradient-to-r from-red-600 to-orange-600 text-white shadow-lg shadow-red-900/30'
-                                                : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white border border-white/5'
-                                        }`}
-                                    >
-                                        <span>⭐</span>
-                                        <span>Server Nexiplay</span>
-                                    </button>
-                                )}
-
-                                {/* Multi Scraper Server Buttons */}
-                                {Object.entries(multiStreams).map(([serverKey, streamUrl]) => {
-                                    if (!streamUrl || !isServerEnabled(serverKey)) return null;
+                        {/* Modern Professional Server Selector (Dropdown System) */}
+                        <div ref={serverDropdownRef} className="relative z-30">
+                            <div className="glass-panel p-4 sm:p-5 rounded-3xl border border-white/10 shadow-2xl bg-gradient-to-r from-white/[0.04] via-white/[0.02] to-black/40 backdrop-blur-xl">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
                                     
-                                    const serverNames: Record<string, string> = {
-                                        custom: 'Server Nexiplay',
-                                        animeworld: 'AnimeWorld Server',
-                                        animixstream: 'Nexiplay Ani Server',
-                                        toonstream: 'Nexiplay T Server',
-                                        rareanimes: 'RR Nexiplay Server'
-                                    };
-                                    
-                                    const serverIcons: Record<string, string> = {
-                                        custom: '⭐',
-                                        animeworld: '🌐',
-                                        animixstream: '🚀',
-                                        toonstream: '📺',
-                                        rareanimes: '⭐'
-                                    };
-                                    
-                                    const serverColors: Record<string, string> = {
-                                        custom: 'text-yellow-400',
-                                        animeworld: 'text-green-400',
-                                        animixstream: 'text-cyan-400',
-                                        toonstream: 'text-purple-400',
-                                        rareanimes: 'text-pink-500'
-                                    };
+                                    {/* Left: Active Server Dropdown Toggle */}
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
+                                            <div className="flex items-center gap-2">
+                                                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-md shadow-emerald-500/50" />
+                                                <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">
+                                                    Streaming Server
+                                                </span>
+                                                <span className="text-[10px] font-bold text-gray-500">
+                                                    ({currentServerIndex + 1}/{allActiveServersList.length})
+                                                </span>
+                                            </div>
 
-                                    const srvName = serverNames[serverKey] || `${serverKey.toUpperCase()} Server`;
-                                    const srvIcon = serverIcons[serverKey] || '⭐';
-                                    const srvColor = serverColors[serverKey] || 'text-orange-500';
+                                            {/* Player AdBlocker Toggle Button */}
+                                            <button
+                                                type="button"
+                                                onClick={togglePlayerAdBlocker}
+                                                className={`px-2.5 py-1 rounded-xl text-[11px] font-extrabold border transition-all flex items-center gap-1.5 cursor-pointer select-none active:scale-95 ${
+                                                    playerAdBlocker
+                                                        ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 shadow-sm shadow-emerald-950/40'
+                                                        : 'bg-white/5 border-white/10 text-gray-400 hover:text-gray-200'
+                                                }`}
+                                                title={playerAdBlocker ? 'Player AdBlocker is ACTIVE: Popups & new tab redirects from video servers are blocked. Website ads are unaffected.' : 'Click to enable Player AdBlocker'}
+                                            >
+                                                <span className={`w-1.5 h-1.5 rounded-full ${playerAdBlocker ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`} />
+                                                <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                                                </svg>
+                                                <span>Player AdBlocker:</span>
+                                                <span className={playerAdBlocker ? 'text-emerald-400 font-black' : 'text-gray-400'}>
+                                                    {playerAdBlocker ? 'ON' : 'OFF'}
+                                                </span>
+                                            </button>
+                                        </div>
 
-                                    const serverId = `multi_${serverKey}`;
-
-                                    return (
                                         <button
-                                            key={serverKey}
-                                            onClick={() => handleServerSelect(serverId)}
-                                            className={`px-5 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-                                                activeServerId === serverId
-                                                    ? 'bg-gradient-to-r from-red-600 to-orange-600 text-white shadow-lg shadow-red-900/30'
-                                                    : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white border border-white/5'
+                                            type="button"
+                                            onClick={() => setIsServerDropdownOpen(prev => !prev)}
+                                            className={`w-full px-4 py-3 rounded-2xl border transition-all duration-300 flex items-center justify-between gap-3 text-left group cursor-pointer ${
+                                                isServerDropdownOpen
+                                                    ? 'bg-gradient-to-r from-violet-600/30 to-purple-600/20 border-violet-500/60 shadow-[0_0_30px_rgba(139,92,246,0.3)] ring-2 ring-violet-500/40'
+                                                    : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-violet-500/40 shadow-lg'
                                             }`}
                                         >
-                                            <span className={srvColor}>{srvIcon}</span>
-                                            <span>{srvName}</span>
+                                            <div className="flex items-center gap-3 min-w-0 truncate">
+                                                <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 shadow-inner ${
+                                                    activeServerObj.isHindi
+                                                        ? 'bg-amber-500/15 border-amber-500/30 text-amber-400'
+                                                        : activeServerObj.id === 'vidking'
+                                                            ? 'bg-yellow-500/15 border-yellow-500/30 text-yellow-400'
+                                                            : activeServerObj.id === 'trailer'
+                                                                ? 'bg-rose-500/15 border-rose-500/30 text-rose-400'
+                                                                : 'bg-violet-500/15 border-violet-500/30 text-violet-300'
+                                                }`}>
+                                                    <ServerSvgIcon id={activeServerObj.id} isHindi={activeServerObj.isHindi} className="w-5 h-5" />
+                                                </div>
+                                                <div className="flex flex-col min-w-0 truncate">
+                                                    <div className="flex items-center gap-2 truncate">
+                                                        <span className="text-sm sm:text-base font-black text-white truncate group-hover:text-violet-200 transition-colors">
+                                                            {activeServerObj.name}
+                                                        </span>
+                                                        {activeServerObj.badge && (
+                                                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0 ${
+                                                                activeServerObj.isHindi
+                                                                    ? 'bg-amber-500/25 text-amber-300 border border-amber-500/40'
+                                                                    : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                                            }`}>
+                                                                {activeServerObj.badge}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <span className="text-[11px] text-gray-400 flex items-center gap-1.5">
+                                                        <span>Server #{activeServerObj.index}</span>
+                                                        <span>•</span>
+                                                        <span className="text-violet-400 font-semibold">Click to choose from {allActiveServersList.length} servers</span>
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-2 pl-2 shrink-0">
+                                                <span className="hidden sm:inline-block px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-xs font-bold text-gray-300 group-hover:text-white group-hover:border-violet-500/40 transition-all">
+                                                    Switch Server
+                                                </span>
+                                                <div className={`w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-gray-400 group-hover:text-white transition-all ${isServerDropdownOpen ? 'bg-violet-600/30 text-white' : ''}`}>
+                                                    <svg
+                                                        className={`w-4 h-4 transition-transform duration-300 ${isServerDropdownOpen ? 'rotate-180 text-violet-300' : ''}`}
+                                                        fill="none"
+                                                        viewBox="0 0 24 24"
+                                                        stroke="currentColor"
+                                                        strokeWidth={2.5}
+                                                    >
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                                                    </svg>
+                                                </div>
+                                            </div>
                                         </button>
-                                    );
-                                })}
+                                    </div>
 
-                                {availableServers.filter(srv => isServerEnabled(srv.id)).map((srv) => {
-                                    const url = isSeriesOrAnime 
-                                        ? srv.getUrl(movie.id, movie.tmdb_id || undefined, movie.imdb_id || undefined, movie.mal_id || undefined, currentSeasonNum, currentEpisodeNum)
-                                        : srv.getUrl(movie.id, movie.tmdb_id || undefined, movie.imdb_id || undefined, movie.mal_id || undefined);
-                                    if (!url) return null;
+                                    {/* Right: Next Server Quick Action */}
+                                    {allActiveServersList.length > 1 && (
+                                        <div className="sm:self-end pb-0.5 shrink-0">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleNextServer(activeServerId)}
+                                                className="w-full sm:w-auto px-4 py-3 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white font-extrabold text-xs rounded-2xl shadow-lg shadow-violet-950/40 transition-all active:scale-95 flex items-center justify-center gap-2 border border-violet-400/30 hover:border-violet-300/60 group cursor-pointer"
+                                                title="Server slow or buffering? Instantly switch to next server"
+                                            >
+                                                <svg className="w-4 h-4 text-amber-300 shrink-0 group-hover:scale-110 transition-transform" viewBox="0 0 24 24" fill="currentColor">
+                                                    <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z" />
+                                                </svg>
+                                                <span>Next Server</span>
+                                                <svg className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
 
-                                    return (
-                                        <button
-                                            key={srv.id}
-                                            onClick={() => handleServerSelect(srv.id)}
-                                            className={`px-5 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-                                                activeServerId === srv.id
-                                                    ? 'bg-gradient-to-r from-red-600 to-orange-600 text-white shadow-lg shadow-red-900/30'
-                                                    : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white border border-white/5'
+                                {/* Quick Shortcuts Row (Top 3 Popular Servers + Dropdown Button) */}
+                                {allActiveServersList.length > 1 && (
+                                    <div className="mt-3.5 pt-3 border-t border-white/5 flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider shrink-0 mr-1">
+                                            Quick Switch:
+                                        </span>
+                                        {topQuickServers.map((s) => (
+                                            <button
+                                                key={s.id}
+                                                type="button"
+                                                onClick={() => handleServerSelect(s.id)}
+                                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                                                    activeServerId === s.id
+                                                        ? 'bg-violet-600 text-white shadow-md shadow-violet-950/40 scale-105 ring-1 ring-violet-400'
+                                                        : 'bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/5'
                                                 }`}
+                                            >
+                                                <ServerSvgIcon id={s.id} isHindi={s.isHindi} className="w-3.5 h-3.5 shrink-0" />
+                                                <span>{s.name}</span>
+                                                {s.isHindi && (
+                                                    <span className="text-[9px] px-1 py-0.2 bg-amber-500/20 text-amber-300 rounded font-black border border-amber-500/30 uppercase tracking-wider">
+                                                        HINDI
+                                                    </span>
+                                                )}
+                                            </button>
+                                        ))}
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsServerDropdownOpen(prev => !prev)}
+                                            className="px-3 py-1.5 rounded-xl text-xs font-bold text-violet-300 hover:text-white bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 shrink-0 flex items-center gap-1.5 transition-all cursor-pointer"
                                         >
-                                            <span>{srv.icon}</span>
-                                            <span>{srv.name}</span>
+                                            <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                                <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                                                <polyline points="2 17 12 22 22 17" />
+                                                <polyline points="2 12 12 17 22 12" />
+                                            </svg>
+                                            <span>All {allActiveServersList.length} Servers</span>
+                                            <svg className={`w-3 h-3 transition-transform duration-200 shrink-0 ${isServerDropdownOpen ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                                            </svg>
                                         </button>
-                                    );
-                                })}
+                                    </div>
+                                )}
                             </div>
+
+                            {/* FLOATING DROPDOWN MENU */}
+                            {isServerDropdownOpen && (
+                                <div className="absolute top-full left-0 right-0 mt-3 p-4 sm:p-6 bg-[#0a0a10]/98 backdrop-blur-2xl border border-white/15 rounded-3xl shadow-[0_25px_80px_rgba(0,0,0,0.9)] z-50 animate-in fade-in zoom-in-95 duration-200 space-y-4">
+                                    
+                                    {/* Dropdown Header: Title, Search, and Close button */}
+                                    <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3 flex-wrap">
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="w-8 h-8 rounded-xl bg-violet-500/15 border border-violet-500/30 flex items-center justify-center text-violet-400 shrink-0">
+                                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                                    <circle cx="12" cy="12" r="2" />
+                                                    <path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14" />
+                                                </svg>
+                                            </div>
+                                            <div>
+                                                <h4 className="text-sm font-black text-white uppercase tracking-wider">
+                                                    Select Streaming Server
+                                                </h4>
+                                                <p className="text-[11px] text-gray-400">
+                                                    {allActiveServersList.length} global servers available with auto-switch protection
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsServerDropdownOpen(false)}
+                                            className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/15 text-gray-400 hover:text-white transition-all flex items-center justify-center border border-white/5 cursor-pointer"
+                                            title="Close server list"
+                                        >
+                                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                                                <line x1="18" y1="6" x2="6" y2="18" />
+                                                <line x1="6" y1="6" x2="18" y2="18" />
+                                            </svg>
+                                        </button>
+                                    </div>
+
+                                    {/* Search & Filter Toolbar */}
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                                        {/* Filter Tabs */}
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                            <button
+                                                type="button"
+                                                onClick={() => setServerFilter('all')}
+                                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                                                    serverFilter === 'all'
+                                                        ? 'bg-violet-600 text-white shadow-md shadow-violet-950/40 ring-1 ring-violet-400'
+                                                        : 'bg-white/5 text-gray-400 hover:text-white border border-white/5'
+                                                }`}
+                                            >
+                                                <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                                    <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                                                    <polyline points="2 17 12 22 22 17" />
+                                                    <polyline points="2 12 12 17 22 12" />
+                                                </svg>
+                                                <span>All ({allActiveServersList.length})</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setServerFilter('hindi')}
+                                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                                                    serverFilter === 'hindi'
+                                                        ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-md shadow-amber-500/30'
+                                                        : 'bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 border border-amber-500/30'
+                                                }`}
+                                            >
+                                                <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                                    <path d="M2 10v4M6 7v10M10 4v16M14 8v8M18 11v2M22 9v6" />
+                                                </svg>
+                                                <span>Hindi Dubbed ({hindiServersCount})</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setServerFilter('fast')}
+                                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                                                    serverFilter === 'fast'
+                                                        ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/40'
+                                                        : 'bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 border border-emerald-500/30'
+                                                }`}
+                                            >
+                                                <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                                                    <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z" />
+                                                </svg>
+                                                <span>Ultra Fast HD</span>
+                                            </button>
+                                        </div>
+
+                                        {/* Search Input */}
+                                        <div className="relative min-w-[200px]">
+                                            <input
+                                                type="text"
+                                                placeholder="Search server..."
+                                                value={serverSearchQuery}
+                                                onChange={(e) => setServerSearchQuery(e.target.value)}
+                                                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-violet-500/60 transition-all pr-7"
+                                            />
+                                            {serverSearchQuery ? (
+                                                <button
+                                                    onClick={() => setServerSearchQuery('')}
+                                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-1 rounded cursor-pointer"
+                                                >
+                                                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                                                        <line x1="18" y1="6" x2="6" y2="18" />
+                                                        <line x1="6" y1="6" x2="18" y2="18" />
+                                                    </svg>
+                                                </button>
+                                            ) : (
+                                                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
+                                                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                                                        <circle cx="11" cy="11" r="7" />
+                                                        <path d="m21 21-4.35-4.35" />
+                                                    </svg>
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Hindi Guidance in Dropdown */}
+                                    {(serverFilter === 'hindi' || isCurrentServerHindi) && (
+                                        <div className="p-3 bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent rounded-2xl border border-amber-500/30 flex items-start gap-2.5 text-xs">
+                                            <div className="w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                                    <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
+                                                    <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
+                                                </svg>
+                                            </div>
+                                            <div className="leading-relaxed">
+                                                <span className="font-bold text-amber-300">Hindi Dubbed Audio: </span>
+                                                <span className="text-gray-300 text-[11px]">
+                                                    যদি প্লেয়ার চালু হওয়ার পর English শোনা যায়, প্লেয়ারের <strong>Settings (⚙️)</strong> বা <strong>Audio Track</strong>-এ ক্লিক করে <strong>"Hindi"</strong> সিলেক্ট করুন।
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Scrollable Server Grid */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 max-h-[360px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-white/15 scrollbar-track-transparent">
+                                        {filteredDropdownServers.length === 0 ? (
+                                            <div className="col-span-full py-8 text-center text-gray-400 text-xs">
+                                                No servers found matching "{serverSearchQuery}".
+                                            </div>
+                                        ) : (
+                                            filteredDropdownServers.map((s) => {
+                                                const isActive = activeServerId === s.id;
+                                                return (
+                                                    <button
+                                                        key={s.id}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            handleServerSelect(s.id);
+                                                            setIsServerDropdownOpen(false);
+                                                        }}
+                                                        className={`p-3 rounded-2xl border transition-all flex items-center justify-between gap-3 text-left group cursor-pointer ${
+                                                            isActive
+                                                                ? 'bg-gradient-to-r from-violet-600/35 to-purple-600/25 border-violet-500/70 shadow-lg shadow-violet-950/40 ring-2 ring-violet-500/40 scale-[1.02]'
+                                                                : s.isFailed
+                                                                    ? 'bg-red-500/5 hover:bg-white/10 text-gray-400 border-red-500/20'
+                                                                    : s.isHindi
+                                                                        ? 'bg-amber-500/5 hover:bg-amber-500/15 border-amber-500/20 hover:border-amber-500/50'
+                                                                        : 'bg-white/5 hover:bg-white/10 border-white/5 hover:border-violet-500/30'
+                                                        }`}
+                                                    >
+                                                        <div className="flex items-center gap-2.5 min-w-0 truncate">
+                                                            <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 transition-transform group-hover:scale-110 shadow-inner ${
+                                                                s.isHindi
+                                                                    ? 'bg-amber-500/10 border-amber-500/25 text-amber-400 group-hover:bg-amber-500/20'
+                                                                    : s.id === 'vidking'
+                                                                        ? 'bg-yellow-500/10 border-yellow-500/25 text-yellow-400 group-hover:bg-yellow-500/20'
+                                                                        : s.id === 'trailer'
+                                                                            ? 'bg-rose-500/10 border-rose-500/25 text-rose-400 group-hover:bg-rose-500/20'
+                                                                            : 'bg-cyan-500/10 border-cyan-500/25 text-cyan-400 group-hover:bg-cyan-500/20'
+                                                            }`}>
+                                                                <ServerSvgIcon id={s.id} isHindi={s.isHindi} className="w-4 h-4" />
+                                                            </div>
+                                                            <div className="flex flex-col min-w-0 truncate">
+                                                                <span className="text-xs font-bold text-white truncate flex items-center gap-1.5">
+                                                                    {s.name}
+                                                                </span>
+                                                                <span className="text-[10px] text-gray-400">
+                                                                    Server #{s.index}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex items-center gap-1.5 shrink-0">
+                                                            {s.badge && (
+                                                                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider ${
+                                                                    s.isHindi
+                                                                        ? 'bg-amber-500/25 text-amber-300 border border-amber-500/40'
+                                                                        : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                                                }`}>
+                                                                    {s.badge}
+                                                                </span>
+                                                            )}
+                                                            {isActive ? (
+                                                                <span className="px-1.5 py-0.5 bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[9px] font-black uppercase rounded tracking-wider flex items-center gap-1">
+                                                                    <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+                                                                        <polyline points="20 6 9 17 4 12" />
+                                                                    </svg>
+                                                                    <span>Active</span>
+                                                                </span>
+                                                            ) : s.isFailed ? (
+                                                                <span className="px-1.5 py-0.5 bg-red-500/20 text-red-400 text-[8px] font-bold rounded">
+                                                                    Stalled
+                                                                </span>
+                                                            ) : null}
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })
+                                        )}
+                                    </div>
+
+                                    {/* Footer Watchdog Tip */}
+                                    <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] text-gray-400">
+                                        <span className="flex items-center gap-1.5">
+                                            <div className="w-4 h-4 rounded-full bg-violet-500/20 text-violet-400 flex items-center justify-center shrink-0">
+                                                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                                                    <circle cx="12" cy="12" r="10" />
+                                                    <line x1="12" y1="16" x2="12" y2="12" />
+                                                    <line x1="12" y1="8" x2="12.01" y2="8" strokeWidth={3} />
+                                                </svg>
+                                            </div>
+                                            <span>Smart Auto-Switch: Server বাফারিং হলে ৩ সেকেন্ডে পরবর্তী সার্ভারে সুইচ হবে।</span>
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsServerDropdownOpen(false)}
+                                            className="text-violet-300 hover:text-white font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                                        >
+                                            <span>Done</span>
+                                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                                                <line x1="18" y1="6" x2="6" y2="18" />
+                                                <line x1="6" y1="6" x2="18" y2="18" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Mobile Episodes selection (only visible on mobile/tablet) */}
@@ -2015,7 +3135,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                         {/* Title Info & Description */}
                         <div className="glass-panel p-6 sm:p-8 rounded-3xl space-y-4">
                             <div className="flex flex-wrap gap-2.5">
-                                <span className="px-3 py-1 bg-red-600 text-white text-[10px] font-black uppercase rounded tracking-wider shadow-lg shadow-red-900/40">
+                                <span className="px-3 py-1 bg-violet-600 text-white text-[10px] font-black uppercase rounded tracking-wider shadow-lg shadow-violet-950/40">
                                     {movie.type}
                                 </span>
                                 {movie.release_year && (
@@ -2070,7 +3190,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
 
                     {/* RIGHT COLUMN: Sidebar (Episodes List or Related Content) */}
                     <div className="lg:col-span-4 xl:col-span-3 space-y-6">
-                        
+
                         {isSeriesOrAnime && sortedSeasons.length > 0 && (
                             <div className="hidden lg:block">
                                 {renderEpisodes()}
@@ -2084,7 +3204,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                                     <span className="text-sm">🎬</span>
                                     <span className="text-sm font-black text-gray-400 uppercase tracking-wider">Related Movies</span>
                                 </div>
-                                
+
                                 <div className="space-y-3.5">
                                     {relatedMovies.length === 0 ? (
                                         <div className="text-center py-6 text-xs text-gray-500">
@@ -2112,7 +3232,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                                                     )}
                                                 </div>
                                                 <div className="min-w-0 flex flex-col justify-center">
-                                                    <h4 className="text-xs font-bold text-gray-200 group-hover:text-red-500 transition-colors line-clamp-2 leading-snug">
+                                                    <h4 className="text-xs font-bold text-gray-200 group-hover:text-violet-300 transition-colors line-clamp-2 leading-snug">
                                                         {m.title}
                                                     </h4>
                                                     <div className="flex items-center gap-2 text-[10px] text-gray-500 mt-1">
@@ -2142,7 +3262,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                         {/* Related posts bottom recommendation */}
                         <div>
                             <h3 className="text-xl font-black text-white mb-6 flex items-center gap-3">
-                                <span className="w-1.5 h-6 bg-red-600 rounded-full"></span>
+                                <span className="w-1.5 h-6 bg-violet-600 rounded-full"></span>
                                 You May Also Like
                             </h3>
                             <RelatedPosts currentMovieId={movie.id} type={movie.type} />
@@ -2151,7 +3271,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                         {/* Comment section */}
                         <div>
                             <h3 className="text-xl font-black text-white mb-6 flex items-center gap-3">
-                                <span className="w-1.5 h-6 bg-red-600 rounded-full"></span>
+                                <span className="w-1.5 h-6 bg-violet-600 rounded-full"></span>
                                 Discussion & Comments
                             </h3>
                             <CommentSection movieId={movie.id} />
@@ -2161,13 +3281,157 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
 
             </div>
 
-            {/* 2-Step Ad Verification Popup */}
+            {/* Ad Verification Popup */}
             {showAdVerification && (
                 <AdVerificationPopup
                     onVerified={handleVerificationComplete}
                     adUrl1={adSettings?.verificationAdUrl1 || adSettings?.directLinkUrl || 'https://nexiplay.live'}
                     adUrl2={adSettings?.verificationAdUrl2 || adSettings?.popunderUrl || 'https://nexiplay.live'}
+                    onClose={() => setShowAdVerification(false)}
+                    contentType="stream"
                 />
+            )}
+
+            {/* Fast Direct Download Modal */}
+            {showVaultModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+                    <div className="relative w-full max-w-lg bg-[#0e0e12] border border-emerald-500/30 rounded-3xl p-6 sm:p-7 shadow-2xl shadow-emerald-950/50 space-y-5">
+                        {/* Close button */}
+                        <button
+                            onClick={() => setShowVaultModal(false)}
+                            className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white flex items-center justify-center text-sm transition-all"
+                        >
+                            ✕
+                        </button>
+
+                        {/* Modal Header */}
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-2xl shadow-lg shadow-emerald-950/40">
+                                ⚡
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-black text-white flex items-center gap-2">
+                                    Fast Direct Download
+                                    <span className="text-[10px] font-black bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/30">
+                                        DIRECT MKV
+                                    </span>
+                                </h3>
+                                <p className="text-xs text-gray-400">
+                                    High-Speed Multi-threaded CDN • Direct MKV
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Target Media Info */}
+                        <div className="p-3.5 bg-white/[0.03] border border-white/5 rounded-2xl flex items-center justify-between">
+                            <div className="truncate mr-3">
+                                <p className="text-xs font-bold text-white truncate">
+                                    {movie.title}
+                                </p>
+                                {isSeriesOrAnime && (
+                                    <p className="text-[11px] text-emerald-400 font-black mt-0.5">
+                                        Season {currentSeasonNum} • Episode {currentEpisodeNum}
+                                    </p>
+                                )}
+                            </div>
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-white/5 px-2.5 py-1 rounded-lg shrink-0">
+                                {movie.type}
+                            </span>
+                        </div>
+
+                        {/* Error Notice */}
+                        {vaultError && (
+                            <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-300 flex items-center justify-between">
+                                <span>⚠️ {vaultError}</span>
+                                <button onClick={() => setVaultError(null)} className="text-xs ml-2 underline">Dismiss</button>
+                            </div>
+                        )}
+
+                        {/* Quality Options Grid */}
+                        <div className="space-y-2.5">
+                            <label className="text-[11px] font-black uppercase tracking-wider text-gray-400">
+                                Select Quality for Instant Direct Download:
+                            </label>
+                            <div className="grid grid-cols-2 gap-2.5">
+                                {[
+                                    { q: '1080p', label: '1080p Full HD', badge: 'Ultra HD', color: 'from-emerald-500 to-teal-600' },
+                                    { q: '720p', label: '720p HD', badge: 'Recommended', color: 'from-cyan-500 to-blue-600' },
+                                    { q: '480p', label: '480p Standard', badge: 'Standard', color: 'from-violet-500 to-purple-600' },
+                                    { q: '360p', label: '360p Data Saver', badge: 'Data Saver', color: 'from-amber-500 to-orange-600' },
+                                ].map(({ q, label, badge, color }) => {
+                                    const isLoading = vaultLoadingQuality === q;
+                                    const hasLink = !!vaultLinks[q];
+                                    const isCopied = vaultCopiedQuality === q;
+
+                                    return (
+                                        <div
+                                            key={q}
+                                            className="p-3 bg-white/[0.02] border border-white/5 rounded-2xl hover:border-emerald-500/30 transition-all flex flex-col justify-between gap-2.5 group"
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs font-bold text-white group-hover:text-emerald-300 transition-colors">
+                                                    {label}
+                                                </span>
+                                                <span className="text-[9px] font-black uppercase text-gray-400 bg-white/5 px-1.5 py-0.5 rounded">
+                                                    {badge}
+                                                </span>
+                                            </div>
+
+                                            <div className="flex items-center gap-1.5">
+                                                <button
+                                                    onClick={() => handleVaultDownload(q)}
+                                                    disabled={isLoading}
+                                                    className={`flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all text-white bg-gradient-to-r ${color} hover:opacity-90 active:scale-95 disabled:opacity-50`}
+                                                >
+                                                    {isLoading ? (
+                                                        <>
+                                                            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                            <span className="text-[11px]">Fetching...</span>
+                                                        </>
+                                                    ) : hasLink ? (
+                                                        <>
+                                                            <span>✓</span>
+                                                            <span className="text-[11px]">Download Again</span>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <span>⚡</span>
+                                                            <span className="text-[11px]">Direct Download</span>
+                                                        </>
+                                                    )}
+                                                </button>
+
+                                                {hasLink && (
+                                                    <button
+                                                        onClick={() => {
+                                                            navigator.clipboard.writeText(vaultLinks[q]);
+                                                            setVaultCopiedQuality(q);
+                                                            setTimeout(() => setVaultCopiedQuality(null), 2000);
+                                                        }}
+                                                        className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-xs text-gray-300 hover:text-white transition-all shrink-0"
+                                                        title="Copy Direct MKV Link"
+                                                    >
+                                                        {isCopied ? '✓' : '📋'}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Footer Tips */}
+                        <div className="p-3 bg-white/[0.02] rounded-xl border border-white/5 text-[11px] text-gray-400 space-y-1">
+                            <p className="flex items-center gap-1.5 text-gray-300 font-bold">
+                                <span>💡</span> IDM & 1DM Downloader Supported
+                            </p>
+                            <p className="text-[10px] leading-relaxed">
+                                Direct `.mkv` files can be played with VLC, MX Player, or downloaded with multi-threaded download managers.
+                            </p>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

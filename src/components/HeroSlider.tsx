@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { Autoplay, EffectFade, Pagination, Navigation } from 'swiper/modules';
+import type { Swiper as SwiperType } from 'swiper';
+import { Autoplay, EffectFade, Pagination } from 'swiper/modules';
 import { Movie } from '@/lib/types';
 import { getAppSettings, CachedAppSettings } from '@/lib/settingsCache';
 import { getContentUrl } from '@/lib/urlUtils';
@@ -14,7 +15,6 @@ import { useAuth } from '@/context/AuthContext';
 import 'swiper/css';
 import 'swiper/css/effect-fade';
 import 'swiper/css/pagination';
-import 'swiper/css/navigation';
 
 interface HeroSliderProps {
     movies: Movie[];
@@ -23,6 +23,7 @@ interface HeroSliderProps {
 export default function HeroSlider({ movies }: HeroSliderProps) {
     const [settings, setSettings] = useState<CachedAppSettings | null>(null);
     const adTriggeredRef = useRef(false);
+    const swiperRef = useRef<SwiperType | null>(null);
     const { checkAdultGate } = useAdultGate();
 
     useEffect(() => {
@@ -43,40 +44,40 @@ export default function HeroSlider({ movies }: HeroSliderProps) {
         // Construct content URL
         const contentUrl = getContentUrl(movie);
 
-        // Check if this movie has a per-content ad link
-        if (movie.ad_link) {
-            // Prevent default Link behavior
+        // Check if this movie has a per-content ad link or global popunder ad
+        const adToTrigger = movie.ad_link || (settings?.is_ads_enabled && settings?.popunder_url ? settings.popunder_url : null);
+        const adKey = movie.ad_link ? `ad_seen_${movie.id}` : 'trending_ad_seen';
+        const hasSeenAd = sessionStorage.getItem(adKey);
+
+        if (adToTrigger && !hasSeenAd && !adTriggeredRef.current) {
             e.preventDefault();
+            adTriggeredRef.current = true;
+            sessionStorage.setItem(adKey, 'true');
 
-            // Check session storage to prevent spam (once per movie per session)
-            const adKey = `ad_seen_${movie.id}`;
-            const hasSeenAd = sessionStorage.getItem(adKey);
+            // Bypass splash screen on the destination tab
+            try {
+                sessionStorage.setItem('nexiplay_splash_seen', 'true');
+                localStorage.setItem('nexiplay_splash_seen', Date.now().toString());
+            } catch (err) {}
 
-            if (!hasSeenAd) {
-                // Open ad in new tab (MUST be first, directly in click handler for mobile compatibility)
-                window.open(movie.ad_link, '_blank');
-                sessionStorage.setItem(adKey, 'true');
-            }
-
-            // Navigate to content in same tab
-            window.location.href = contentUrl;
-            return;
-        }
-
-        // Fallback: Global ad system (if no per-content ad)
-        if (settings?.is_ads_enabled && settings?.popunder_url) {
-            const hasSeenGlobalAd = sessionStorage.getItem('trending_ad_seen');
-
-            if (!hasSeenGlobalAd && !adTriggeredRef.current) {
-                e.preventDefault();
-                adTriggeredRef.current = true;
-                sessionStorage.setItem('trending_ad_seen', 'true');
-
-                window.open(settings.popunder_url, '_blank');
+            // Open the MOVIE in the active foreground tab:
+            const newTab = window.open(contentUrl, '_blank');
+            if (newTab) {
+                // The current background tab replaces with the Ad:
+                setTimeout(() => {
+                    try {
+                        window.location.replace(adToTrigger);
+                    } catch {
+                        window.location.href = adToTrigger;
+                    }
+                }, 200);
+                return;
+            } else {
                 window.location.href = contentUrl;
+                return;
             }
         }
-        // If no ad configured, Link handles navigation normally
+        // If no ad configured or already seen, Link handles navigation normally
     };
 
     const { hideNsfw } = useAuth();
@@ -87,20 +88,23 @@ export default function HeroSlider({ movies }: HeroSliderProps) {
     return (
         <div className="w-full relative group">
             <Swiper
-                modules={[Autoplay, EffectFade, Pagination, Navigation]}
+                onSwiper={(swiper) => {
+                    swiperRef.current = swiper;
+                }}
+                modules={[Autoplay, EffectFade, Pagination]}
                 effect="fade"
+                fadeEffect={{ crossFade: true }}
                 autoplay={{
                     delay: 5000,
                     disableOnInteraction: false,
                 }}
-                speed={1000}
+                speed={800}
                 pagination={{ clickable: true }}
-                navigation={{
-                    nextEl: '.swiper-button-next',
-                    prevEl: '.swiper-button-prev',
-                }}
                 loop={true}
-                className="w-full h-[60vh] md:h-[80vh] lg:h-[85vh] relative"
+                allowTouchMove={true}
+                touchRatio={1.2}
+                grabCursor={true}
+                className="w-full h-[58vh] min-h-[500px] max-h-[780px] md:h-[72vh] lg:h-[78vh] relative"
             >
                 {filteredMovies.map((movie) => (
                     <SwiperSlide key={movie.id}>
@@ -114,8 +118,8 @@ export default function HeroSlider({ movies }: HeroSliderProps) {
                                     className="object-cover"
                                     priority
                                 />
-                                <div className="absolute inset-0 bg-gradient-to-t from-[#0B0D16] via-[#0B0D16]/50 to-transparent" />
-                                <div className="absolute inset-0 bg-gradient-to-r from-[#0B0D16] via-[#0B0D16]/75 to-transparent" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-[#0D0B12] via-[#0D0B12]/50 to-transparent" />
+                                <div className="absolute inset-0 bg-gradient-to-r from-[#0D0B12] via-[#0D0B12]/75 to-transparent" />
                             </div>
 
                             {/* Background Image (Mobile) */}
@@ -127,47 +131,48 @@ export default function HeroSlider({ movies }: HeroSliderProps) {
                                     className="object-cover"
                                     priority
                                 />
-                                <div className="absolute inset-0 bg-gradient-to-t from-[#0B0D16] via-[#0B0D16]/70 to-transparent" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-[#0D0B12] via-[#0D0B12]/70 to-transparent" />
                             </div>
 
                             {/* Content */}
-                            <div className="absolute inset-0 flex items-end md:items-center">
-                                <div className="container mx-auto px-4 pb-20 md:pb-0 md:pl-16">
-                                    <div className="max-w-2xl space-y-4 animate-fade-in-up">
+                            <div className="absolute inset-0 flex items-end md:items-center pointer-events-none">
+                                <div className="container mx-auto px-4 pb-20 md:pb-0 md:pl-16 md:translate-y-8 pointer-events-none">
+                                    <div className="max-w-2xl space-y-4 md:space-y-5 animate-fade-in-up">
 
                                         {/* Type Badge */}
-                                        <div className="flex items-center gap-3">
-                                            <span className="px-3 py-1 bg-[#E51D48] text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-[0_2px_12px_rgba(229,29,72,0.4)]">
+                                        <div className="flex items-center gap-3 pointer-events-auto">
+                                            <span className="px-3 py-1 bg-[#9273F5]/90 text-white text-[11px] font-bold uppercase tracking-[0.12em] rounded-full border border-white/15">
                                                 {movie.type}
                                             </span>
                                             {movie.is_adult && (
-                                                <span className="px-3 py-1 bg-[#E51D48] text-white text-xs font-black uppercase tracking-wider rounded-full shadow-[0_2px_12px_rgba(229,29,72,0.4)] border border-red-400/40">
-                                                    🔞 18+
+                                                <span className="px-3 py-1 bg-[#211D2B]/90 text-[#FFB878] text-[11px] font-bold uppercase tracking-[0.12em] rounded-full border border-[#FFB878]/35">
+                                                    18+
                                                 </span>
                                             )}
                                             {movie.release_year && (
-                                                <span className="text-[#A7AABD] font-medium text-sm drop-shadow-md">
+                                                <span className="text-[#ADA6B9] font-medium text-sm drop-shadow-md">
                                                     {movie.release_year}
                                                 </span>
                                             )}
                                         </div>
 
                                         {/* Title */}
-                                        <h1 className="text-4xl md:text-6xl font-black text-[#F7F8FC] leading-tight drop-shadow-2xl">
+                                        <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-[#F4F0FA] leading-[1.04] tracking-tight drop-shadow-2xl max-w-3xl pointer-events-auto">
                                             {movie.title}
                                         </h1>
 
                                         {/* Description (Desktop only) */}
-                                        <p className="hidden md:block text-[#A7AABD] text-base md:text-lg line-clamp-3 max-w-xl drop-shadow-md">
+                                        <p className="hidden md:block text-[#E0DCE8] text-base md:text-lg leading-relaxed line-clamp-3 max-w-xl drop-shadow-md pointer-events-auto">
                                             {movie.description}
                                         </p>
 
                                         {/* Actions */}
-                                        <div className="flex items-center gap-4 pt-4">
+                                        <div className="flex items-center gap-4 pt-4 pointer-events-auto">
                                             <Link
                                                 href={getContentUrl(movie)}
+                                                prefetch={true}
                                                 onClick={(e) => handleBannerClick(e, movie)}
-                                                className="px-8 py-3.5 np-clay-btn text-white font-bold rounded-xl flex items-center gap-2.5 transition-all hover:scale-105 group/btn"
+                                                className="px-8 py-3.5 np-clay-btn text-white font-bold rounded-xl flex items-center gap-2.5 transition-all hover:scale-105 group/btn cursor-pointer"
                                             >
                                                 <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
                                                     <path d="M8 5v14l11-7z" />
@@ -177,9 +182,10 @@ export default function HeroSlider({ movies }: HeroSliderProps) {
 
                                             <Link
                                                 href={getContentUrl(movie)}
-                                                className="px-7 py-3.5 np-ghost-btn text-white font-semibold rounded-xl flex items-center gap-2 hover:scale-105 transition-all"
+                                                prefetch={true}
+                                                className="px-7 py-3.5 np-ghost-btn text-white font-semibold rounded-xl flex items-center gap-2 hover:scale-105 transition-all cursor-pointer"
                                             >
-                                                <svg className="w-5 h-5 text-[#A7AABD]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <svg className="w-5 h-5 text-[#ADA6B9]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                 </svg>
                                                 Details
@@ -191,11 +197,38 @@ export default function HeroSlider({ movies }: HeroSliderProps) {
                         </div>
                     </SwiperSlide>
                 ))}
-
-                {/* Navigation Arrows - Always visible, left and right sides */}
-                <button className="swiper-button-prev !w-10 !h-10 md:!w-12 md:!h-12 !rounded-full !bg-[#141625]/80 !backdrop-blur-md !border !border-white/15 !text-white hover:!bg-[#E51D48] hover:!border-[#E51D48] transition-all !left-3 md:!left-6 !after:!text-sm md:!after:!text-lg"></button>
-                <button className="swiper-button-next !w-10 !h-10 md:!w-12 md:!h-12 !rounded-full !bg-[#141625]/80 !backdrop-blur-md !border !border-white/15 !text-white hover:!bg-[#E51D48] hover:!border-[#E51D48] transition-all !right-3 md:!right-6 !after:!text-sm md:!after:!text-lg"></button>
             </Swiper>
+
+            {/* Custom Navigation Arrows - Always visible, high z-index, touch & click responsive */}
+            <button
+                type="button"
+                aria-label="Previous slide"
+                onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    swiperRef.current?.slidePrev();
+                }}
+                className="absolute top-1/2 -translate-y-1/2 left-3 md:left-6 z-30 w-10 h-10 md:w-12 md:h-12 rounded-full bg-[#17141F]/80 backdrop-blur-md border border-white/15 text-white hover:bg-[#9273F5] hover:border-[#9273F5] flex items-center justify-center transition-all duration-200 shadow-xl active:scale-90 group/nav cursor-pointer"
+            >
+                <svg className="w-5 h-5 md:w-6 md:h-6 text-white transition-transform group-hover/nav:-translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                </svg>
+            </button>
+
+            <button
+                type="button"
+                aria-label="Next slide"
+                onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    swiperRef.current?.slideNext();
+                }}
+                className="absolute top-1/2 -translate-y-1/2 right-3 md:right-6 z-30 w-10 h-10 md:w-12 md:h-12 rounded-full bg-[#17141F]/80 backdrop-blur-md border border-white/15 text-white hover:bg-[#9273F5] hover:border-[#9273F5] flex items-center justify-center transition-all duration-200 shadow-xl active:scale-90 group/nav cursor-pointer"
+            >
+                <svg className="w-5 h-5 md:w-6 md:h-6 text-white transition-transform group-hover/nav:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                </svg>
+            </button>
 
             {/* Custom Styles for Swiper Pagination */}
             <style jsx global>{`
@@ -206,21 +239,12 @@ export default function HeroSlider({ movies }: HeroSliderProps) {
                     height: 8px;
                 }
                 .swiper-pagination-bullet-active {
-                    background: #E51D48;
+                    background: #9273F5;
                     opacity: 1;
                     width: 24px;
                     border-radius: 4px;
-                    box-shadow: 0 0 10px rgba(229, 29, 72, 0.6);
+                    box-shadow: 0 0 10px rgba(146, 115, 245, 0.6);
                     transition: width 0.3s ease;
-                }
-                .swiper-button-next::after, .swiper-button-prev::after {
-                    font-size: 16px;
-                    font-weight: bold;
-                }
-                @media (min-width: 768px) {
-                    .swiper-button-next::after, .swiper-button-prev::after {
-                        font-size: 20px;
-                    }
                 }
             `}</style>
         </div>

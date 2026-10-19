@@ -9,23 +9,23 @@ module.exports = {
         extend: {
             colors: {
                 primary: {
-                    50: '#fef2f2',
-                    100: '#fee2e2',
-                    200: '#fecaca',
-                    300: '#fca5a5',
-                    400: '#f87171',
-                    500: '#E50914', // Brand Red
-                    600: '#dc2626',
-                    700: '#b91c1c',
-                    800: '#991b1b',
-                    900: '#7f1d1d',
+                    50: '#F4F0FA',
+                    100: '#E9E2FF',
+                    200: '#D6C9FF',
+                    300: '#B09AFF',
+                    400: '#A18AFB',
+                    500: '#9273F5',
+                    600: '#7759D8',
+                    700: '#5C46B2',
+                    800: '#42347E',
+                    900: '#2A214F',
                 },
                 dark: {
-                    900: '#000000', // Deepest Black
-                    800: '#0a0a0a', // Surface
-                    700: '#121212', // Card Bg
-                    600: '#1a1a1a',
-                    500: '#2e2e2e',
+                    900: '#0D0B12',
+                    800: '#17141F',
+                    700: '#211D2B',
+                    600: '#2A2536',
+                    500: '#383247',
                 },
                 glass: {
                     base: 'var(--glass-base)',
@@ -34,16 +34,16 @@ module.exports = {
                 },
                 // Hybrid redesign tokens (see ui_redesign_implementation_plan.md)
                 np: {
-                    bg: '#0B0D16',
-                    surface: '#141625',
-                    'surface-2': '#1B1E31',
-                    primary: '#E51D48',
-                    'primary-dark': '#A70F35',
-                    text: '#F7F8FC',
-                    muted: '#A7AABD',
-                    success: '#28D391',
-                    gold: '#F6C453',
-                    error: '#EF4444',
+                    bg: '#0D0B12',
+                    surface: '#17141F',
+                    'surface-2': '#211D2B',
+                    primary: '#9273F5',
+                    'primary-dark': '#5C46B2',
+                    text: '#F4F0FA',
+                    muted: '#ADA6B9',
+                    success: '#57D6C0',
+                    gold: '#FFB878',
+                    error: '#FF7185',
                     border: 'rgba(255, 255, 255, 0.10)',
                 },
             },
@@ -59,7 +59,7 @@ module.exports = {
             },
             boxShadow: {
                 'np-glass': '0 8px 32px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06)',
-                'np-clay': '0 10px 24px -8px rgba(229, 29, 72, 0.55), inset 0 2px 0 rgba(255, 255, 255, 0.22), inset 0 -3px 6px rgba(0, 0, 0, 0.25)',
+                'np-clay': '0 10px 24px -8px rgba(146, 115, 245, 0.40), inset 0 2px 0 rgba(255, 255, 255, 0.22), inset 0 -3px 6px rgba(0, 0, 0, 0.25)',
                 'np-inset': 'inset 2px 2px 6px rgba(0, 0, 0, 0.45), inset -1px -1px 3px rgba(255, 255, 255, 0.04)',
                 'np-raised': '3px 3px 8px rgba(0, 0, 0, 0.45), -1px -1px 4px rgba(255, 255, 255, 0.04)',
             },
@@ -67,7 +67,7 @@ module.exports = {
                 'np-spring': 'cubic-bezier(0.34, 1.56, 0.64, 1)',
             },
             backgroundImage: {
-                'glass-gradient': 'linear-gradient(145deg, rgba(30, 30, 30, 0.6) 0%, rgba(10, 10, 10, 0.4) 100%)',
+                'glass-gradient': 'linear-gradient(145deg, rgba(33, 29, 43, 0.78) 0%, rgba(23, 20, 31, 0.72) 100%)',
                 'glass-shine': 'linear-gradient(105deg, transparent 20%, rgba(255,255,255,0.05) 25%, transparent 30%)',
             },
             keyframes: {

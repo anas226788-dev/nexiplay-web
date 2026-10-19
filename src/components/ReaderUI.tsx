@@ -159,7 +159,7 @@ export default function ReaderUI({ novel, chapter, prevSlug, nextSlug, chapterIn
             {/* Scroll Reading Progress Bar */}
             <div className="fixed top-0 left-0 w-full h-[3px] z-50 bg-transparent">
                 <div 
-                    className="h-full bg-gradient-to-r from-red-600 via-rose-500 to-red-600 transition-all duration-150 ease-out shadow-[0_0_8px_rgba(229,9,20,0.8)]"
+                    className="h-full bg-gradient-to-r from-violet-600 via-rose-500 to-violet-700 transition-all duration-150 ease-out shadow-[0_0_8px_rgba(146,115,245,0.8)]"
                     style={{ width: `${readingProgress}%` }}
                 />
             </div>
@@ -171,7 +171,7 @@ export default function ReaderUI({ novel, chapter, prevSlug, nextSlug, chapterIn
                 <div className="flex flex-col min-w-0">
                     <Link 
                         href={`/novels/${novel.slug}`} 
-                        className={`text-xs font-semibold uppercase tracking-wider mb-0.5 hover:text-red-500 transition-colors flex items-center gap-1 ${
+                        className={`text-xs font-semibold uppercase tracking-wider mb-0.5 hover:text-violet-300 transition-colors flex items-center gap-1 ${
                             isDarkMode ? 'text-gray-400' : 'text-gray-600'
                         }`}
                     >
@@ -239,7 +239,7 @@ export default function ReaderUI({ novel, chapter, prevSlug, nextSlug, chapterIn
                         className={`px-3.5 h-8 rounded-lg flex items-center justify-center font-bold text-xs tracking-wider transition-all shadow-sm ${
                             bookmarkSaved 
                                 ? 'bg-emerald-600 text-white' 
-                                : 'bg-red-600 hover:bg-red-500 text-white'
+                                : 'bg-violet-600 hover:bg-violet-500 text-white'
                         }`}
                     >
                         {bookmarkSaved ? 'সেভড!' : 'বুকমার্ক'}
@@ -251,7 +251,7 @@ export default function ReaderUI({ novel, chapter, prevSlug, nextSlug, chapterIn
             <main className="container mx-auto px-4 py-8 md:py-14 max-w-3xl">
                 {/* Chapter Header Inside Content */}
                 <div className="mb-10 text-center pb-8 border-b border-white/5">
-                    <span className="inline-block text-[11px] font-bold uppercase tracking-widest text-red-500 mb-2">
+                    <span className="inline-block text-[11px] font-bold uppercase tracking-widest text-violet-300 mb-2">
                         পর্ব {chapterIndex + 1}
                     </span>
                     <h2 className={`text-xl sm:text-2xl md:text-3xl font-black mb-3 leading-snug ${
@@ -274,7 +274,7 @@ export default function ReaderUI({ novel, chapter, prevSlug, nextSlug, chapterIn
                 ) : (
                     <div className="text-center py-16 bg-white/[0.02] rounded-2xl border border-white/5 p-8">
                         <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-gray-400 mx-auto mb-3">
-                            <svg className="w-6 h-6 animate-pulse text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-6 h-6 animate-pulse text-violet-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                             </svg>
                         </div>
@@ -284,7 +284,7 @@ export default function ReaderUI({ novel, chapter, prevSlug, nextSlug, chapterIn
                         </p>
                         <button
                             onClick={() => window.location.reload()}
-                            className="px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl text-xs transition-colors shadow-lg shadow-red-900/30"
+                            className="px-5 py-2.5 bg-violet-600 hover:bg-violet-500 text-white font-bold rounded-xl text-xs transition-colors shadow-lg shadow-violet-950/30"
                         >
                             পুনরায় লোড করুন
                         </button>
@@ -326,7 +326,7 @@ export default function ReaderUI({ novel, chapter, prevSlug, nextSlug, chapterIn
                     {nextSlug ? (
                         <Link 
                             href={`/novels/${novel.slug}/chapter/${nextSlug}`}
-                            className="w-full sm:w-auto px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-sm bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-900/30 hover:shadow-red-900/50"
+                            className="w-full sm:w-auto px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-sm bg-violet-600 hover:bg-violet-500 text-white shadow-lg shadow-violet-950/30 hover:shadow-violet-950/50"
                         >
                             পরের পর্ব <span>→</span>
                         </Link>

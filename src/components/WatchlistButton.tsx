@@ -100,22 +100,22 @@ export default function WatchlistButton({ movieId }: WatchlistButtonProps) {
         <button
             onClick={handleToggleWatchlist}
             disabled={actionLoading}
-            className={`px-6 py-4 rounded-xl font-bold transition-all border flex items-center justify-center gap-2 group cursor-pointer duration-300 ${
+            className={`px-3.5 py-2.5 md:px-6 md:py-3.5 text-[11px] md:text-sm rounded-xl font-bold transition-all border flex items-center justify-center gap-2 group cursor-pointer duration-300 ${
                 watchlistId
-                    ? 'bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500 hover:text-white hover:border-red-500 hover:shadow-lg hover:shadow-red-950/20'
+                    ? 'bg-red-500/10 border-red-500/30 text-red-400 hover:bg-violet-500 hover:text-white hover:border-red-500 hover:shadow-lg hover:shadow-violet-950/20'
                     : 'bg-white/5 border-white/10 text-white hover:bg-white/10 hover:shadow-lg hover:shadow-white/5'
             }`}
         >
             {watchlistId ? (
                 <>
-                    <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 md:w-6 md:h-6 fill-current" viewBox="0 0 24 24">
                         <path d="M17 3H7a2 2 0 0 0-2 2v16l7-3.5 7 3.5V5a2 2 0 0 0-2-2z" />
                     </svg>
                     <span>In My List</span>
                 </>
             ) : (
                 <>
-                    <svg className="w-6 h-6 stroke-current fill-none group-hover:scale-105 transition-transform" viewBox="0 0 24 24" strokeWidth={2}>
+                    <svg className="w-4 h-4 md:w-6 md:h-6 stroke-current fill-none group-hover:scale-105 transition-transform" viewBox="0 0 24 24" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16l-7-3.5L5 21V5z" />
                     </svg>
                     <span>Add to List</span>

@@ -168,7 +168,7 @@ export default function AntiAdBlockGate() {
             aria-modal="true"
             aria-labelledby="anti-adblock-title"
         >
-            <div className="w-full max-w-md rounded-2xl border border-red-500/30 bg-[#0b0b0f] p-6 text-center shadow-[0_0_45px_rgba(229,9,20,0.25)]">
+            <div className="w-full max-w-md rounded-2xl border border-red-500/30 bg-[#0b0b0f] p-6 text-center shadow-[0_0_45px_rgba(146,115,245,0.25)]">
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-red-500/40 bg-red-500/10 text-2xl font-black text-red-400">
                     !
                 </div>
@@ -182,7 +182,7 @@ export default function AntiAdBlockGate() {
                     type="button"
                     onClick={() => runCheck(true)}
                     disabled={isCheckingAgain}
-                    className="w-full rounded-xl bg-red-600 px-5 py-3 text-sm font-black text-white transition hover:bg-red-500 disabled:cursor-wait disabled:opacity-70"
+                    className="w-full rounded-xl bg-violet-600 px-5 py-3 text-sm font-black text-white transition hover:bg-violet-500 disabled:cursor-wait disabled:opacity-70"
                 >
                     {isCheckingAgain ? 'Checking...' : 'I Disabled Ad-Blocker'}
                 </button>

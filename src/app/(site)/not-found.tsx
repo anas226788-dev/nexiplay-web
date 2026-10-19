@@ -2,9 +2,9 @@ import Link from 'next/link';
 
 export default function NotFound() {
     return (
-        <div className="container mx-auto px-4 py-20">
+        <div className="container mx-auto px-4 pt-24 md:pt-32 pb-20">
             <div className="max-w-md mx-auto text-center">
-                <div className="text-8xl font-bold bg-gradient-to-r from-red-500 to-red-700 bg-clip-text text-transparent mb-6">
+                <div className="text-8xl font-bold bg-gradient-to-r from-violet-300 to-violet-700 bg-clip-text text-transparent mb-6">
                     404
                 </div>
                 <h1 className="text-2xl font-bold mb-4">Page Not Found</h1>

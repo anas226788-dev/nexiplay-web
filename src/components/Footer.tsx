@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { SOCIAL_ICONS } from '@/config/socials';
 import { getAppSettings, getTelegramSettings } from '@/lib/settingsCache';
@@ -72,6 +73,7 @@ export default function Footer() {
             { href: '/movies', label: 'Movies' },
             { href: '/series', label: 'Series' },
             { href: '/anime', label: 'Anime' },
+            { href: '/mood', label: 'Vibe Check' },
             { href: '/novels', label: 'Novels' },
         ],
         genres: [
@@ -84,42 +86,35 @@ export default function Footer() {
             { href: '/privacy-policy', label: 'Privacy Policy' },
             { href: '/terms', label: 'Terms of Service' },
             { href: '/dmca', label: 'DMCA' },
+            { href: '/credits', label: 'Credits' },
             { href: '/contact', label: 'Contact' },
         ],
     };
 
     return (
-        <footer className="border-t border-white/5 mt-20">
-            <div className="container mx-auto px-4 py-12 pb-28 md:pb-12">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+        <footer className="relative mt-20 overflow-hidden border-t border-white/[0.07] bg-[radial-gradient(ellipse_at_18%_0%,rgba(146,115,245,0.11),transparent_38%),radial-gradient(ellipse_at_90%_100%,rgba(87,214,192,0.055),transparent_32%)]">
+            <div className="container relative mx-auto px-4 pb-28 pt-12 md:pb-10 md:pt-14">
+                <div className="grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-[1.6fr_1fr_1fr_1fr] md:gap-10">
                     {/* Brand */}
                     <div className="col-span-2 md:col-span-1">
-                        <Link href="/" className="flex items-center gap-2 mb-4">
-                            <div className="w-10 h-10 rounded-lg gradient-accent flex items-center justify-center">
-                                <svg
-                                    className="w-6 h-6 text-white"
-                                    fill="currentColor"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path d="M4 4h4v4H4V4zm6 0h4v4h-4V4zm6 0h4v4h-4V4zM4 10h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4zM4 16h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4z" />
-                                </svg>
-                            </div>
-                            <span className="text-xl font-bold">Nexiplay</span>
+                        <Link href="/" className="mb-4 inline-flex items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B09AFF]">
+                            <Image src="/nexiplay-emblem.png" alt="" width={512} height={358} className="h-10 w-12 shrink-0 object-contain drop-shadow-[0_0_10px_rgba(146,115,245,0.35)]" />
+                            <span className="text-lg font-extrabold tracking-tight text-white">NEXI<span className="text-[#B09AFF]">PLAY</span></span>
                         </Link>
-                        <p className="text-gray-400 text-sm leading-relaxed">
+                        <p className="max-w-xs text-sm leading-6 text-gray-400">
                             Your ultimate destination for downloading movies, series, and anime in high quality.
                         </p>
                     </div>
 
                     {/* Browse */}
                     <div>
-                        <h4 className="font-semibold text-white mb-4">Browse</h4>
-                        <ul className="space-y-2">
+                        <h4 className="mb-4 text-xs font-bold uppercase tracking-[0.16em] text-white">Browse</h4>
+                        <ul className="space-y-3">
                             {footerLinks.browse.map((link) => (
                                 <li key={link.href}>
                                     <Link
                                         href={link.href}
-                                        className="text-gray-400 hover:text-white text-sm transition-colors"
+                                        className="text-sm text-gray-400 transition-colors duration-200 hover:text-[#B09AFF]"
                                     >
                                         {link.label}
                                     </Link>
@@ -130,13 +125,13 @@ export default function Footer() {
 
                     {/* Genres */}
                     <div>
-                        <h4 className="font-semibold text-white mb-4">Genres</h4>
-                        <ul className="space-y-2">
+                        <h4 className="mb-4 text-xs font-bold uppercase tracking-[0.16em] text-white">Genres</h4>
+                        <ul className="space-y-3">
                             {footerLinks.genres.map((link) => (
                                 <li key={link.href}>
                                     <Link
                                         href={link.href}
-                                        className="text-gray-400 hover:text-white text-sm transition-colors"
+                                        className="text-sm text-gray-400 transition-colors duration-200 hover:text-[#B09AFF]"
                                     >
                                         {link.label}
                                     </Link>
@@ -147,13 +142,13 @@ export default function Footer() {
 
                     {/* Legal */}
                     <div>
-                        <h4 className="font-semibold text-white mb-4">Legal</h4>
-                        <ul className="space-y-2">
+                        <h4 className="mb-4 text-xs font-bold uppercase tracking-[0.16em] text-white">Legal</h4>
+                        <ul className="space-y-3">
                             {footerLinks.legal.map((link) => (
                                 <li key={link.href}>
                                     <Link
                                         href={link.href}
-                                        className="text-gray-400 hover:text-white text-sm transition-colors"
+                                        className="text-sm text-gray-400 transition-colors duration-200 hover:text-[#B09AFF]"
                                     >
                                         {link.label}
                                     </Link>
@@ -164,11 +159,11 @@ export default function Footer() {
                 </div>
 
                 {/* Bottom Bar */}
-                <div className="border-t border-white/5 mt-10 pt-6 flex flex-col md:flex-row justify-between items-center gap-4">
-                    <p className="text-gray-500 text-sm">
+                <div className="mt-10 flex flex-col items-center justify-between gap-5 border-t border-white/[0.08] pt-6 md:flex-row">
+                    <p className="text-center text-xs text-gray-500 md:text-left md:text-sm">
                         © {currentYear} Nexiplay. All rights reserved.
                     </p>
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-wrap items-center justify-center gap-2.5">
                         {/* Social Links */}
                         {Object.entries(SOCIAL_ICONS).map(([key, icon]) => {
                             const href = socialLinks[key as keyof typeof socialLinks];
@@ -179,13 +174,13 @@ export default function Footer() {
                                     key={key}
                                     href={href}
                                     target="_blank"
-                                    rel="noopener"
-                                    className="text-gray-400 hover:text-white transition-colors group"
+                                    rel="noopener noreferrer"
+                                    className="group flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.025] text-gray-400 shadow-[0_0_9px_rgba(146,115,245,0.12)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#9273F5]/50 hover:bg-[#9273F5]/10 hover:text-white hover:shadow-[0_0_20px_rgba(146,115,245,0.42)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B09AFF]"
                                     aria-label={icon.label}
                                     title={icon.label}
                                 >
                                     <svg
-                                        className="w-5 h-5 fill-current group-hover:scale-110 transition-transform"
+                                        className="h-[18px] w-[18px] fill-current drop-shadow-[0_0_5px_rgba(176,154,255,0.42)] transition-all duration-200 group-hover:scale-110 group-hover:drop-shadow-[0_0_10px_rgba(176,154,255,0.95)]"
                                         viewBox={icon.viewBox}
                                     >
                                         <path d={icon.path} />

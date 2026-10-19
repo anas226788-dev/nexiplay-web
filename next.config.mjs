@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    // Keep dev's hot-reload output isolated from production builds. Running
+    // `next build` while `next dev` is open must not replace the dev manifest.
+    distDir: process.env.NODE_ENV === 'development' ? '.next-dev' : '.next',
     compress: true, // Enable Gzip compression
     reactStrictMode: true,
     poweredByHeader: false, // Hide x-powered-by: Next.js header
@@ -40,6 +43,18 @@ const nextConfig = {
                     {
                         key: 'Permissions-Policy',
                         value: 'camera=(), microphone=(), geolocation=()',
+                    },
+                    {
+                        key: 'X-XSS-Protection',
+                        value: '1; mode=block',
+                    },
+                    {
+                        key: 'X-Robots-Tag',
+                        value: 'noai, noimageai',
+                    },
+                    {
+                        key: 'Cross-Origin-Opener-Policy',
+                        value: 'same-origin-allow-popups',
                     },
                 ],
             },

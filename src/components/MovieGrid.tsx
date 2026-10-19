@@ -24,7 +24,7 @@ export default function MovieGrid({
                     {showViewAll && (
                         <Link
                             href={viewAllHref}
-                            className="text-xs md:text-sm text-gray-400 hover:text-red-500 transition-colors flex items-center gap-1 font-medium"
+                            className="text-xs md:text-sm text-gray-400 hover:text-violet-300 transition-colors flex items-center gap-1 font-medium"
                         >
                             View All
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

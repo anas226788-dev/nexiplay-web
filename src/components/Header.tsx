@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
 import { SOCIAL_ICONS } from '@/config/socials';
@@ -36,6 +37,10 @@ export default function Header() {
         { href: '/movies', label: 'Movies' },
         { href: '/series', label: 'Series' },
         { href: '/anime', label: 'Anime' },
+        { href: '/shorts', label: '⚡ Shorts' },
+        { href: '/live-tv', label: '📺 Live TV' },
+        { href: '/games', label: '🎮 Games' },
+        { href: '/mood', label: 'Vibe Check' },
         { href: '/novels', label: 'Novels' },
     ];
 
@@ -74,26 +79,25 @@ export default function Header() {
                     <div className="flex items-center justify-between h-16 md:h-20 relative z-20 bg-transparent">
                         {/* Logo with Glow */}
                         <Link href="/" className="flex items-center gap-3 group relative z-20">
-                            <div className="absolute inset-0 bg-[#E51D48]/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-full" />
-                            <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-[#1B1E31] to-[#0B0D16] border border-white/10 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
-                                <span className="text-[#E51D48] font-black text-xl">N</span>
-                            </div>
-                            <span className="text-xl md:text-2xl font-black tracking-tight text-[#F7F8FC] group-hover:text-[#E51D48] transition-colors">
-                                NEXI<span className="text-[#E51D48]">PLAY</span>
+                            <div className="absolute inset-0 bg-[#9273F5]/25 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-full" />
+                            <Image src="/nexiplay-emblem.png" alt="Nexiplay emblem" width={512} height={358} priority className="relative h-10 w-12 shrink-0 object-contain drop-shadow-[0_0_12px_rgba(146,115,245,0.45)] transition-transform duration-300 group-hover:scale-105" />
+                            <span className="text-xl md:text-2xl font-black tracking-tight text-[#F4F0FA] group-hover:text-[#9273F5] transition-colors">
+                                NEXI<span className="text-[#9273F5]">PLAY</span>
                             </span>
                         </Link>
 
                         {/* Desktop Navigation */}
-                        <nav className="hidden md:flex items-center bg-[#141625]/80 p-1.5 rounded-full border border-white/10 shadow-np-inset relative z-20">
+                        <nav className="hidden md:flex items-center bg-[#17141F]/80 p-1.5 rounded-full border border-white/10 shadow-np-inset relative z-20">
                             {navLinks.map((link) => {
                                 const active = isActive(link.href);
                                 return (
                                     <Link
                                         key={link.href}
                                         href={link.href}
+                                        prefetch={true}
                                         className={`px-5 py-2 rounded-full text-sm font-semibold transition-all duration-200 relative ${active
-                                            ? 'text-white bg-gradient-to-r from-[#E51D48] to-[#A70F35] shadow-[0_4px_16px_rgba(229,29,72,0.45)]'
-                                            : 'text-[#A7AABD] hover:text-white hover:bg-white/5'
+                                            ? 'text-white bg-gradient-to-r from-[#9273F5] to-[#5C46B2] shadow-[0_4px_16px_rgba(146,115,245,0.45)]'
+                                            : 'text-[#ADA6B9] hover:text-white hover:bg-white/5'
                                             }`}
                                     >
                                         {link.label}
@@ -104,26 +108,29 @@ export default function Header() {
 
                         {/* Search & Mobile Menu */}
                         <div className="flex items-center gap-3 relative z-20">
-                            {/* Desktop Social - Telegram */}
+                            {/* Desktop Telegram Button */}
                             {telegramUrl && (
                                 <a
                                     href={telegramUrl}
                                     target="_blank"
                                     rel="noopener"
-                                    className="hidden md:flex items-center gap-2 px-4 py-2 bg-[#229ED9]/10 hover:bg-[#229ED9]/20 text-[#229ED9] rounded-full transition-all border border-[#229ED9]/20 hover:border-[#229ED9]/40 group"
+                                    aria-label="Telegram"
+                                    className="hidden md:flex items-center gap-2 px-4 py-2 bg-[#229ED9]/15 hover:bg-[#229ED9]/25 text-[#229ED9] rounded-full transition-all border border-[#229ED9]/30 hover:border-[#229ED9]/50 shadow-[0_0_12px_rgba(34,158,217,0.25)] active:scale-95 group flex-shrink-0"
                                 >
-                                    <svg className="w-5 h-5 fill-current" viewBox={SOCIAL_ICONS.telegram.viewBox}>
+                                    <svg className="w-4 h-4 fill-current group-hover:scale-110 transition-transform" viewBox={SOCIAL_ICONS.telegram.viewBox}>
                                         <path d={SOCIAL_ICONS.telegram.path} />
                                     </svg>
-                                    <span className="text-sm font-bold">Join Telegram</span>
+                                    <span className="text-sm font-bold tracking-tight">
+                                        Join Telegram
+                                    </span>
                                 </a>
                             )}
                             {/* Interactive Search Button */}
                             <button
                                 onClick={() => setIsSearchOpen(!isSearchOpen)}
                                 className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 ${isSearchOpen
-                                    ? 'bg-[#E51D48] text-white rotate-90 shadow-[0_4px_16px_rgba(229,29,72,0.55)]'
-                                    : 'text-[#A7AABD] hover:text-white hover:bg-white/10'
+                                    ? 'bg-[#9273F5] text-white rotate-90 shadow-[0_4px_16px_rgba(146,115,245,0.55)]'
+                                    : 'text-[#ADA6B9] hover:text-white hover:bg-white/10'
                                     }`}
                             >
                                 {isSearchOpen ? (
@@ -138,8 +145,7 @@ export default function Header() {
                             </button>
 
                             <UserProfileMenu />
-
-                            <MobileMenu navLinks={navLinks} isActive={isActive} />
+                            <MobileMenu navLinks={navLinks} isActive={isActive} telegramUrl={telegramUrl} />
                         </div>
                     </div>
                 </div>
@@ -151,8 +157,8 @@ export default function Header() {
                 >
                     <div className="container mx-auto px-4 py-6">
                         <div className="max-w-3xl mx-auto relative group">
-                            <div className="relative flex items-center bg-[#0F111C] border border-white/10 rounded-2xl overflow-hidden focus-within:border-[#E51D48] focus-within:ring-2 focus-within:ring-[#E51D48]/25 transition-all shadow-np-inset">
-                                <span className="pl-4 text-[#A7AABD]">
+                            <div className="relative flex items-center bg-[#0F111C] border border-white/10 rounded-2xl overflow-hidden focus-within:border-[#9273F5] focus-within:ring-2 focus-within:ring-[#9273F5]/25 transition-all shadow-np-inset">
+                                <span className="pl-4 text-[#ADA6B9]">
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                     </svg>
@@ -164,7 +170,7 @@ export default function Header() {
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     onKeyDown={handleKeyDown}
                                     placeholder="Search movies, anime, or series..."
-                                    className="w-full bg-transparent border-none px-4 py-3.5 text-white placeholder-[#A7AABD]/70 focus:outline-none focus:ring-0"
+                                    className="w-full bg-transparent border-none px-4 py-3.5 text-white placeholder-[#ADA6B9]/70 focus:outline-none focus:ring-0"
                                 />
                                 {searchQuery && (
                                     <button
@@ -196,10 +202,12 @@ export default function Header() {
 
 function MobileMenu({
     navLinks,
-    isActive
+    isActive,
+    telegramUrl
 }: {
     navLinks: { href: string; label: string }[];
     isActive: (href: string) => boolean;
+    telegramUrl: string | null;
 }) {
     const [isOpen, setIsOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -227,18 +235,35 @@ function MobileMenu({
             </button>
 
             {/* Dropdown */}
-            <div className={`absolute right-0 top-full mt-2 w-48 py-2 glass rounded-xl border border-white/10 transition-all duration-200 ${isOpen ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible -translate-y-2'}`}>
+            <div className={`absolute right-0 top-full mt-2 w-52 py-2 bg-[#0D0B12]/95 backdrop-blur-2xl rounded-2xl border border-white/15 shadow-2xl transition-all duration-200 z-50 ${isOpen ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible -translate-y-2'}`}>
                 {navLinks.map((link) => (
                     <Link
                         key={link.href}
                         href={link.href}
                         onClick={() => setIsOpen(false)}
-                        className={`block px-4 py-3 hover:bg-white/5 transition-colors ${isActive(link.href) ? 'text-red-500 font-bold' : 'text-gray-300'
+                        className={`block px-4 py-2.5 text-sm hover:bg-white/5 transition-colors ${isActive(link.href) ? 'text-[#9273F5] font-bold' : 'text-gray-300'
                             }`}
                     >
                         {link.label}
                     </Link>
                 ))}
+
+                {telegramUrl && (
+                    <div className="pt-2 mt-1 border-t border-white/10 px-2">
+                        <a
+                            href={telegramUrl}
+                            target="_blank"
+                            rel="noopener"
+                            onClick={() => setIsOpen(false)}
+                            className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-[#229ED9] bg-[#229ED9]/10 hover:bg-[#229ED9]/20 rounded-xl transition-colors border border-[#229ED9]/25"
+                        >
+                            <svg className="w-4 h-4 fill-current" viewBox={SOCIAL_ICONS.telegram.viewBox}>
+                                <path d={SOCIAL_ICONS.telegram.path} />
+                            </svg>
+                            <span>Join Telegram</span>
+                        </a>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -265,7 +290,7 @@ function UserProfileMenu() {
                 {/* Desktop Login Button */}
                 <Link
                     href="/login"
-                    className="hidden md:flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-full transition-colors font-bold text-sm"
+                    className="hidden md:flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-full transition-colors font-bold text-sm"
                 >
                     Login
                 </Link>
@@ -322,7 +347,7 @@ function UserProfileMenu() {
                         setIsOpen(false);
                         signOut();
                     }}
-                    className="w-full flex items-center gap-3 px-4 py-2 hover:bg-red-500/10 hover:text-red-500 transition-colors text-gray-300 mt-1"
+                    className="w-full flex items-center gap-3 px-4 py-2 hover:bg-violet-500/10 hover:text-violet-300 transition-colors text-gray-300 mt-1"
                 >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />

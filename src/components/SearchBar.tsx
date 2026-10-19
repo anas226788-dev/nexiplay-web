@@ -81,10 +81,10 @@ export default function SearchBar({ className = '' }: SearchBarProps) {
                         }}
                         onFocus={() => setIsOpen(true)}
                         placeholder="Search movies, series, anime..."
-                        className="w-full h-12 pl-12 pr-4 bg-[#141625]/90 border border-white/10 rounded-xl text-[#F7F8FC] placeholder-[#A7AABD] focus:outline-none focus:border-[#E51D48]/70 focus:bg-[#1B1E31] focus:ring-1 focus:ring-[#E51D48]/30 transition-all duration-200 np-inset"
+                        className="w-full h-12 pl-12 pr-4 bg-[#17141F]/90 border border-white/10 rounded-xl text-[#F4F0FA] placeholder-[#ADA6B9] focus:outline-none focus:border-[#9273F5]/70 focus:bg-[#211D2B] focus:ring-1 focus:ring-[#9273F5]/30 transition-all duration-200 np-inset"
                     />
                     <svg
-                        className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#A7AABD]"
+                        className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#ADA6B9]"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -98,7 +98,7 @@ export default function SearchBar({ className = '' }: SearchBarProps) {
                     </svg>
                     {isLoading && (
                         <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                            <div className="w-5 h-5 border-2 border-[#E51D48] border-t-transparent rounded-full animate-spin" />
+                            <div className="w-5 h-5 border-2 border-[#9273F5] border-t-transparent rounded-full animate-spin" />
                         </div>
                     )}
                 </div>
@@ -106,7 +106,7 @@ export default function SearchBar({ className = '' }: SearchBarProps) {
 
             {/* Search Results Dropdown */}
             {isOpen && query.length >= 2 && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-[#0B0D16]/95 backdrop-blur-xl border border-white/15 rounded-xl overflow-hidden shadow-2xl z-50 max-h-[400px] overflow-y-auto">
+                <div className="absolute top-full left-0 right-0 mt-2 bg-[#0D0B12]/95 backdrop-blur-xl border border-white/15 rounded-xl overflow-hidden shadow-2xl z-50 max-h-[400px] overflow-y-auto">
                     {results.length > 0 ? (
                         <div className="divide-y divide-white/5">
                             {(hideNsfw ? results.filter(r => !r.is_adult) : results).map((movie) => (
@@ -122,7 +122,7 @@ export default function SearchBar({ className = '' }: SearchBarProps) {
                                     }}
                                     className="flex items-center gap-3 p-3 hover:bg-white/10 transition-colors"
                                 >
-                                    <div className="w-12 h-16 rounded-lg overflow-hidden bg-[#141625] flex-shrink-0 border border-white/10">
+                                    <div className="w-12 h-16 rounded-lg overflow-hidden bg-[#17141F] flex-shrink-0 border border-white/10">
                                         {movie.poster_url ? (
                                             <Image
                                                 src={movie.poster_url}
@@ -140,13 +140,13 @@ export default function SearchBar({ className = '' }: SearchBarProps) {
                                         )}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="font-medium text-[#F7F8FC] truncate flex items-center gap-2">
+                                        <p className="font-medium text-[#F4F0FA] truncate flex items-center gap-2">
                                             {movie.title}
                                             {movie.is_adult && (
-                                                <span className="px-1.5 py-0.5 text-[9px] font-black rounded bg-[#E51D48] text-white uppercase shrink-0">18+</span>
+                                                <span className="px-1.5 py-0.5 text-[9px] font-black rounded bg-[#9273F5] text-white uppercase shrink-0">18+</span>
                                             )}
                                         </p>
-                                        <div className="flex items-center gap-2 text-xs text-[#A7AABD]">
+                                        <div className="flex items-center gap-2 text-xs text-[#ADA6B9]">
                                             <span className="uppercase">{movie.type}</span>
                                             {movie.release_year && <span>• {movie.release_year}</span>}
                                         </div>
@@ -156,13 +156,13 @@ export default function SearchBar({ className = '' }: SearchBarProps) {
                             <Link
                                 href={`/search?q=${encodeURIComponent(query)}`}
                                 onClick={() => setIsOpen(false)}
-                                className="block p-3 text-center text-sm font-semibold text-[#E51D48] hover:bg-white/5 transition-colors"
+                                className="block p-3 text-center text-sm font-semibold text-[#9273F5] hover:bg-white/5 transition-colors"
                             >
                                 View all results for &quot;{query}&quot;
                             </Link>
                         </div>
                     ) : (
-                        <div className="p-6 text-center text-[#A7AABD]">
+                        <div className="p-6 text-center text-[#ADA6B9]">
                             No results found for &quot;{query}&quot;
                         </div>
                     )}

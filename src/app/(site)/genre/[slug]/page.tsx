@@ -31,18 +31,12 @@ async function getMoviesByCategory(categoryId: string, page: number): Promise<{ 
     const from = (page - 1) * ITEMS_PER_PAGE;
     const to = from + ITEMS_PER_PAGE - 1;
 
-    // Get total count
-    const { count } = await supabase
-        .from('movie_categories')
-        .select('id', { count: 'exact', head: true })
-        .eq('category_id', categoryId);
-
-    // Get paginated data
-    const { data, error } = await supabase
+    // Fetch the page and its count in one request instead of waiting on a separate count query.
+    const { data, error, count } = await supabase
         .from('movie_categories')
         .select(`
       movies (id, title, slug, type, poster_url, description, release_year, created_at, is_adult)
-    `)
+    `, { count: 'exact' })
         .eq('category_id', categoryId)
         .range(from, to);
 
@@ -93,7 +87,7 @@ export default async function GenrePage({ params, searchParams }: GenrePageProps
     const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
     return (
-        <div className="container mx-auto px-4 py-8">
+        <div className="container mx-auto px-4 pt-20 md:pt-24 pb-12">
             {/* Page Header */}
             <div className="mb-8">
                 <nav className="text-sm text-gray-500 mb-4">

@@ -1,23 +1,18 @@
-import { MovieGridSkeleton } from '@/components/MovieGrid';
-
-export default function Loading() {
+export default function SiteLoading() {
     return (
-        <div className="container mx-auto px-4 py-8 min-h-screen">
-            <div className="animate-pulse mb-8">
-                <div className="h-8 bg-dark-700/50 rounded w-48 mb-4"></div>
-                <div className="h-4 bg-dark-700/50 rounded w-64"></div>
-            </div>
+        <div className="min-h-screen pt-24 px-4 container mx-auto max-w-6xl animate-fade-in">
+            {/* Header placeholder shimmer */}
+            <div className="h-64 md:h-96 w-full rounded-2xl np-skeleton mb-8" />
 
-            <div className="space-y-12">
-                <div>
-                    <div className="h-6 bg-dark-700/50 rounded w-32 mb-6"></div>
-                    <MovieGridSkeleton count={6} />
-                </div>
-
-                <div>
-                    <div className="h-6 bg-dark-700/50 rounded w-32 mb-6"></div>
-                    <MovieGridSkeleton count={6} />
-                </div>
+            {/* Grid of cards shimmer */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {Array.from({ length: 10 }).map((_, i) => (
+                    <div key={i} className="space-y-2">
+                        <div className="aspect-[2/3] rounded-xl np-skeleton" />
+                        <div className="h-4 w-3/4 rounded np-skeleton" />
+                        <div className="h-3 w-1/2 rounded np-skeleton" />
+                    </div>
+                ))}
             </div>
         </div>
     );

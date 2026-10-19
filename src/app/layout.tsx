@@ -4,6 +4,9 @@ import './globals.css';
 
 import NoticeSystem from '@/components/NoticeSystem';
 import AntiAdBlockGate from '@/components/AntiAdBlockGate';
+import SecurityShield from '@/components/SecurityShield';
+import CookieConsent from '@/components/CookieConsent';
+import NavigationProgressBar from '@/components/NavigationProgressBar';
 import { PopunderAd, SocialBarAd } from '@/components/ads';
 import { AdProvider } from '@/context/AdProvider';
 import { TutorialProvider } from '@/context/TutorialContext';
@@ -34,6 +37,7 @@ export default function RootLayout({
     return (
         <html lang="en" suppressHydrationWarning>
             <body className={`${inter.className} gradient-bg min-h-screen`} suppressHydrationWarning>
+                <NavigationProgressBar />
                 <AdProvider>
                     <TutorialProvider>
                         <AuthProvider>
@@ -42,6 +46,8 @@ export default function RootLayout({
                                 <PopunderAd />
                                 <SocialBarAd />
                                 <AntiAdBlockGate />
+                                <SecurityShield />
+                                <CookieConsent />
 
                                 <Script
                                     src="https://www.googletagmanager.com/gtag/js?id=G-697MJ5V5CL"

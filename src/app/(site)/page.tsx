@@ -43,14 +43,44 @@ async function getHomeContent(page: number) {
     const from = (page - 1) * ITEMS_PER_PAGE;
     const to = from + ITEMS_PER_PAGE - 1;
 
-    // 1. Fetch core data (always needed)
-    const [categoriesRes, latestCountRes, paginatedLatestRes, pinnedRes] = await Promise.all([
+    const getCategoryWithPinned = async (type: string) => {
+        const [catPinnedRes, catRegularRes] = await Promise.all([
+            supabase.from('movies').select(cardFields).eq('type', type).eq('admin_note', 'pinned').order('created_at', { ascending: false }).limit(6),
+            supabase.from('movies').select(cardFields).eq('type', type).order('created_at', { ascending: false }).limit(10),
+        ]);
+        const catPinned = (catPinnedRes.data || []).map((m: any) => ({ ...m, is_pinned: true }));
+        const catPinnedIds = new Set(catPinned.map(m => m.id));
+        const catRegular = (catRegularRes.data || [])
+            .filter((m: any) => !catPinnedIds.has(m.id))
+            .map((m: any) => ({ ...m, is_pinned: false }));
+        return [...catPinned, ...catRegular].slice(0, 6);
+    };
+
+    // Run every independent home query together, rather than waiting for a
+    // second database round trip before requesting the home-page sections.
+    const coreDataPromise = Promise.all([
         supabase.from('categories').select('id, name, slug, created_at').order('name', { ascending: true }),
-        supabase.from('movies').select('id', { count: 'exact', head: true }).in('type', ['movie', 'series', 'anime']),
-        supabase.from('movies').select(cardFields).in('type', ['movie', 'series', 'anime']).order('created_at', { ascending: false }).range(from, to),
-        page === 1 
+        supabase.from('movies').select(cardFields, { count: 'exact' }).in('type', ['movie', 'series', 'anime']).order('created_at', { ascending: false }).range(from, to),
+        page === 1
             ? supabase.from('movies').select(cardFields).eq('admin_note', 'pinned').in('type', ['movie', 'series', 'anime']).order('created_at', { ascending: false })
             : Promise.resolve({ data: [] }),
+    ]);
+
+    const homeSectionsPromise = page === 1
+        ? Promise.all([
+            supabase.from('movies').select(sliderFields).eq('is_trending', true).order('trending_rank', { ascending: true }).limit(10),
+            supabase.from('updates').select('*').eq('is_active', true).order('updated_at', { ascending: false }).limit(10),
+            supabase.from('app_settings').select('latest_update_click_ad_link').eq('id', 1).single(),
+            supabase.from('upcoming').select('*').order('release_date', { ascending: true }).limit(10),
+            getCategoryWithPinned('movie'),
+            getCategoryWithPinned('series'),
+            getCategoryWithPinned('anime'),
+        ] as const)
+        : Promise.resolve(null);
+
+    const [[categoriesRes, paginatedLatestRes, pinnedRes], homeSections] = await Promise.all([
+        coreDataPromise,
+        homeSectionsPromise,
     ]);
 
     // Format pinned movies
@@ -80,32 +110,9 @@ async function getHomeContent(page: number) {
     let latestSeries: Movie[] = [];
     let latestAnime: Movie[] = [];
 
-    // Helper to fetch category items with pinned items always placed first
-    const getCategoryWithPinned = async (type: string) => {
-        const [catPinnedRes, catRegularRes] = await Promise.all([
-            supabase.from('movies').select(cardFields).eq('type', type).eq('admin_note', 'pinned').order('created_at', { ascending: false }).limit(6),
-            supabase.from('movies').select(cardFields).eq('type', type).order('created_at', { ascending: false }).limit(10),
-        ]);
-        const catPinned = (catPinnedRes.data || []).map((m: any) => ({ ...m, is_pinned: true }));
-        const catPinnedIds = new Set(catPinned.map(m => m.id));
-        const catRegular = (catRegularRes.data || [])
-            .filter((m: any) => !catPinnedIds.has(m.id))
-            .map((m: any) => ({ ...m, is_pinned: false }));
-        return [...catPinned, ...catRegular].slice(0, 6);
-    };
-
-    // 2. Fetch specific Home Page grids & widgets ONLY if page exactly 1
-    if (page === 1) {
-        const [trendingRes, updatesRes, settingsRes, upcomingRes, movList, serList, aniList] = await Promise.all([
-            supabase.from('movies').select(sliderFields).eq('is_trending', true).order('trending_rank', { ascending: true }).limit(10),
-            supabase.from('updates').select('*').eq('is_active', true).order('updated_at', { ascending: false }).limit(10),
-            supabase.from('app_settings').select('latest_update_click_ad_link').eq('id', 1).single(),
-            supabase.from('upcoming').select('*').order('release_date', { ascending: true }).limit(10),
-            getCategoryWithPinned('movie'),
-            getCategoryWithPinned('series'),
-            getCategoryWithPinned('anime'),
-        ]);
-
+    // 2. Read the already-fetched page-one sections.
+    if (homeSections) {
+        const [trendingRes, updatesRes, settingsRes, upcomingRes, movList, serList, aniList] = homeSections;
         trendingMovies = (trendingRes.data as Movie[]) || [];
         latestUpdates = updatesRes.data || [];
         latestUpdateAdLink = settingsRes.data?.latest_update_click_ad_link || '';
@@ -117,7 +124,7 @@ async function getHomeContent(page: number) {
 
     return {
         categories: categoriesRes.data || [],
-        totalLatestCount: latestCountRes.count || 0,
+        totalLatestCount: paginatedLatestRes.count || 0,
         paginatedLatest,
         trendingMovies,
         latestUpdates,
@@ -156,11 +163,11 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                     <HeroSlider movies={trendingMovies} />
                 ) : (
                     <section className="relative py-8 md:py-12">
-                        <div className="absolute inset-0 bg-gradient-to-b from-red-900/10 via-transparent to-transparent" />
+                        <div className="absolute inset-0 bg-gradient-to-b from-violet-900/15 via-transparent to-transparent" />
                         <div className="container mx-auto px-4 relative">
                             <div className="text-center mb-8">
                                 <h1 className="text-3xl md:text-4xl font-bold mb-2">
-                                    <span className="bg-gradient-to-r from-red-500 to-red-600 bg-clip-text text-transparent">
+                                    <span className="bg-gradient-to-r from-violet-300 to-violet-600 bg-clip-text text-transparent">
                                         Nexiplay
                                     </span>
                                 </h1>
@@ -192,6 +199,32 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                     </div>
                 )}
             </div>
+
+            {currentPage === 1 && (
+                <div className="container mx-auto -mt-5 px-4 pb-9 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Vibe Check Banner */}
+                    <Link href="/mood" className="group relative flex min-h-24 items-center justify-between overflow-hidden rounded-3xl border border-[#B09AFF]/20 bg-[radial-gradient(ellipse_at_80%_50%,rgba(146,115,245,.2),transparent_55%),linear-gradient(110deg,#17131f,#111016)] px-5 py-4 shadow-[0_16px_48px_rgba(0,0,0,.24)] transition hover:border-[#B09AFF]/45 sm:px-6">
+                        <div className="relative z-10 max-w-xl">
+                            <p className="text-[10px] font-extrabold uppercase tracking-[.22em] text-[#B09AFF]">Not sure what to watch?</p>
+                            <h2 className="mt-1 text-lg font-black text-white sm:text-xl">Do a Vibe Check <span aria-hidden="true">✦</span></h2>
+                            <p className="mt-0.5 text-xs text-gray-400">Pick your vibe. Get a fresh mix from Nexiplay & TMDB.</p>
+                        </div>
+                        <span className="relative z-10 ml-3 grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-white/10 bg-white/[.06] text-xl text-[#B09AFF] transition group-hover:scale-110 group-hover:rotate-6">→</span>
+                        <span aria-hidden="true" className="pointer-events-none absolute -right-7 -top-12 h-40 w-40 rounded-full bg-[#9273F5]/10 blur-3xl" />
+                    </Link>
+
+                    {/* Nexiplay Arcade Games Banner */}
+                    <Link href="/games" className="group relative flex min-h-24 items-center justify-between overflow-hidden rounded-3xl border border-fuchsia-500/20 bg-[radial-gradient(ellipse_at_80%_50%,rgba(217,70,239,.2),transparent_55%),linear-gradient(110deg,#1c1228,#120e1c)] px-5 py-4 shadow-[0_16px_48px_rgba(0,0,0,.24)] transition hover:border-fuchsia-500/45 sm:px-6">
+                        <div className="relative z-10 max-w-xl">
+                            <p className="text-[10px] font-extrabold uppercase tracking-[.22em] text-fuchsia-400">Instant HTML5 Games</p>
+                            <h2 className="mt-1 text-lg font-black text-white sm:text-xl">Nexiplay Arcade <span aria-hidden="true">🎮</span></h2>
+                            <p className="mt-0.5 text-xs text-gray-400">1,000+ free games. Action, racing, puzzles. Zero download.</p>
+                        </div>
+                        <span className="relative z-10 ml-3 grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-white/10 bg-white/[.06] text-xl text-fuchsia-400 transition group-hover:scale-110 group-hover:rotate-6">→</span>
+                        <span aria-hidden="true" className="pointer-events-none absolute -right-7 -top-12 h-40 w-40 rounded-full bg-fuchsia-600/10 blur-3xl" />
+                    </Link>
+                </div>
+            )}
 
             {/* Content */}
             <div className="container mx-auto px-4 pb-12">

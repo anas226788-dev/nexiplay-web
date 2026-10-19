@@ -18,12 +18,17 @@ export default function RelatedPosts({ currentMovieId, type }: RelatedPostsProps
     useEffect(() => {
         async function fetchRelated() {
             // Simple logic: Fetch same type, exclude current
-            // Limit 10 to allow for some scrolling
-            const { data } = await supabase
+            const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentMovieId);
+            let query = supabase
                 .from('movies')
                 .select('id, title, slug, type, poster_url, description, release_year, created_at')
-                .eq('type', type)
-                .neq('id', currentMovieId)
+                .eq('type', type);
+
+            if (isUuid) {
+                query = query.neq('id', currentMovieId);
+            }
+
+            const { data } = await query
                 .order('created_at', { ascending: false })
                 .limit(10);
 
@@ -41,7 +46,7 @@ export default function RelatedPosts({ currentMovieId, type }: RelatedPostsProps
         return (
             <div className="py-8">
                 <div className="flex items-center gap-3 mb-6 px-4 md:px-0">
-                    <span className="w-1 h-8 bg-red-600 rounded-full"></span>
+                    <span className="w-1 h-8 bg-violet-600 rounded-full"></span>
                     <h2 className="section-title">You May Also Like</h2>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6 px-4 md:px-0">

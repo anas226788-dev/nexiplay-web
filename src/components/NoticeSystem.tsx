@@ -281,7 +281,7 @@ export default function NoticeSystem() {
     const getAccentColor = (notice: NoticeFields) => {
         if (notice.bg_color?.includes('gold')) return 'from-amber-500 via-yellow-400 to-amber-500';
         if (notice.bg_color?.includes('cyberpunk')) return 'from-purple-600 via-violet-500 to-cyan-500';
-        if (notice.bg_color?.includes('red_gradient')) return 'from-red-600 via-red-500 to-orange-500';
+        if (notice.bg_color?.includes('red_gradient')) return 'from-violet-600 via-violet-500 to-orange-500';
         return null;
     };
 
@@ -292,14 +292,14 @@ export default function NoticeSystem() {
                 {topBarNotices.map(notice => (
                     <div
                         key={notice.id}
-                        className={`px-6 py-3.5 text-center text-sm font-semibold flex items-center justify-center relative shadow-2xl border-b border-white/5 backdrop-blur-md animate-slide-down transition-all duration-300 ${isTailwind(notice.bg_color) ? notice.bg_color : 'bg-red-600/90'} ${isTailwind(notice.text_color) ? notice.text_color : 'text-white'}`}
+                        className={`px-6 py-3.5 text-center text-sm font-semibold flex items-center justify-center relative shadow-2xl border-b border-white/5 backdrop-blur-md animate-slide-down transition-all duration-300 ${isTailwind(notice.bg_color) ? notice.bg_color : 'bg-violet-600/90'} ${isTailwind(notice.text_color) ? notice.text_color : 'text-white'}`}
                         style={{
                             backgroundColor: !isTailwind(notice.bg_color) ? notice.bg_color : undefined,
                             color: !isTailwind(notice.text_color) ? notice.text_color : undefined
                         }}
                     >
                         <div className="flex items-center justify-center gap-3 max-w-5xl mx-auto px-8 flex-wrap md:flex-nowrap">
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-widest bg-red-600/20 text-red-400 border border-red-500/30 shadow-[0_0_12px_rgba(239,68,68,0.25)] animate-pulse shrink-0">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-widest bg-violet-600/20 text-red-400 border border-red-500/30 shadow-[0_0_12px_rgba(239,68,68,0.25)] animate-pulse shrink-0">
                                 📢 Notice
                             </span>
                             <span className="leading-relaxed text-left" dangerouslySetInnerHTML={{ __html: notice.content }} />
@@ -382,7 +382,7 @@ export default function NoticeSystem() {
                                 ) : !isTailwind(notice.bg_color) ? (
                                     <div className="absolute left-0 top-0 bottom-0 w-1.5" style={{ backgroundColor: notice.bg_color }} />
                                 ) : (
-                                    <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-red-600 via-red-500 to-orange-500" />
+                                    <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-violet-600 via-violet-500 to-orange-500" />
                                 )}
 
                                 {/* Ambient Glow */}
@@ -410,7 +410,7 @@ export default function NoticeSystem() {
 
                                     <button
                                         onClick={() => handleClose(notice.id)}
-                                        className="absolute -top-2 lg:top-0 -right-2 p-2 bg-white/5 hover:bg-red-500/20 text-white/70 hover:text-white rounded-full border border-white/10 hover:border-red-500/30 transition-all duration-300 hover:rotate-90 flex-shrink-0"
+                                        className="absolute -top-2 lg:top-0 -right-2 p-2 bg-white/5 hover:bg-violet-500/20 text-white/70 hover:text-white rounded-full border border-white/10 hover:border-red-500/30 transition-all duration-300 hover:rotate-90 flex-shrink-0"
                                     >
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
@@ -425,7 +425,7 @@ export default function NoticeSystem() {
 
             {/* Popups */}
             {popupNotices.length > 0 && (
-                <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-fade-in">
+                <div data-notice-modal="true" className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-fade-in">
                     <div
                         className={`max-w-xl w-full rounded-3xl p-8 shadow-2xl border border-white/15 relative overflow-hidden animate-scale-in font-medium bg-dark-900/90 backdrop-blur-2xl text-white ${isTailwind(popupNotices[0].bg_color) ? popupNotices[0].bg_color : ''}`}
                         style={{
@@ -433,12 +433,12 @@ export default function NoticeSystem() {
                         }}
                     >
                         {/* Decorative Glow Orbs */}
-                        <div className="absolute -right-24 -bottom-24 w-72 h-72 bg-red-600/10 rounded-full blur-[90px] pointer-events-none animate-pulse-slow" />
+                        <div className="absolute -right-24 -bottom-24 w-72 h-72 bg-violet-600/10 rounded-full blur-[90px] pointer-events-none animate-pulse-slow" />
                         <div className="absolute -left-24 -top-24 w-72 h-72 bg-blue-600/10 rounded-full blur-[90px] pointer-events-none animate-pulse-slow [animation-delay:3s]" />
 
                         <button
                             onClick={() => handleClose(popupNotices[0].id)}
-                            className="absolute top-4 right-4 p-2 bg-white/5 hover:bg-red-500/20 text-white/70 hover:text-white rounded-full border border-white/10 hover:border-red-500/30 transition-all duration-300 hover:rotate-90 z-20"
+                            className="absolute top-4 right-4 p-2 bg-white/5 hover:bg-violet-500/20 text-white/70 hover:text-white rounded-full border border-white/10 hover:border-red-500/30 transition-all duration-300 hover:rotate-90 z-20"
                         >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
@@ -527,16 +527,16 @@ export default function NoticeSystem() {
 
             {/* Fullscreen Takeover - Like Netflix/Disney+ major announcements */}
             {fullscreenNotices.length > 0 && (
-                <div className="fixed inset-0 z-[115] flex items-center justify-center bg-black/95 backdrop-blur-2xl p-4 animate-fade-in">
+                <div data-notice-modal="true" className="fixed inset-0 z-[115] flex items-center justify-center bg-black/95 backdrop-blur-2xl p-4 animate-fade-in">
                     <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-red-600/10 rounded-full blur-[120px] animate-pulse-slow" />
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-violet-600/10 rounded-full blur-[120px] animate-pulse-slow" />
                         <div className="absolute top-1/4 right-1/4 w-[300px] h-[300px] bg-purple-600/8 rounded-full blur-[100px] animate-pulse-slow [animation-delay:2s]" />
                     </div>
 
                     <div className="relative max-w-3xl w-full text-center space-y-8 animate-scale-in">
                         <button
                             onClick={() => handleClose(fullscreenNotices[0].id)}
-                            className="absolute -top-2 right-0 md:right-4 p-3 bg-white/5 hover:bg-red-500/20 text-white/70 hover:text-white rounded-full border border-white/10 hover:border-red-500/30 transition-all duration-300 hover:rotate-90 z-20"
+                            className="absolute -top-2 right-0 md:right-4 p-3 bg-white/5 hover:bg-violet-500/20 text-white/70 hover:text-white rounded-full border border-white/10 hover:border-red-500/30 transition-all duration-300 hover:rotate-90 z-20"
                         >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
@@ -629,7 +629,7 @@ export default function NoticeSystem() {
                     >
                         <button
                             onClick={() => setSelectedVideoUrl(null)}
-                            className="absolute -top-12 right-0 p-2 text-white hover:text-red-500 font-bold flex items-center gap-1.5 transition-colors text-sm tracking-wider uppercase"
+                            className="absolute -top-12 right-0 p-2 text-white hover:text-violet-300 font-bold flex items-center gap-1.5 transition-colors text-sm tracking-wider uppercase"
                         >
                             Close ✕
                         </button>
@@ -641,7 +641,7 @@ export default function NoticeSystem() {
             {downloadState.active && (
                 <div className="fixed bottom-6 right-6 md:right-8 z-[130] max-w-md w-[calc(100%-3rem)] bg-dark-900/95 backdrop-blur-2xl border border-red-500/30 rounded-3xl p-5 shadow-[0_12px_40px_rgba(0,0,0,0.8)] animate-slide-up font-sans">
                     <div className="flex items-start gap-3.5">
-                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center text-2xl shadow-lg shrink-0 border border-white/10">
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-600 to-violet-800 flex items-center justify-center text-2xl shadow-lg shrink-0 border border-white/10">
                             {downloadState.complete ? '✅' : '📱'}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -662,7 +662,7 @@ export default function NoticeSystem() {
                             {/* Animated Glowing Progress Bar */}
                             <div className="w-full h-2.5 bg-white/10 rounded-full overflow-hidden relative">
                                 <div 
-                                    className="h-full bg-gradient-to-r from-red-600 via-red-500 to-orange-400 rounded-full transition-all duration-200 relative"
+                                    className="h-full bg-gradient-to-r from-violet-600 via-violet-500 to-orange-400 rounded-full transition-all duration-200 relative"
                                     style={{ width: `${downloadState.percent}%` }}
                                 >
                                     <div className="absolute inset-0 bg-white/20 animate-pulse" />
@@ -709,7 +709,7 @@ function ToastNotice({ notice, index, onClose, isTailwind, setSelectedVideoUrl }
             }}
         >
             {/* Glow accent */}
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-red-500 to-transparent opacity-60" />
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-violet-500 to-transparent opacity-60" />
 
             <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 w-8 h-8 rounded-xl bg-red-500/15 flex items-center justify-center text-red-400 mt-0.5">
@@ -735,7 +735,7 @@ function ToastNotice({ notice, index, onClose, isTailwind, setSelectedVideoUrl }
             </div>
 
             {/* Auto-dismiss progress bar */}
-            <div className="absolute bottom-0 left-0 h-[2px] bg-gradient-to-r from-red-500 to-orange-500 animate-shrink-width" />
+            <div className="absolute bottom-0 left-0 h-[2px] bg-gradient-to-r from-violet-300 to-violet-600 animate-shrink-width" />
         </div>
     );
 }

@@ -5,11 +5,8 @@ import Script from 'next/script';
 import { supabase } from '@/lib/supabase';
 
 /**
- * SocialBarAd — uses Next.js <Script> component (designed for ad scripts).
- * 
- * Static HTML test confirmed: direct <script src="..."> works perfectly.
- * React manual injection (createContextualFragment, iframe) doesn't replicate this.
- * Next.js <Script strategy="afterInteractive"> is the official way to load ad scripts.
+ * SocialBarAd — loads social bar ad scripts directly via next/script.
+ * Fully active on all pages as configured in the ads table.
  */
 export function SocialBarAd() {
     const [scriptUrl, setScriptUrl] = useState<string | null>(null);
@@ -24,7 +21,6 @@ export function SocialBarAd() {
             .maybeSingle()
             .then(({ data }) => {
                 if (data?.script_code) {
-                    // Extract src URL from script tag
                     const srcMatch = data.script_code.match(/src=["']([^"']+)["']/);
                     if (srcMatch) {
                         setScriptUrl(srcMatch[1]);
@@ -40,7 +36,10 @@ export function SocialBarAd() {
             src={scriptUrl}
             strategy="afterInteractive"
             onLoad={() => console.log('[SocialBarAd] Script loaded via next/script')}
-            onError={() => console.error('[SocialBarAd] Script failed to load')}
+            onError={() => {
+                // Warning only - prevents Next.js dev overlay from crashing when adblockers block the script
+                console.warn('[SocialBarAd] Script failed or was blocked by client adblocker');
+            }}
         />
     );
 }

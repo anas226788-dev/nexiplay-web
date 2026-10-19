@@ -127,11 +127,11 @@ export default function NovelsExplorer({
     return (
         <div className="space-y-8">
             {/* Search & Filter Bar */}
-            <div className="bg-[#141625]/90 border border-white/10 rounded-2xl p-4 md:p-5 shadow-xl">
+            <div className="bg-[#17141F]/90 border border-white/10 rounded-2xl p-4 md:p-5 shadow-xl">
                 <form onSubmit={handleSearchSubmit} className="flex flex-col md:flex-row items-center gap-4">
                     {/* Search Input */}
                     <div className="relative w-full flex-1">
-                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#A7AABD]">
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#ADA6B9]">
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                             </svg>
@@ -141,14 +141,14 @@ export default function NovelsExplorer({
                             value={searchInput}
                             onChange={(e) => setSearchInput(e.target.value)}
                             placeholder="Search novels by title, author, or genre... (Press Enter)"
-                            className="w-full pl-11 pr-24 py-3 bg-[#0B0D16] border border-white/10 rounded-xl text-[#F7F8FC] placeholder-[#A7AABD] text-sm md:text-base outline-none focus:border-[#E51D48]/70 focus:ring-1 focus:ring-[#E51D48]/30 transition-all np-inset"
+                            className="w-full pl-11 pr-24 py-3 bg-[#0D0B12] border border-white/10 rounded-xl text-[#F4F0FA] placeholder-[#ADA6B9] text-sm md:text-base outline-none focus:border-[#9273F5]/70 focus:ring-1 focus:ring-[#9273F5]/30 transition-all np-inset"
                         />
                         <div className="absolute inset-y-0 right-0 flex items-center pr-2 gap-1">
                             {searchInput && (
                                 <button
                                     type="button"
                                     onClick={handleClearSearch}
-                                    className="p-1.5 text-[#A7AABD] hover:text-white transition-colors"
+                                    className="p-1.5 text-[#ADA6B9] hover:text-white transition-colors"
                                     title="Clear search"
                                 >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -259,7 +259,7 @@ export default function NovelsExplorer({
                             setSearchInput('');
                             navigateWithParams(1, '', 'all');
                         }}
-                        className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-red-900/20"
+                        className="px-5 py-2.5 bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-violet-950/20"
                     >
                         View All Novels
                     </button>
@@ -273,7 +273,7 @@ export default function NovelsExplorer({
                             className="group flex flex-col rounded-np-card overflow-hidden hover:-translate-y-1.5 transition-all duration-300"
                         >
                             {/* Card Cover */}
-                            <div className="relative aspect-[2/3] w-full overflow-hidden rounded-np-card mb-2.5 shadow-lg border border-white/10 np-glass-solid group-hover:border-[#E51D48]/50 transition-colors">
+                            <div className="relative aspect-[2/3] w-full overflow-hidden rounded-np-card mb-2.5 shadow-lg border border-white/10 np-glass-solid group-hover:border-[#9273F5]/50 transition-colors">
                                 {novel.cover_url ? (
                                     <Image
                                         src={novel.cover_url}
@@ -283,25 +283,25 @@ export default function NovelsExplorer({
                                         className="object-cover transition-transform duration-500 group-hover:scale-105"
                                     />
                                 ) : (
-                                    <div className="w-full h-full flex flex-col items-center justify-between p-4 text-center select-none bg-gradient-to-b from-[#1B1E31] via-[#141625] to-[#0B0D16]">
-                                        <div className="w-full flex items-center justify-between opacity-50 text-[10px] font-mono uppercase tracking-wider text-[#A7AABD]">
+                                    <div className="w-full h-full flex flex-col items-center justify-between p-4 text-center select-none bg-gradient-to-b from-[#211D2B] via-[#17141F] to-[#0D0B12]">
+                                        <div className="w-full flex items-center justify-between opacity-50 text-[10px] font-mono uppercase tracking-wider text-[#ADA6B9]">
                                             <span>NEXIPLAY</span>
                                             <span>NOVEL</span>
                                         </div>
 
                                         <div className="flex flex-col items-center justify-center my-auto py-4">
-                                            <div className="w-12 h-12 rounded-2xl bg-white/[0.04] border border-white/10 flex items-center justify-center text-[#E51D48] mb-2 group-hover:scale-110 group-hover:border-[#E51D48]/40 transition-all shadow-inner">
+                                            <div className="w-12 h-12 rounded-2xl bg-white/[0.04] border border-white/10 flex items-center justify-center text-[#9273F5] mb-2 group-hover:scale-110 group-hover:border-[#9273F5]/40 transition-all shadow-inner">
                                                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                                                 </svg>
                                             </div>
-                                            <span className="text-[11px] font-bold text-[#F7F8FC] line-clamp-2 px-1">
+                                            <span className="text-[11px] font-bold text-[#F4F0FA] line-clamp-2 px-1">
                                                 {novel.title}
                                             </span>
                                         </div>
 
                                         <div className="w-full flex items-center justify-center">
-                                            <span className="text-[9px] uppercase tracking-wider text-[#A7AABD] font-bold bg-white/[0.05] px-2 py-0.5 rounded-full border border-white/10">
+                                            <span className="text-[9px] uppercase tracking-wider text-[#ADA6B9] font-bold bg-white/[0.05] px-2 py-0.5 rounded-full border border-white/10">
                                                 {novel.genre || 'Novel'}
                                             </span>
                                         </div>
@@ -310,19 +310,19 @@ export default function NovelsExplorer({
 
                                 {/* Status Badge */}
                                 {novel.status === 'completed' && (
-                                    <div className="absolute top-2 right-2 bg-[#28D391]/90 text-black text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider shadow-md">
+                                    <div className="absolute top-2 right-2 bg-[#57D6C0]/90 text-black text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider shadow-md">
                                         Completed
                                     </div>
                                 )}
                             </div>
 
                             {/* Card Info */}
-                            <h2 className="text-sm font-semibold text-[#F7F8FC] mb-1 line-clamp-2 group-hover:text-[#E51D48] transition-colors">
+                            <h2 className="text-sm font-semibold text-[#F4F0FA] mb-1 line-clamp-2 group-hover:text-[#9273F5] transition-colors">
                                 {novel.title}
                             </h2>
-                            <div className="flex flex-col gap-0.5 text-xs text-[#A7AABD]">
+                            <div className="flex flex-col gap-0.5 text-xs text-[#ADA6B9]">
                                 {novel.author && <span className="truncate">By {novel.author}</span>}
-                                {novel.genre && <span className="text-[#E51D48] font-medium truncate text-[11px]">{novel.genre}</span>}
+                                {novel.genre && <span className="text-[#9273F5] font-medium truncate text-[11px]">{novel.genre}</span>}
                             </div>
                         </Link>
                     ))}
@@ -375,7 +375,7 @@ export default function NovelsExplorer({
                                         disabled={isActive || isPending}
                                         className={`w-9 h-9 rounded-xl text-xs font-bold transition-all flex items-center justify-center ${
                                             isActive
-                                                ? 'bg-red-600 text-white font-black shadow-lg shadow-red-900/40 border border-red-500 scale-105'
+                                                ? 'bg-violet-600 text-white font-black shadow-lg shadow-violet-950/40 border border-red-500 scale-105'
                                                 : 'border border-white/10 bg-dark-800 text-gray-300 hover:text-white hover:bg-white/10 hover:border-white/20'
                                         }`}
                                     >
@@ -417,7 +417,7 @@ export default function NovelsExplorer({
                             value={jumpInput}
                             onChange={(e) => setJumpInput(e.target.value)}
                             placeholder={`${currentPage}`}
-                            className="w-14 px-2 py-1 text-center bg-dark-800 border border-white/10 rounded-lg text-white outline-none focus:border-red-500/80 font-bold"
+                            className="w-14 px-2 py-1 text-center bg-dark-800 border border-white/10 rounded-lg text-white outline-none focus:border-violet-400/80 font-bold"
                         />
                         <button
                             type="submit"

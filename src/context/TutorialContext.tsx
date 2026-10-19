@@ -128,7 +128,7 @@ function TutorialModal({ tutorial, onClose }: { tutorial: Tutorial; onClose: () 
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 border-b border-white/10">
                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                        <span className="text-red-500">📖</span>
+                        <span className="text-violet-300">📖</span>
                         How To Download from {tutorial.source_name}
                     </h3>
                     <button

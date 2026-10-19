@@ -1,106 +1,81 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import Image from 'next/image';
+import { useEffect, useState } from 'react';
 
 export default function SplashScreen() {
-    const [show, setShow] = useState(true);
-    const [visible, setVisible] = useState(true);
-    const [particles, setParticles] = useState<Array<{ style: any }>>([]);
+    const [visible, setVisible] = useState(false);
+    const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
-        // Generate particles only on client side to prevent hydration match
-        const newParticles = [...Array(20)].map(() => ({
-            style: {
-                width: Math.random() * 10 + 2 + 'px',
-                height: Math.random() * 10 + 2 + 'px',
-                left: Math.random() * 100 + '%',
-                top: '100%',
-                animation: `particle-move ${Math.random() * 3 + 2}s linear infinite`,
-                animationDelay: Math.random() * 2 + 's'
+        try {
+            // Check if splash was already shown in this session or recently
+            const sessionSeen = sessionStorage.getItem('nexiplay_splash_seen');
+            const localSeen = localStorage.getItem('nexiplay_splash_seen');
+
+            // If already shown anywhere, never show it again
+            if (sessionSeen || localSeen) {
+                return;
             }
-        }));
-        setParticles(newParticles);
 
-        // Check if splash has already been shown in this session
-        const hasshown = sessionStorage.getItem('nexiplay_splash_shown');
-        if (hasshown) {
-            setShow(false);
-            setVisible(false);
-            return;
+            // Mark seen in both storages so subsequent tabs and reloads never see it
+            sessionStorage.setItem('nexiplay_splash_seen', 'true');
+            localStorage.setItem('nexiplay_splash_seen', Date.now().toString());
+
+            // Only show for first visit
+            setMounted(true);
+            setVisible(true);
+
+            const fadeTimer = window.setTimeout(() => setVisible(false), 1800);
+            const removeTimer = window.setTimeout(() => setMounted(false), 2200);
+
+            return () => {
+                window.clearTimeout(fadeTimer);
+                window.clearTimeout(removeTimer);
+            };
+        } catch {
+            // Fallback: don't block
         }
-
-        // Set flag
-        sessionStorage.setItem('nexiplay_splash_shown', 'true');
-
-        // Hide after animation (1.5s for better performance)
-        const timer = setTimeout(() => {
-            setVisible(false);
-            setTimeout(() => setShow(false), 300); // Faster fade out
-        }, 1500);
-
-        return () => clearTimeout(timer);
     }, []);
 
-    if (!show) return null;
+    if (!mounted) return null;
 
     return (
         <div
-            className={`fixed inset-0 z-[9999] bg-[#050505] flex items-center justify-center transition-opacity duration-700 ${visible ? 'opacity-100' : 'opacity-0'}`}
+            aria-label="Nexiplay is loading"
+            role="status"
+            className={`np-splash fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden bg-[#0D0B12] transition-opacity duration-500 motion-reduce:transition-none ${visible ? 'opacity-100' : 'opacity-0'}`}
         >
-            {/* Background Particles (CSS based for performance) */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                {particles.map((particle, i) => (
-                    <div
-                        key={i}
-                        className="absolute rounded-full bg-red-600/20 blur-sm"
-                        style={particle.style}
+            <div className="np-splash-aurora np-splash-aurora-one" />
+            <div className="np-splash-aurora np-splash-aurora-two" />
+            <div className="np-splash-grain" />
+
+            <div className="np-splash-content relative flex flex-col items-center text-center px-4">
+                {/* Transparent emblem with a separately typeset wordmark keeps the splash crisp. */}
+                <div className="relative flex flex-col items-center">
+                    <div className="absolute left-1/2 top-1/4 h-36 w-56 -translate-x-1/2 rounded-full bg-[#7228FF]/25 blur-3xl" />
+                    <Image
+                        src="/nexiplay-emblem.png"
+                        alt="Nexiplay emblem"
+                        width={512}
+                        height={358}
+                        priority
+                        sizes="(max-width: 640px) 208px, 240px"
+                        className="relative h-auto w-52 drop-shadow-[0_0_26px_rgba(146,115,245,0.5)] sm:w-60"
                     />
-                ))}
-            </div>
-
-            {/* Main Content */}
-            <div className="relative text-center animate-float">
-                {/* Logo Container */}
-                <div className="relative w-32 h-32 mx-auto mb-6">
-                    {/* Pulse Glow Effect */}
-                    <div className="absolute inset-0 rounded-full bg-red-600/30 blur-2xl animate-pulse-glow" />
-
-                    {/* Logo SVG */}
-                    <div className="relative z-10 w-full h-full bg-gradient-to-br from-dark-800 to-black rounded-3xl border border-white/10 shadow-2xl flex items-center justify-center overflow-hidden">
-                        {/* Gloss Effect */}
-                        <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/10 to-transparent" />
-
-                        {/* N Icon */}
-                        <svg className="w-16 h-16 text-red-600 drop-shadow-[0_0_15px_rgba(229,9,20,0.5)]" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M4 4h4l6 8V4h6v16h-4l-6-8v8H4V4z" />
-                        </svg>
-                    </div>
-                </div>
-
-                {/* Text */}
-                <div className="space-y-2 opacity-0 animate-fade-in" style={{ animationDelay: '0.5s' }}>
-                    <h1 className="text-4xl font-black tracking-tighter text-white">
-                        NEXI<span className="text-red-600">PLAY</span>
-                    </h1>
-                    <p className="text-sm text-gray-400 tracking-widest uppercase">
-                        Start Streaming
+                    <p className="mt-1 text-2xl font-black tracking-[0.08em] text-white drop-shadow-[0_0_18px_rgba(146,115,245,0.55)] sm:text-3xl">
+                        NEXI<span className="text-[#A77BFF]">PLAY</span>
                     </p>
                 </div>
 
-                {/* Loading Indicator */}
-                <div className="absolute -bottom-24 left-1/2 -translate-x-1/2 w-48 h-1 bg-dark-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-red-600 w-full animate-[shimmer_2s_infinite] origin-left scale-x-0"
-                        style={{ animation: 'loading-bar 3s ease-in-out forwards' }} />
+                {/* Elegant Loader */}
+                <div className="np-splash-loader mt-6 h-[3px] w-36 overflow-hidden rounded-full bg-white/[0.09]">
+                    <span />
                 </div>
+                <p className="np-splash-caption mt-3 text-[10px] font-semibold uppercase tracking-[0.25em] text-[#ADA6B9]/80">
+                    Curating your next watch
+                </p>
             </div>
-
-            <style jsx>{`
-        @keyframes loading-bar {
-          0% { transform: scaleX(0); }
-          50% { transform: scaleX(0.7); }
-          100% { transform: scaleX(1); }
-        }
-      `}</style>
         </div>
     );
 }

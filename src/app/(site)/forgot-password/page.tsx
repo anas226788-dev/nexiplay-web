@@ -53,14 +53,14 @@ export default function ForgotPasswordPage() {
                             value={email}
                             onChange={(event) => setEmail(event.target.value)}
                             required
-                            className="w-full rounded-xl bg-black/40 border border-white/10 px-4 py-3 text-white outline-none focus:border-red-500/60"
+                            className="w-full rounded-xl bg-black/40 border border-white/10 px-4 py-3 text-white outline-none focus:border-violet-400/60"
                             placeholder="you@example.com"
                         />
                     </div>
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full rounded-xl bg-red-600 px-5 py-3 font-black text-white hover:bg-red-500 disabled:opacity-60 transition-colors cursor-pointer"
+                        className="w-full rounded-xl bg-violet-600 px-5 py-3 font-black text-white hover:bg-violet-500 disabled:opacity-60 transition-colors cursor-pointer"
                     >
                         {loading ? 'Sending link...' : 'Send Reset Link'}
                     </button>
@@ -68,7 +68,7 @@ export default function ForgotPasswordPage() {
 
                 <p className="mt-6 text-center text-sm text-gray-400">
                     Back to{' '}
-                    <Link href="/login" className="font-bold text-red-400 hover:text-red-300">
+                    <Link href="/login" className="font-bold text-violet-300 hover:text-violet-200">
                         Login
                     </Link>
                 </p>

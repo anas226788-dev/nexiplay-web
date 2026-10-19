@@ -153,7 +153,7 @@ export default function Pagination({ currentPage, totalPages, totalItems, itemsP
                     {currentPage > 1 && (
                         <Link
                             href={buildPageUrl(1)}
-                            className="text-xs text-gray-500 hover:text-red-500 transition-colors"
+                            className="text-xs text-gray-500 hover:text-violet-300 transition-colors"
                         >
                             ← First Page
                         </Link>
@@ -161,7 +161,7 @@ export default function Pagination({ currentPage, totalPages, totalItems, itemsP
                     {currentPage < totalPages && (
                         <Link
                             href={buildPageUrl(totalPages)}
-                            className="text-xs text-gray-500 hover:text-red-500 transition-colors"
+                            className="text-xs text-gray-500 hover:text-violet-300 transition-colors"
                         >
                             Last Page →
                         </Link>

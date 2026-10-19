@@ -12,6 +12,7 @@ import { buildPageMetadata } from '@/lib/metadata';
 import AdultGateGuard from '@/components/AdultGateGuard';
 import ActiveMovieSetter from '@/components/ActiveMovieSetter';
 import WatchlistButton from '@/components/WatchlistButton';
+import { fetchTmdbDetails, tmdbDetailToMovie, fetchTmdbByImdbId, searchTmdb, cleanTitleForTmdb } from '@/lib/tmdb';
 
 const ScreenshotGallery = dynamicImport(() => import('@/components/ScreenshotGallery'), {
     loading: () => <div className="h-64 bg-dark-800 animate-pulse rounded-xl my-8" />
@@ -84,6 +85,41 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
             .eq('type', dbType)
             .maybeSingle();
         if (fallbackMovie) movie = fallbackMovie;
+    }
+
+    // 3. Fallback: Resolve TMDB / IMDb item metadata on-demand
+    if (!movie) {
+        const media = (dbType === 'series' || dbType === 'anime') ? 'tv' : 'movie';
+        let tmdbId: number | null = null;
+        let resolvedMedia: 'movie' | 'tv' = media;
+
+        if (rawSlug.startsWith('tmdb-') || /^\d+$/.test(rawSlug)) {
+            tmdbId = parseInt(rawSlug.replace(/^tmdb-/, ''), 10);
+        } else if (/^tt\d+$/i.test(rawSlug)) {
+            const findRes = await fetchTmdbByImdbId(rawSlug);
+            if (findRes) {
+                tmdbId = findRes.tmdbId;
+                resolvedMedia = findRes.media;
+            }
+        } else {
+            const searchResults = await searchTmdb(actualSlug.replace(/-/g, ' '), media);
+            if (searchResults.length > 0) {
+                const match = releaseYear
+                    ? searchResults.find(r => r.release_year === releaseYear) || searchResults[0]
+                    : searchResults[0];
+                if (match?.tmdb_id) {
+                    tmdbId = parseInt(match.tmdb_id, 10);
+                }
+            }
+        }
+
+        if (tmdbId) {
+            const detail = await fetchTmdbDetails(tmdbId, resolvedMedia);
+            if (detail) {
+                const { movie: virtualMovie } = tmdbDetailToMovie(detail, resolvedMedia);
+                movie = virtualMovie as any;
+            }
+        }
     }
 
     if (!movie) {
@@ -193,7 +229,45 @@ export default async function MovieDetailPage({ params, searchParams }: PageProp
         }
     }
 
-    if (error) {
+    // 3. Fallback: On-demand TMDB / IMDb item resolution for detail page
+    let tmdbSeasons: Season[] = [];
+    if (!movie) {
+        const media = (dbType === 'series' || dbType === 'anime') ? 'tv' : 'movie';
+        let tmdbId: number | null = null;
+        let resolvedMedia: 'movie' | 'tv' = media;
+
+        if (rawSlug.startsWith('tmdb-') || /^\d+$/.test(rawSlug)) {
+            tmdbId = parseInt(rawSlug.replace(/^tmdb-/, ''), 10);
+        } else if (/^tt\d+$/i.test(rawSlug)) {
+            const findRes = await fetchTmdbByImdbId(rawSlug);
+            if (findRes) {
+                tmdbId = findRes.tmdbId;
+                resolvedMedia = findRes.media;
+            }
+        } else {
+            const searchResults = await searchTmdb(actualSlug.replace(/-/g, ' '), media);
+            if (searchResults.length > 0) {
+                const match = releaseYear
+                    ? searchResults.find(r => r.release_year === releaseYear) || searchResults[0]
+                    : searchResults[0];
+                if (match?.tmdb_id) {
+                    tmdbId = parseInt(match.tmdb_id, 10);
+                }
+            }
+        }
+
+        if (tmdbId) {
+            const detail = await fetchTmdbDetails(tmdbId, resolvedMedia);
+            if (detail) {
+                const { movie: virtualMovie, seasons: virtualSeasons } = tmdbDetailToMovie(detail, resolvedMedia);
+                movie = virtualMovie as any;
+                tmdbSeasons = virtualSeasons;
+                error = null;
+            }
+        }
+    }
+
+    if (error && !movie) {
         console.error('Movie fetch error:', JSON.stringify(error, null, 2));
     }
 
@@ -202,14 +276,36 @@ export default async function MovieDetailPage({ params, searchParams }: PageProp
     }
 
     const movieData = movie as any; // Cast to any to handle joined relations easily
+
+    // Dynamic fallback: resolve TMDB ID if not present in DB
+    if (!movieData.tmdb_id && !movieData.imdb_id) {
+        const cleanTitle = cleanTitleForTmdb(movieData.title);
+        const media = (movieData.type === 'series' || movieData.type === 'anime') ? 'tv' : 'movie';
+        try {
+            const searchResults = await searchTmdb(cleanTitle, media);
+            if (searchResults.length > 0) {
+                const match = movieData.release_year
+                    ? searchResults.find(r => r.release_year === movieData.release_year) || searchResults[0]
+                    : searchResults[0];
+                if (match?.tmdb_id) {
+                    movieData.tmdb_id = match.tmdb_id;
+                    // Persist to DB asynchronously
+                    supabase.from('movies').update({ tmdb_id: match.tmdb_id }).eq('id', movieData.id).then();
+                }
+            }
+        } catch (e) {
+            console.warn('[MovieDetailPage] Auto TMDB resolve error:', e);
+        }
+    }
+
     const categories = movieData.movie_categories?.map((mc: any) => mc.categories?.name).join(', ') || 'N/A';
     const uniqueQualities = Array.from(new Set(movieData.downloads?.map((d: any) => d.quality))).join(', ') || 'N/A';
     const sizes = Array.from(new Set(movieData.downloads?.map((d: any) => d.file_size))).filter(Boolean).join(', ') || 'N/A';
     const isSeriesOrAnime = movieData.type === 'series' || movieData.type === 'anime';
 
     // Fetch seasons for series/anime
-    let seasons: Season[] = [];
-    if (isSeriesOrAnime) {
+    let seasons: Season[] = tmdbSeasons;
+    if (isSeriesOrAnime && seasons.length === 0 && !movieData.id?.startsWith('tmdb-')) {
         const { data: seasonData } = await supabase
             .from('seasons')
             .select(`
@@ -223,166 +319,518 @@ export default async function MovieDetailPage({ params, searchParams }: PageProp
             .order('season_number');
 
         seasons = (seasonData as Season[]) || [];
+
+        // If DB has 0 seasons but has tmdb_id, dynamically generate virtual seasons from TMDB
+        if (seasons.length === 0 && movieData.tmdb_id) {
+            try {
+                const detail = await fetchTmdbDetails(parseInt(movieData.tmdb_id, 10), 'tv');
+                if (detail) {
+                    const { seasons: virtualSeasons } = tmdbDetailToMovie(detail, 'tv');
+                    seasons = virtualSeasons;
+                }
+            } catch (e) {
+                console.warn('[MovieDetailPage] Failed to fetch virtual seasons from TMDB:', e);
+            }
+        }
     }
+
+    // Dynamic TMDB rich metadata retrieval
+    let tmdbDetail: any = null;
+    if (movieData.tmdb_id) {
+        const media = (movieData.type === 'series' || movieData.type === 'anime') ? 'tv' : 'movie';
+        try {
+            tmdbDetail = await fetchTmdbDetails(parseInt(movieData.tmdb_id, 10), media);
+        } catch (e) {
+            console.warn('[MovieDetailPage] fetchTmdbDetails error:', e);
+        }
+    }
+
+    // Dynamic franchise prequel/sequel retrieval for the Yomi "RELATED" card (only show if true title root match exists)
+    let franchiseItem: any = null;
+    try {
+        const titleRoot = movieData.title.split(/[:\-\(]/)[0].trim();
+        if (titleRoot.length >= 3) {
+            const { data: relatedData } = await supabase
+                .from('movies')
+                .select('id, title, slug, type, poster_url, release_year')
+                .eq('type', movieData.type)
+                .neq('id', movieData.id)
+                .ilike('title', `%${titleRoot}%`)
+                .limit(1);
+            if (relatedData && relatedData.length > 0) {
+                franchiseItem = relatedData[0];
+            }
+        }
+    } catch (e) {
+        console.warn('[MovieDetailPage] related fetch error:', e);
+    }
+
+    // Derived metadata fields
+    const backdropUrl = movieData.banner_url_desktop || 
+        (tmdbDetail?.backdrop_path ? `https://image.tmdb.org/t/p/original${tmdbDetail.backdrop_path}` : movieData.poster_url);
+    const score = tmdbDetail?.vote_average ? Number(tmdbDetail.vote_average).toFixed(1) : (movieData.type === 'anime' ? '8.7' : '8.2');
+    const popularityRank = tmdbDetail?.popularity ? `#${Math.round(tmdbDetail.popularity * 850).toLocaleString()}` : '#93,595';
+    const durationStr = tmdbDetail?.runtime 
+        ? `${tmdbDetail.runtime}m`
+        : tmdbDetail?.episode_run_time?.[0]
+            ? `${tmdbDetail.episode_run_time[0]}m`
+            : (movieData.type === 'movie' ? '2h 15m' : '24m');
+    const studioName = tmdbDetail?.production_companies?.[0]?.name 
+        || tmdbDetail?.networks?.[0]?.name 
+        || (movieData.type === 'anime' ? 'Studio Pierrot' : 'Warner Bros.');
+
+    // Genre items
+    const genresList: string[] = [];
+    if (movieData.movie_categories && movieData.movie_categories.length > 0) {
+        for (const mc of movieData.movie_categories) {
+            if (mc.categories?.name && !genresList.includes(mc.categories.name)) {
+                genresList.push(mc.categories.name);
+            }
+        }
+    }
+    if (genresList.length === 0 && tmdbDetail?.genres) {
+        for (const g of tmdbDetail.genres) {
+            if (g.name && !genresList.includes(g.name)) genresList.push(g.name);
+        }
+    }
+    if (genresList.length === 0) {
+        genresList.push(movieData.type === 'anime' ? 'Action' : 'Action', 'Adventure', 'Fantasy', 'Drama');
+    }
+
+    // Cast members
+    let castList: string[] = [];
+    if (movieData.cast_members && movieData.cast_members.trim() && movieData.cast_members !== 'N/A') {
+        castList = movieData.cast_members.split(',').map((c: string) => c.trim()).filter(Boolean);
+    } else if (tmdbDetail?.credits?.cast) {
+        castList = tmdbDetail.credits.cast.slice(0, 5).map((c: any) => c.name).filter(Boolean);
+    }
+
+    // Clean title and season parsing
+    const titleSeasonMatch = movieData.title.match(/^(.*?)\s*[\(\[]?(Season\s*\d+[^)\]]*)[\)\]]?$/i);
+    const mainTitle = titleSeasonMatch ? titleSeasonMatch[1].trim() : movieData.title;
+    const detectedSeason = titleSeasonMatch ? titleSeasonMatch[2].trim() : (isSeriesOrAnime ? 'Season 1' : null);
+    const initialSeasonNum = detectedSeason ? parseInt(detectedSeason.replace(/\D/g, ''), 10) : undefined;
+    const subtitle = movieData.language ? `${movieData.language} Multi Audio` : '';
+    const statusLabel = isSeriesOrAnime
+        ? (movieData.running_status || (tmdbDetail?.status === 'Ended' ? 'Completed' : 'Airing'))
+        : (movieData.release_year ? `Released (${movieData.release_year})` : 'Full Movie');
+    const descriptionText = (movieData.description && !movieData.description.toLowerCase().startsWith('download & watch'))
+        ? movieData.description
+        : (tmdbDetail?.overview || movieData.description || `Watch and download ${movieData.title} in HD quality on Nexiplay.`);
+    const trailerUrl = movieData.trailer_url || (tmdbDetail?.videos?.results?.find((v: any) => v.type === 'Trailer' && v.site === 'YouTube')?.key ? `https://www.youtube.com/watch?v=${tmdbDetail.videos.results.find((v: any) => v.type === 'Trailer' && v.site === 'YouTube').key}` : null);
 
     const isAdultContent = !!movieData.is_adult;
 
     const pageContent = (
-        <div className="min-h-screen pb-20">
+        <div className="min-h-screen pb-20 bg-[#0A0B12]">
             <ActiveMovieSetter movieId={movieData.id} allowGlobalNotices={!!movieData.allow_global_notices} />
-            {/* Backdrop / Header Section */}
-            <div className="relative w-full">
-                {/* Background Image with Blur */}
-                <div className="absolute inset-0 h-[70vh] w-full overflow-hidden" suppressHydrationWarning>
-                    {movieData.poster_url && (
+            
+            {/* Cinematic Hero Backdrop Banner */}
+            <div className="relative w-full overflow-hidden">
+                {/* Wide Horizon Backdrop Image */}
+                <div className="absolute inset-0 h-[68vh] min-h-[520px] w-full overflow-hidden" suppressHydrationWarning>
+                    {backdropUrl && (
                         <Image
-                            src={movieData.poster_url}
+                            src={backdropUrl}
                             alt={movieData.title}
                             fill
-                            className="object-cover opacity-30 blur-md mask-image-b"
+                            className="object-cover object-top opacity-35 filter brightness-90 saturate-125"
                             priority
                         />
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#050505] to-transparent/50" />
-                    <div className="absolute inset-0 bg-gradient-to-b from-black/60 to-transparent" />
+                    {/* Multi-layered dark gradients for seamless blend into deep obsidian */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#0A0B12] via-[#0A0B12]/80 to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-[#0A0B12]/80 via-transparent to-[#0A0B12]" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-[#0A0B12] via-transparent to-[#0A0B12]/80" />
+                    {/* Ambient Glow */}
+                    <div className="absolute -top-32 left-1/4 w-96 h-96 bg-violet-600/15 rounded-full blur-[120px] pointer-events-none" />
                 </div>
 
-                {/* Content Container */}
-                <div className="relative z-10 container mx-auto px-4 max-w-6xl pt-32 pb-12">
-                    <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-8 md:gap-12 items-start">
-
-                        {/* LEFT COLUMN: Poster & Ad */}
-                        <div className="space-y-6">
+                {/* Main Content Layout */}
+                <div className="relative z-10 container mx-auto px-4 max-w-7xl pt-28 sm:pt-32 pb-12">
+                    <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-8 xl:gap-12 items-start">
+                        
+                        {/* LEFT COLUMN: Poster & Quick Stats Box (Desktop Only) */}
+                        <div className="hidden lg:block space-y-6 lg:sticky lg:top-24">
                             {/* Poster Card */}
-                            <div className="hidden md:block relative aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl shadow-red-900/20 ring-1 ring-white/10 movie-card-3d transform hover:scale-105 transition-transform duration-500" suppressHydrationWarning>
+                            <div className="relative aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl shadow-violet-950/40 ring-1 ring-white/10 group bg-dark-900" suppressHydrationWarning>
                                 {movieData.poster_url ? (
                                     <Image
                                         src={movieData.poster_url}
                                         alt={movieData.title}
                                         fill
-                                        className="object-cover"
+                                        className="object-cover group-hover:scale-105 transition-transform duration-500"
                                         priority
                                     />
                                 ) : (
                                     <div className="w-full h-full bg-dark-800 flex items-center justify-center">
-                                        <span className="text-gray-600 font-bold">No Poster</span>
+                                        <span className="text-gray-500 font-bold">No Poster</span>
                                     </div>
                                 )}
+                                {/* Corner Badges */}
+                                <div className="absolute top-3 left-3 flex flex-col gap-1.5 pointer-events-none">
+                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-black/75 backdrop-blur-md text-amber-300 border border-amber-400/30">
+                                        ★ {score}
+                                    </span>
+                                </div>
+                                <div className="absolute top-3 right-3 pointer-events-none">
+                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-black/75 backdrop-blur-md text-cyan-300 border border-cyan-400/30">
+                                        {uniqueQualities !== 'N/A' ? uniqueQualities.split(',')[0] : '1080p'}
+                                    </span>
+                                </div>
                             </div>
 
-                            {/* Sidebar Ad & Telegram (Desktop) */}
-                            <div className="hidden md:flex flex-col gap-6 sticky top-32">
+                            {/* Sleek Stats Box (Under Poster) */}
+                            <div className="rounded-2xl bg-[#12131F]/90 border border-white/[0.08] p-4 text-xs space-y-2.5 backdrop-blur-xl shadow-xl">
+                                <div className="flex items-center justify-between pb-2 border-b border-white/[0.06]">
+                                    <span className="text-gray-400 font-medium">Score</span>
+                                    <span className="font-extrabold text-amber-400 flex items-center gap-1.5 text-sm">
+                                        <svg className="w-4 h-4 fill-amber-400 text-amber-400" viewBox="0 0 24 24">
+                                            <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+                                        </svg>
+                                        {score}
+                                    </span>
+                                </div>
+                                <div className="flex items-center justify-between pb-2 border-b border-white/[0.06]">
+                                    <span className="text-gray-400 font-medium">Duration</span>
+                                    <span className="font-semibold text-gray-200">{durationStr}</span>
+                                </div>
+                                <div className="flex items-center justify-between pb-2 border-b border-white/[0.06]">
+                                    <span className="text-gray-400 font-medium">Studio</span>
+                                    <span className="font-bold text-violet-400 hover:text-violet-300 truncate max-w-[130px]" title={studioName}>
+                                        {studioName}
+                                    </span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-gray-400 font-medium">Audio</span>
+                                    <span className="font-semibold text-emerald-400 truncate max-w-[130px]">
+                                        {movieData.language || 'Multi Audio'}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Community & Sidebar Ads */}
+                            <div className="flex flex-col gap-4">
                                 <TelegramButton className="w-full shadow-lg shadow-cyan-900/20" />
                                 <AdBanner placement="movie_sidebar" size="300x250" />
                             </div>
                         </div>
 
-                        {/* RIGHT COLUMN: Text Content */}
+                        {/* RIGHT COLUMN: Badges, Title, Genres, Actions, Synopsis, Tech Specs, Related */}
                         <div className="space-y-6">
-                            {/* Breadcrumb */}
-                            <nav className="flex items-center text-sm text-gray-400 mb-2 overflow-x-auto whitespace-nowrap">
-                                <Link href="/" className="hover:text-red-500 transition-colors">Home</Link>
-                                <span className="mx-2">›</span>
-                                <Link href={`/${movieData.type}`} className="hover:text-red-500 transition-colors capitalize">{movieData.type}</Link>
-                                <span className="mx-2">›</span>
-                                <span className="text-white truncate max-w-[200px]">{movieData.title}</span>
+                            {/* Breadcrumb Navigation */}
+                            <nav className="flex items-center text-xs text-gray-400 overflow-x-auto whitespace-nowrap py-1">
+                                <Link href="/" className="hover:text-violet-400 transition-colors">Home</Link>
+                                <span className="mx-2 text-gray-600">›</span>
+                                <Link href={`/${movieData.type}`} className="hover:text-violet-400 transition-colors capitalize">{movieData.type}</Link>
+                                <span className="mx-2 text-gray-600">›</span>
+                                <span className="text-gray-200 truncate max-w-[260px]">{mainTitle}</span>
                             </nav>
 
-                            <div className="space-x-2 flex flex-wrap">
-                                <span className="px-3 py-1 bg-red-600 text-white text-xs font-bold rounded uppercase tracking-wider shadow-lg shadow-red-900/40">
-                                    {movieData.type}
+                            {/* Top Badges Row */}
+                            <div className="flex flex-wrap items-center gap-2">
+                                {isSeriesOrAnime ? (
+                                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5 shadow-sm">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                        {statusLabel}
+                                    </span>
+                                ) : (
+                                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5 shadow-sm">
+                                        <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        Full Movie
+                                    </span>
+                                )}
+                                <span className="px-3 py-1 rounded-full text-xs font-bold bg-violet-500/20 text-violet-300 border border-violet-500/30 uppercase tracking-wider">
+                                    {movieData.type === 'anime' ? 'Anime' : movieData.type === 'series' ? 'TV Series' : 'Movie'}
+                                </span>
+                                <span className="px-3 py-1 rounded-full text-xs font-bold bg-white/5 text-gray-300 border border-white/10">
+                                    PG-13
                                 </span>
                                 {movieData.release_year && (
-                                    <span className="px-3 py-1 bg-white/10 text-gray-200 text-xs font-bold rounded backdrop-blur-md border border-white/10">
+                                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-white/5 text-gray-300 border border-white/10">
                                         {movieData.release_year}
                                     </span>
                                 )}
+                                <span className="px-3 py-1 rounded-full text-xs font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
+                                    {movieData.format || 'MKV'} • BluRay
+                                </span>
                             </div>
 
-                            <h1 className="text-4xl md:text-6xl font-black text-white leading-tight">
-                                {movieData.title}
-                            </h1>
-
-                            {/* Auto-Generated Movie Details Block */}
-                            <div className="glass p-5 rounded-xl border border-white/5 bg-black/20 backdrop-blur-sm">
-                                <h3 className="text-lg font-bold text-red-500 mb-3 border-b border-white/10 pb-2">
-                                    Download {movieData.title} ({movieData.release_year}) {movieData.language || 'Hindi'} {movieData.type === 'movie' ? 'Movie' : movieData.type} ~ Nexiplay
-                                </h3>
-                                <ul className="space-y-2 text-sm text-gray-300">
-                                    <li className="flex"><span className="font-bold text-white min-w-[100px]">Full Name:</span> <span>{movieData.title}</span></li>
-                                    <li className="flex"><span className="font-bold text-white min-w-[100px]">Language:</span> <span>{movieData.language || 'Hindi'}</span></li>
-                                    <li className="flex"><span className="font-bold text-white min-w-[100px]">Year:</span> <span>{movieData.release_year}</span></li>
-                                    <li className="flex"><span className="font-bold text-white min-w-[100px]">Size:</span> <span>{sizes}</span></li>
-                                    <li className="flex"><span className="font-bold text-white min-w-[100px]">Quality:</span> <span>{uniqueQualities}</span></li>
-                                    <li className="flex"><span className="font-bold text-white min-w-[100px]">Format:</span> <span>{movieData.format || 'MKV'}</span></li>
-                                    <li className="flex"><span className="font-bold text-white min-w-[100px]">Source:</span> <span>{movieData.source || 'BluRay'}</span></li>
-                                    <li className="flex"><span className="font-bold text-white min-w-[100px]">Genres:</span> <span>{categories}</span></li>
-                                    <li className="flex"><span className="font-bold text-white min-w-[100px]">Cast:</span> <span>{movieData.cast_members || 'N/A'}</span></li>
-                                    <li className="flex"><span className="font-bold text-white min-w-[100px]">Subtitle:</span> <span>{movieData.subtitle || 'English'}</span></li>
-                                </ul>
-                            </div>
-
-                            <p className="text-gray-300 text-lg leading-relaxed max-w-2xl line-clamp-4 md:line-clamp-none">
-                                {movieData.description}
-                            </p>
-
-                            {/* Buttons */}
-                            {/* Mobile Poster (shown only on small screens) */}
-                            <div className="md:hidden relative aspect-video rounded-xl overflow-hidden shadow-lg border border-white/10 mb-6" suppressHydrationWarning>
-                                {movieData.poster_url && (
-                                    <Image
-                                        src={movieData.poster_url}
-                                        alt={movieData.title}
-                                        fill
-                                        className="object-cover"
-                                    />
+                            {/* Main Title & Subtitle */}
+                            <div className="space-y-1">
+                                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.1] drop-shadow-md">
+                                    {mainTitle}
+                                </h1>
+                                {subtitle && (
+                                    <p className="text-sm md:text-base text-violet-400/90 font-semibold tracking-wide">
+                                        {subtitle}
+                                    </p>
                                 )}
+                            </div>
+
+                            {/* Mobile Hero Card (Poster + Quick Stats in compact view) */}
+                            <div className="flex lg:hidden gap-4 p-4 rounded-2xl bg-[#12131F]/90 border border-white/[0.08] backdrop-blur-xl shadow-xl">
+                                <div className="relative w-28 sm:w-36 aspect-[2/3] rounded-xl overflow-hidden shrink-0 ring-1 ring-white/10 shadow-lg bg-dark-900">
+                                    {movieData.poster_url ? (
+                                        <Image
+                                            src={movieData.poster_url}
+                                            alt={movieData.title}
+                                            fill
+                                            className="object-cover"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full bg-dark-800 flex items-center justify-center">
+                                            <span className="text-gray-500 text-xs font-bold">No Poster</span>
+                                        </div>
+                                    )}
+                                    <div className="absolute top-2 left-2 pointer-events-none">
+                                        <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-black/75 backdrop-blur-md text-amber-300 border border-amber-400/30">
+                                            ★ {score}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="flex-1 flex flex-col justify-between py-0.5 text-xs">
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-gray-400">Score</span>
+                                            <span className="font-extrabold text-amber-400 flex items-center gap-1">
+                                                <svg className="w-3.5 h-3.5 fill-amber-400 text-amber-400" viewBox="0 0 24 24">
+                                                    <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+                                                </svg>
+                                                {score}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-gray-400">Duration</span>
+                                            <span className="font-semibold text-gray-200">{durationStr}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-gray-400">Audio</span>
+                                            <span className="font-semibold text-emerald-400 truncate max-w-[90px]">{movieData.language || 'Multi'}</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="pt-2 border-t border-white/[0.06]">
+                                        <span className="text-[10px] text-gray-400 block truncate">Studio: <span className="font-semibold text-violet-300">{studioName}</span></span>
+                                    </div>
+                                </div>
                             </div>
 
                             {/* Mobile Telegram Button */}
-                            <div className="md:hidden mb-6">
-                                <TelegramButton className="w-full" />
+                            <div className="block lg:hidden">
+                                <TelegramButton className="w-full shadow-lg shadow-cyan-900/20" />
                             </div>
 
-                            <div className="flex flex-col sm:flex-row gap-4 pt-4 flex-wrap">
-                                {((movieData.tmdb_id || movieData.imdb_id || movieData.mal_id || movieData.streaming_url) && movieData.streaming_url !== 'disabled') && (
+                            {/* Genre Pills */}
+                            <div className="flex flex-wrap gap-2">
+                                {genresList.map((genre) => (
+                                    <Link
+                                        key={genre}
+                                        href={`/search?genre=${encodeURIComponent(genre)}`}
+                                        className="px-3.5 py-1 rounded-full text-xs font-semibold bg-white/[0.05] hover:bg-violet-600/20 text-gray-300 hover:text-white border border-white/10 hover:border-violet-500/40 transition-all backdrop-blur-md"
+                                    >
+                                        {genre}
+                                    </Link>
+                                ))}
+                            </div>
+
+                            {/* Action Buttons Row (The Power Row) */}
+                            <div className="flex flex-wrap items-center gap-3 pt-2">
+                                {(movieData.streaming_url !== 'disabled') && (
                                     <Link
                                         href={`/watch/${type}/${rawSlug}`}
-                                        className="px-8 py-4 bg-gradient-to-r from-red-600 via-red-500 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-extrabold rounded-xl transition-all scale-105 hover:scale-110 shadow-[0_0_25px_rgba(239,68,68,0.55)] hover:shadow-[0_0_35px_rgba(239,68,68,0.85)] border border-red-500/20 flex items-center justify-center gap-2 group duration-300"
+                                        className="px-7 py-3.5 bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-extrabold rounded-xl shadow-lg shadow-violet-600/35 hover:shadow-violet-600/60 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 text-sm md:text-base group"
                                     >
-                                        <svg className="w-6 h-6 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        Watch Online
-                                    </Link>
-                                )}
-                                <Link
-                                    href={`/${type}/${rawSlug}?tab=download#downloads`}
-                                    className="px-8 py-4 bg-white/5 hover:bg-white/10 hover:shadow-lg hover:shadow-white/5 text-white font-bold rounded-xl transition-all border border-white/10 backdrop-blur-md flex items-center justify-center gap-2 group"
-                                >
-                                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
-                                        <polyline points="7 11 12 16 17 11" />
-                                        <line x1="12" y1="4" x2="12" y2="16" />
-                                    </svg>
-                                    Download Links
-                                </Link>
-                                <WatchlistButton movieId={movieData.id} />
-                                {movieData.trailer_url && (
-                                    <a
-                                        href={movieData.trailer_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="px-8 py-4 bg-white/5 hover:bg-white/10 hover:shadow-lg hover:shadow-white/5 text-white font-bold rounded-xl transition-all border border-white/10 backdrop-blur-md flex items-center justify-center group"
-                                    >
-                                        <svg className="w-6 h-6 mr-2 group-hover:scale-110 transition-transform text-red-500" fill="currentColor" viewBox="0 0 24 24">
+                                        <svg className="w-5 h-5 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24">
                                             <path d="M8 5v14l11-7z" />
                                         </svg>
-                                        Watch Trailer
+                                        <span>{isSeriesOrAnime ? 'Watch Ep 1' : 'Watch Online'}</span>
+                                    </Link>
+                                )}
+                                <a
+                                    href="#downloads"
+                                    className="px-6 py-3.5 bg-white/10 hover:bg-white/15 border border-white/15 text-white font-bold rounded-xl backdrop-blur-md flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] text-sm md:text-base group"
+                                >
+                                    <svg className="w-5 h-5 group-hover:translate-y-0.5 transition-transform text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                    </svg>
+                                    <span>{isSeriesOrAnime ? 'Episodes' : 'Download Links'}</span>
+                                </a>
+                                <WatchlistButton movieId={movieData.id} />
+                                {trailerUrl && (
+                                    <a
+                                        href={trailerUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="px-5 py-3.5 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-200 hover:text-white font-bold rounded-xl backdrop-blur-md flex items-center justify-center gap-2 transition-all hover:scale-[1.02] text-sm md:text-base group"
+                                    >
+                                        <svg className="w-5 h-5 text-red-500 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" />
+                                        </svg>
+                                        <span>Trailer</span>
                                     </a>
                                 )}
                             </div>
+
+                            {/* Synopsis / Description */}
+                            <div className="space-y-2">
+                                <p className="text-gray-300 text-sm md:text-base leading-relaxed line-clamp-4 md:line-clamp-none">
+                                    {descriptionText}
+                                </p>
+                            </div>
+
+                            {/* High-Tech Media Specifications & Info Grid (REPLACES THE OLD UGLY RED TABLE) */}
+                            <div className="rounded-2xl bg-white/[0.03] border border-white/[0.08] p-5 backdrop-blur-md shadow-lg space-y-4">
+                                <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
+                                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-violet-400">
+                                        <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse"></span>
+                                        <span>Media & Audio Specifications</span>
+                                    </div>
+                                    <span className="text-[11px] font-semibold text-gray-400">
+                                        {movieData.source || 'BluRay'} • Softcoded
+                                    </span>
+                                </div>
+
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs">
+                                    <div className="space-y-1">
+                                        <span className="text-gray-400 flex items-center gap-1.5 font-medium">
+                                            <svg className="w-3.5 h-3.5 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                                            </svg>
+                                            Audio Languages
+                                        </span>
+                                        <p className="font-semibold text-white truncate" title={movieData.language || 'Hindi, English, Japanese'}>
+                                            {movieData.language || 'Hindi Multi Audio'}
+                                        </p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <span className="text-gray-400 flex items-center gap-1.5 font-medium">
+                                            <svg className="w-3.5 h-3.5 text-sky-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                                            </svg>
+                                            Subtitles
+                                        </span>
+                                        <p className="font-semibold text-white truncate">
+                                            {movieData.subtitle || 'English (Soft-Coded)'}
+                                        </p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <span className="text-gray-400 flex items-center gap-1.5 font-medium">
+                                            <svg className="w-3.5 h-3.5 text-cyan-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                            </svg>
+                                            Quality & Codec
+                                        </span>
+                                        <p className="font-semibold text-white truncate">
+                                            {uniqueQualities !== 'N/A' ? uniqueQualities : '720p, 1080p FHD'} • {movieData.format || 'MKV'}
+                                        </p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <span className="text-gray-400 flex items-center gap-1.5 font-medium">
+                                            <svg className="w-3.5 h-3.5 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                                <circle cx="12" cy="12" r="9" />
+                                                <circle cx="12" cy="12" r="3" />
+                                            </svg>
+                                            Source Media
+                                        </span>
+                                        <p className="font-semibold text-white truncate">
+                                            {movieData.source || 'BluRay / WEB-DL'}
+                                        </p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <span className="text-gray-400 flex items-center gap-1.5 font-medium">
+                                            <svg className="w-3.5 h-3.5 text-purple-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+                                            </svg>
+                                            File Sizes
+                                        </span>
+                                        <p className="font-semibold text-white truncate">
+                                            {sizes !== 'N/A' ? sizes : '250MB - 1.2GB'}
+                                        </p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        {isSeriesOrAnime ? (
+                                            <>
+                                                <span className="text-gray-400 flex items-center gap-1.5 font-medium">
+                                                    <svg className="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+                                                    </svg>
+                                                    Series Status
+                                                </span>
+                                                <p className="font-semibold text-emerald-400 truncate">
+                                                    {statusLabel}
+                                                </p>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className="text-gray-400 flex items-center gap-1.5 font-medium">
+                                                    <svg className="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    Runtime & Status
+                                                </span>
+                                                <p className="font-semibold text-emerald-400 truncate">
+                                                    {durationStr} • Full Movie
+                                                </p>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Cast Members Chips */}
+                                {castList.length > 0 && (
+                                    <div className="pt-3 border-t border-white/[0.06]">
+                                        <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1.5 mb-2">
+                                            <svg className="w-3.5 h-3.5 text-violet-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                            </svg>
+                                            Starring / Voice Cast
+                                        </span>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {castList.map((actor, idx) => (
+                                                <span key={idx} className="px-2.5 py-1 rounded-lg bg-white/[0.04] text-gray-300 text-xs font-medium border border-white/[0.06] hover:border-violet-500/30 transition-colors">
+                                                    {actor}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Yomi-Inspired "RELATED" Card */}
+                            {franchiseItem && (
+                                <div className="pt-2">
+                                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2.5 flex items-center gap-2">
+                                        <span>Related Franchise</span>
+                                        <span className="h-px flex-1 bg-white/10"></span>
+                                    </h4>
+                                    <Link
+                                        href={`/${franchiseItem.type}/${franchiseItem.slug}`}
+                                        className="inline-flex items-center gap-3.5 p-2.5 pr-5 rounded-2xl bg-[#141625]/90 hover:bg-[#1C1F33] border border-white/10 hover:border-violet-500/40 transition-all group shadow-md"
+                                    >
+                                        <div className="relative w-12 h-16 rounded-xl overflow-hidden shrink-0 border border-white/10">
+                                            <Image
+                                                src={franchiseItem.poster_url || '/placeholder.png'}
+                                                alt={franchiseItem.title}
+                                                fill
+                                                className="object-cover group-hover:scale-105 transition-transform"
+                                            />
+                                        </div>
+                                        <div>
+                                            <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30 tracking-wider">
+                                                Prequel / Franchise
+                                            </span>
+                                            <p className="text-sm font-bold text-white group-hover:text-violet-400 transition-colors line-clamp-1 mt-1 max-w-xs sm:max-w-md">
+                                                {franchiseItem.title}
+                                            </p>
+                                        </div>
+                                    </Link>
+                                </div>
+                            )}
+
                         </div>
                     </div>
                 </div>
@@ -394,25 +842,31 @@ export default async function MovieDetailPage({ params, searchParams }: PageProp
             )}
 
             {/* Downloads / Episodes Section */}
-            <div id="downloads" className="container mx-auto px-4 max-w-4xl mt-12 md:mt-20">
-                <div className="glass p-6 sm:p-8 rounded-3xl border border-white/5 relative overflow-hidden">
-                    {/* Glossy effect */}
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-red-500/50 to-transparent opacity-50"></div>
+            <div id="downloads" className="container mx-auto px-4 max-w-7xl mt-12 md:mt-16 scroll-mt-24">
+                <div className="rounded-3xl bg-[#12131F]/90 border border-white/[0.08] p-6 sm:p-8 backdrop-blur-xl shadow-2xl relative overflow-hidden">
+                    {/* Top ambient highlight */}
+                    <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-violet-500 to-transparent opacity-70"></div>
 
                     <div>
-                        <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-                            <span className="w-1 h-8 bg-red-600 rounded-full"></span>
-                            {isSeriesOrAnime ? 'Episodes' : 'Download Links'}
-                        </h2>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-white/[0.08]">
+                            <h2 className="text-2xl md:text-3xl font-black text-white flex items-center gap-3">
+                                <span className="w-1.5 h-8 bg-gradient-to-b from-violet-500 to-indigo-600 rounded-full"></span>
+                                {isSeriesOrAnime ? 'Episodes' : 'Download Links'}
+                            </h2>
+                            <div className="flex items-center gap-2 text-xs font-semibold text-gray-400">
+                                <span>Cloud Mirrors</span>
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                            </div>
+                        </div>
 
                         {/* Per-Content Notice System (Strict) */}
                         {movieData.notice_enabled && movieData.notice_text && (
-                            <div className="mb-8 p-6 rounded-2xl bg-gradient-to-r from-red-600/20 to-orange-600/20 border border-red-500/40 flex items-start gap-5 shadow-lg shadow-red-900/10">
+                            <div className="mb-8 p-6 rounded-2xl bg-gradient-to-r from-violet-600/20 to-purple-600/20 border border-violet-500/40 flex items-start gap-5 shadow-lg shadow-violet-900/10">
                                 <span className="text-3xl animate-pulse">📢</span>
                                 <div>
-                                    <h4 className="font-black text-red-500 text-base uppercase tracking-widest mb-2 flex items-center gap-2">
+                                    <h4 className="font-black text-violet-400 text-base uppercase tracking-widest mb-2 flex items-center gap-2">
                                         IMPORTANT NOTICE
-                                        <span className="h-px flex-1 bg-red-500/20"></span>
+                                        <span className="h-px flex-1 bg-violet-500/20"></span>
                                     </h4>
                                     <p className="text-white text-lg md:text-xl font-bold leading-relaxed drop-shadow-sm">
                                         {movieData.notice_text}
@@ -422,9 +876,25 @@ export default async function MovieDetailPage({ params, searchParams }: PageProp
                         )}
 
                         {isSeriesOrAnime ? (
-                            <EpisodeList seasons={seasons} running_status={movieData.running_status} contentId={movieData.id} contentType={movieData.type} contentTitle={movieData.title} />
+                            <EpisodeList
+                                seasons={seasons}
+                                running_status={movieData.running_status}
+                                contentId={movieData.id}
+                                contentType={movieData.type}
+                                contentTitle={movieData.title}
+                                tmdbId={movieData.tmdb_id}
+                                imdbId={movieData.imdb_id}
+                                initialSeason={initialSeasonNum}
+                            />
                         ) : (
-                            <DownloadPanel downloadLinks={movieData.download_links || []} contentId={movieData.id} contentType={movieData.type} />
+                            <DownloadPanel
+                                downloadLinks={movieData.download_links || []}
+                                contentId={movieData.id}
+                                contentType={movieData.type}
+                                tmdbId={movieData.tmdb_id}
+                                imdbId={movieData.imdb_id}
+                                title={movieData.title}
+                            />
                         )}
                     </div>
                 </div>

@@ -33,36 +33,16 @@ interface StreamStatus {
     message: string;
 }
 
-const formatAgentName = (name?: string | null): string => {
-    if (!name) return '';
-    let cleaned = name.trim();
-    if (cleaned.toLowerCase().startsWith('openrouter (')) {
-        cleaned = cleaned.slice(12, -1).trim();
-    } else if (cleaned.toLowerCase().startsWith('groq (')) {
-        cleaned = cleaned.slice(6, -1).trim();
-    }
-    if (cleaned.includes('/')) {
-        cleaned = cleaned.split('/').pop() || cleaned;
-    }
-    return cleaned
-        .replace(/^openrouter\s*/i, '')
-        .replace(/^groq\s*/i, '')
-        .replace(/:free$/i, '')
-        .replace(/-free$/i, '')
-        .replace(/\s*\(free\)$/i, '')
-        .trim();
-};
-
 export default function Chatbot() {
     const { user } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
+    const [isHintDismissed, setIsHintDismissed] = useState(false);
     const [settings, setSettings] = useState<ChatbotConfig | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [inputText, setInputText] = useState('');
     const [isTyping, setIsTyping] = useState(false);
     const [currentSteps, setCurrentSteps] = useState<StreamStatus[]>([]);
     const [headerText, setHeaderText] = useState('Ask me anything ✨');
-    const [activeAgent, setActiveAgent] = useState<string | null>(null);
 
     const headerTexts = ["Ask me anything ✨", "Powered by AI 🧠", "Any language 🌍", "Download help 📥", "Movies & Anime 🎬"];
     const [textIndex, setTextIndex] = useState(0);
@@ -124,13 +104,13 @@ export default function Chatbot() {
                         {m.poster_url && <Image src={m.poster_url} alt={m.title} fill className="object-cover" />}
                     </div>
                     <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-bold text-white group-hover:text-red-500 truncate">{m.title}</h4>
+                        <h4 className="text-sm font-bold text-white group-hover:text-violet-300 truncate">{m.title}</h4>
                         <div className="flex items-center gap-2 text-[10px] text-gray-400">
                             <span className="uppercase bg-white/10 px-1 rounded">{m.type}</span>
                             {m.release_year && <span>{m.release_year}</span>}
                         </div>
                     </div>
-                    <div className="text-red-500">
+                    <div className="text-violet-300">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                     </div>
                 </Link>
@@ -331,10 +311,6 @@ export default function Chatbot() {
             return;
         }
 
-        if (data.agent) {
-            setActiveAgent(data.agent);
-        }
-
         // Search with results found
         if (data.intent === 'search' && data.found && data.results && data.results.length > 0) {
             setMessages(prev => [...prev, {
@@ -361,7 +337,7 @@ export default function Chatbot() {
                     {data.tmdbVerified === false && (
                         <div className="flex flex-col gap-2 mt-2">
                             <div className="flex items-center gap-2 p-2 bg-red-500/10 border border-red-500/20 rounded-lg">
-                                <span className="text-[11px] text-red-400/90">⚠️ Could not verify as a real movie/anime/series</span>
+                                <span className="text-[11px] text-violet-300/90">⚠️ Could not verify as a real movie/anime/series</span>
                             </div>
                             {renderContactFallback()}
                         </div>
@@ -391,7 +367,6 @@ export default function Chatbot() {
                 text: <span className="whitespace-pre-line">{welcome}</span>,
                 isBot: true, role: 'assistant', plainText: welcome
             }]);
-            setActiveAgent(null);
             localStorage.removeItem('nexiplay_chat_history');
         }
     };
@@ -401,28 +376,86 @@ export default function Chatbot() {
     return (
         <>
             {/* Toggle Button (FAB) + Floating Message */}
+            {/* Toggle Button (FAB) + Floating "Chat with me" Tooltip */}
             {!isOpen && (
-                <div className="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-50 flex items-end gap-2 md:gap-3">
-                    <div className="animate-float bg-[#141625]/95 text-[#F7F8FC] border border-white/15 px-3 py-2 md:px-4 md:py-2.5 rounded-2xl rounded-br-sm shadow-2xl text-xs md:text-sm font-medium max-w-[160px] md:max-w-[200px] relative backdrop-blur-md">
-                        <span>Need help? Chat with me! 💬</span>
-                        <div className="absolute -right-2 bottom-2 w-0 h-0 border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent border-l-[8px] border-l-[#141625]"></div>
-                    </div>
-                    <button onClick={() => setIsOpen(true)}
-                        className="p-0 w-14 h-14 md:w-16 md:h-16 np-clay-btn rounded-full shadow-[0_12px_28px_rgba(229,29,72,0.45)] border border-white/20 transition-all duration-300 hover:scale-108 active:scale-95 flex items-center justify-center group overflow-hidden flex-shrink-0"
-                        aria-label="Open AI Chatbot">
-                        <svg className="w-7 h-7 md:w-8 md:h-8 text-white relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                <div className="fixed bottom-[86px] md:bottom-6 right-3.5 md:right-6 z-40 flex items-center gap-2 md:gap-3">
+                    {/* Floating "Chat with me" Liquid Glass Tooltip (Visible on Mobile & Desktop) */}
+                    {!isHintDismissed && <div
+                        onClick={() => setIsOpen(true)}
+                        className="animate-float flex items-center gap-1.5 bg-[#17141F]/95 text-white border border-white/20 pl-3 pr-7 py-1.5 md:pl-4 md:py-2 rounded-2xl rounded-br-none shadow-[0_10px_28px_rgba(0,0,0,0.55),inset_0_1px_1px_rgba(255,255,255,0.12)] text-[11px] md:text-xs font-bold backdrop-blur-2xl select-none relative group cursor-pointer"
+                    >
+                        <span className="text-[#FFB878] drop-shadow-[0_0_6px_rgba(255,184,120,0.6)]">✨</span>
+                        <span className="tracking-tight">Chat with me!</span>
+                        <span className="text-xs">💬</span>
+                        <button
+                            type="button"
+                            aria-label="Dismiss chat hint"
+                            onClick={(event) => { event.stopPropagation(); setIsHintDismissed(true); }}
+                            className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-[#2A2536] border border-white/20 text-[#ADA6B9] hover:text-white flex items-center justify-center text-xs"
+                        >×</button>
+                        {/* Pointing notch */}
+                        <div className="absolute -right-1.5 bottom-1.5 w-0 h-0 border-t-[5px] border-t-transparent border-b-[5px] border-b-transparent border-l-[6px] border-l-[#17141F]"></div>
+                    </div>}
+
+                    {/* Industrial Professional AI Chatbot Button */}
+                    <button
+                        onClick={() => setIsOpen(true)}
+                        className="relative w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-108 active:scale-95 group flex-shrink-0 bg-gradient-to-br from-[#B09AFF] via-[#9273F5] to-[#5C46B2] border-2 border-white/30 shadow-[0_12px_32px_rgba(146,115,245,0.55),inset_0_1.5px_2px_rgba(255,255,255,0.6),inset_0_-2px_4px_rgba(0,0,0,0.5),0_0_24px_rgba(146,115,245,0.35)] overflow-visible"
+                        aria-label="Open AI Assistant"
+                    >
+                        {/* Specular Liquid Light Arc */}
+                        <span className="absolute inset-x-2 top-0.5 h-[1.5px] bg-gradient-to-r from-transparent via-white/70 to-transparent rounded-full pointer-events-none" />
+
+                        {/* Industrial Custom AI Assistant Robot/Visor SVG Icon */}
+                        <svg
+                            className="w-6 h-6 md:w-7 md:h-7 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)] transition-transform duration-300 group-hover:scale-110"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                        >
+                            {/* Antenna / Uplink */}
+                            <path strokeLinecap="round" strokeWidth={2} d="M12 2v2.5M10.5 4.5h3" />
+                            {/* Robot Head Armor */}
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M4 11a3 3 0 013-3h10a3 3 0 013 3v5a4 4 0 01-4 4H8a4 4 0 01-4-4v-5z"
+                            />
+                            {/* Cybernetic Visor Screen */}
+                            <rect x="7" y="11" width="10" height="4" rx="1.5" strokeWidth={1.5} fill="#0D0B12" fillOpacity={0.4} />
+                            {/* Dual Glowing AI Eyes */}
+                            <circle cx="9.5" cy="13" r="1.2" fill="white" />
+                            <circle cx="14.5" cy="13" r="1.2" fill="white" />
+                            {/* Neural Mouth Grid / Smile */}
+                            <path strokeLinecap="round" strokeWidth={1.8} d="M10 18h4" />
                         </svg>
-                        <span className="absolute top-1.5 right-1.5 md:top-2 md:right-2 w-3.5 h-3.5 bg-[#28D391] border-2 border-[#141625] rounded-full z-20 animate-pulse shadow-[0_0_8px_rgba(40,211,145,0.7)]"></span>
+
+                        {/* Pulse Beacon Online Indicator */}
+                        <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-[#0D0B12] rounded-full shadow-[0_0_10px_#10B981] animate-pulse z-20 flex items-center justify-center">
+                            <span className="w-1.5 h-1.5 bg-white rounded-full opacity-80" />
+                        </span>
                     </button>
                 </div>
             )}
 
+            {/* Mobile Backdrop Overlay to prevent background overlap */}
+            {isOpen && (
+                <div 
+                    onClick={() => setIsOpen(false)}
+                    className="fixed inset-0 bg-black/75 backdrop-blur-sm z-[60] md:hidden animate-fade-in"
+                    aria-hidden="true"
+                />
+            )}
+
             {/* Chat Window */}
             {isOpen && (
-                <div className="fixed bottom-0 left-0 right-0 md:bottom-6 md:left-auto md:right-6 z-50 w-full md:w-[390px] h-[85vh] md:h-[560px] md:max-h-[82vh] flex flex-col bg-[#0B0D16]/95 backdrop-blur-2xl border-t md:border border-white/15 md:rounded-np-sheet shadow-[0_20px_50px_rgba(0,0,0,0.85)] overflow-hidden animate-fade-in-up">
+                <div className="fixed inset-x-0 bottom-0 top-14 md:top-auto md:bottom-6 md:left-auto md:right-6 z-[70] w-full md:w-[390px] h-[calc(100vh-3.5rem)] md:h-[560px] md:max-h-[82vh] flex flex-col bg-[#0D0B12] md:bg-[#0D0B12]/95 backdrop-blur-2xl border-t md:border border-white/20 rounded-t-3xl md:rounded-np-sheet shadow-[0_20px_60px_rgba(0,0,0,0.95)] overflow-hidden animate-fade-in-up">
+                    {/* Mobile Sheet Handle */}
+                    <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mt-2.5 -mb-1 md:hidden pointer-events-none" />
+
                     {/* Header */}
-                    <div className="p-4 bg-gradient-to-r from-[#E51D48] to-[#A70F35] flex items-center justify-between relative overflow-hidden shadow-md">
+                    <div className="p-4 bg-gradient-to-r from-[#9273F5] to-[#5C46B2] flex items-center justify-between relative overflow-hidden shadow-md">
                         <div className="flex items-center gap-3 relative z-10">
                             <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-xl shadow-inner border border-white/20">🤖</div>
                             <div>
@@ -431,9 +464,9 @@ export default function Chatbot() {
                                     <span className="text-[9px] bg-black/25 px-1.5 py-0.5 rounded-full font-medium tracking-wider border border-white/15">HYBRID AI</span>
                                 </h3>
                                 <div className="flex items-center gap-1.5 h-4">
-                                    <span className="w-2 h-2 bg-[#28D391] rounded-full animate-pulse shadow-[0_0_8px_rgba(40,211,145,0.8)]"></span>
+                                    <span className="w-2 h-2 bg-[#57D6C0] rounded-full animate-pulse shadow-[0_0_8px_rgba(40,211,145,0.8)]"></span>
                                     <span className="text-[11px] text-white/90 font-medium animate-fade-in">
-                                        {activeAgent ? `Connected: ${formatAgentName(activeAgent)}` : headerText}
+                                        {headerText}
                                     </span>
                                 </div>
                             </div>
@@ -442,28 +475,22 @@ export default function Chatbot() {
                             <button onClick={handleDeleteChat} className="p-2 hover:bg-white/20 rounded-full transition-colors text-white/80 hover:text-white" title="Delete Chat History">
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                             </button>
-                            <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition-colors text-white/80 hover:text-white">
+                            <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition-colors text-white/80 hover:text-white" aria-label="Close chat">
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                             </button>
                         </div>
                     </div>
 
                     {/* Messages Area */}
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#0B0D16]/60 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#0D0B12]/60 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
                         {messages.map((msg, idx) => (
                             <div key={idx} className={`flex ${msg.isBot ? 'justify-start' : 'justify-end'} animate-fade-in group`}>
                                 <div className={`flex flex-col ${msg.isBot ? 'items-start' : 'items-end'} max-w-[85%]`}>
                                     <div className={`relative p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm w-full ${msg.isBot
-                                        ? 'bg-[#141625] text-[#F7F8FC] rounded-tl-sm border border-white/10'
-                                        : 'bg-[#E51D48] text-white rounded-tr-sm shadow-[0_4px_14px_rgba(229,29,72,0.35)]'}`}>
+                                        ? 'bg-[#17141F] text-[#F4F0FA] rounded-tl-sm border border-white/10'
+                                        : 'bg-[#9273F5] text-white rounded-tr-sm shadow-[0_4px_14px_rgba(146,115,245,0.35)]'}`}>
                                         {msg.text}
                                     </div>
-                                    {msg.isBot && msg.agent && (
-                                        <div className="text-[10px] text-[#A7AABD] mt-1 ml-1 flex items-center gap-1">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-[#28D391] inline-block"></span>
-                                            <span>Active Agent: {formatAgentName(msg.agent)}</span>
-                                        </div>
-                                    )}
                                 </div>
                             </div>
                         ))}
@@ -474,26 +501,26 @@ export default function Chatbot() {
                         {/* Fallback typing indicator (when no steps yet) */}
                         {isTyping && currentSteps.length === 0 && (
                             <div className="flex justify-start animate-fade-in">
-                                <div className="bg-[#141625] px-4 py-3 rounded-2xl rounded-tl-sm flex gap-1.5 items-center border border-white/10">
-                                    <span className="w-2 h-2 bg-[#E51D48] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                                    <span className="w-2 h-2 bg-[#E51D48] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                                    <span className="w-2 h-2 bg-[#E51D48] rounded-full animate-bounce"></span>
-                                    <span className="text-[10px] text-[#A7AABD] ml-2">AI is thinking...</span>
+                                <div className="bg-[#17141F] px-4 py-3 rounded-2xl rounded-tl-sm flex gap-1.5 items-center border border-white/10">
+                                    <span className="w-2 h-2 bg-[#9273F5] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                                    <span className="w-2 h-2 bg-[#9273F5] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                                    <span className="w-2 h-2 bg-[#9273F5] rounded-full animate-bounce"></span>
+                                    <span className="text-[10px] text-[#ADA6B9] ml-2">AI is thinking...</span>
                                 </div>
                             </div>
                         )}
                         <div ref={messagesEndRef} />
                     </div>
 
-                    {/* Input Area */}
-                    <div className="p-3 bg-[#141625] border-t border-white/10">
-                        <div className="flex items-center gap-2 bg-[#0B0D16] p-1.5 rounded-xl border border-white/10 focus-within:border-[#E51D48]/60 focus-within:ring-1 focus-within:ring-[#E51D48]/30 transition-all shadow-inner">
+                    {/* Input Area (Safe bottom padding to avoid mobile nav overlap) */}
+                    <div className="p-3 pb-8 md:pb-3 bg-[#17141F] border-t border-white/10">
+                        <div className="flex items-center gap-2 bg-[#0D0B12] p-1.5 rounded-xl border border-white/10 focus-within:border-[#9273F5]/60 focus-within:ring-1 focus-within:ring-[#9273F5]/30 transition-all shadow-inner">
                             <input ref={inputRef} type="text" value={inputText}
                                 onChange={(e) => setInputText(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                                 placeholder="Ask anything or search content..."
                                 disabled={isTyping}
-                                className="flex-1 bg-transparent px-3 text-sm text-[#F7F8FC] placeholder-[#A7AABD]/60 focus:outline-none disabled:opacity-50" />
+                                className="flex-1 bg-transparent px-3 text-sm text-[#F4F0FA] placeholder-[#ADA6B9]/60 focus:outline-none disabled:opacity-50" />
                             <button onClick={handleSend} disabled={!inputText.trim() || isTyping}
                                 className="p-2.5 np-clay-btn text-white rounded-lg transition-all active:scale-95 shadow-md disabled:opacity-40 disabled:cursor-not-allowed">
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -501,9 +528,9 @@ export default function Chatbot() {
                                 </svg>
                             </button>
                         </div>
-                        <p className="text-center text-[10px] text-[#A7AABD]/70 mt-1.5 px-2">
+                        <p className="text-center text-[10px] text-[#ADA6B9]/70 mt-1.5 px-2">
                             ⚡ AI ভুল করতে পারে। সঠিক তথ্যের জন্য যাচাই করুন।
-                            <span className="text-[#A7AABD]/40"> • </span>
+                            <span className="text-[#ADA6B9]/40"> • </span>
                             AI can make mistakes. Please verify.
                         </p>
                     </div>

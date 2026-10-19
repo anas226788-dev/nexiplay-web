@@ -72,7 +72,7 @@ export default function ResetPasswordPage() {
                             onChange={(event) => setPassword(event.target.value)}
                             minLength={6}
                             required
-                            className="w-full rounded-xl bg-black/40 border border-white/10 px-4 py-3 text-white outline-none focus:border-red-500/60"
+                            className="w-full rounded-xl bg-black/40 border border-white/10 px-4 py-3 text-white outline-none focus:border-violet-400/60"
                             placeholder="Minimum 6 characters"
                         />
                     </div>
@@ -84,14 +84,14 @@ export default function ResetPasswordPage() {
                             onChange={(event) => setConfirmPassword(event.target.value)}
                             minLength={6}
                             required
-                            className="w-full rounded-xl bg-black/40 border border-white/10 px-4 py-3 text-white outline-none focus:border-red-500/60"
+                            className="w-full rounded-xl bg-black/40 border border-white/10 px-4 py-3 text-white outline-none focus:border-violet-400/60"
                             placeholder="Confirm password"
                         />
                     </div>
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full rounded-xl bg-red-600 px-5 py-3 font-black text-white hover:bg-red-500 disabled:opacity-60 transition-colors cursor-pointer"
+                        className="w-full rounded-xl bg-violet-600 px-5 py-3 font-black text-white hover:bg-violet-500 disabled:opacity-60 transition-colors cursor-pointer"
                     >
                         {loading ? 'Updating password...' : 'Update Password'}
                     </button>

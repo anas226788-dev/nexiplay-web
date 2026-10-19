@@ -103,11 +103,11 @@ export default function AuthCallbackPage() {
         <div className="min-h-screen bg-[#0c0c12] flex items-center justify-center px-4">
             <div className="w-full max-w-md p-8 rounded-2xl bg-white/[0.03] border border-white/10 backdrop-blur-xl text-center shadow-2xl relative overflow-hidden">
                 {/* Glowing backdrop circle */}
-                <div className="absolute -top-16 -left-16 w-32 h-32 bg-red-600/20 rounded-full blur-2xl pointer-events-none" />
+                <div className="absolute -top-16 -left-16 w-32 h-32 bg-violet-600/20 rounded-full blur-2xl pointer-events-none" />
                 <div className="absolute -bottom-16 -right-16 w-32 h-32 bg-blue-600/20 rounded-full blur-2xl pointer-events-none" />
 
                 {/* Logo */}
-                <div className="w-14 h-14 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center shadow-lg shadow-red-600/30">
+                <div className="w-14 h-14 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-violet-600 to-violet-800 flex items-center justify-center shadow-lg shadow-red-600/30">
                     <span className="text-white font-black text-2xl">N</span>
                 </div>
 

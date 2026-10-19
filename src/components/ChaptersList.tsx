@@ -60,7 +60,7 @@ export default function ChaptersList({ chapters, novelSlug }: ChaptersListProps)
             {/* Header & Controls */}
             <div className="p-6 md:p-8 border-b border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/[0.02]">
                 <div className="flex items-center gap-3">
-                    <span className="w-1.5 h-8 bg-red-600 rounded-full inline-block"></span>
+                    <span className="w-1.5 h-8 bg-violet-600 rounded-full inline-block"></span>
                     <h2 className="text-2xl font-black text-white">
                         Chapters ({chapters.length})
                     </h2>
@@ -77,7 +77,7 @@ export default function ChaptersList({ chapters, novelSlug }: ChaptersListProps)
                                 setCurrentPage(1);
                             }}
                             placeholder="Find chapter..."
-                            className="w-44 sm:w-56 pl-9 pr-3 py-1.5 bg-dark-800 border border-white/10 rounded-xl text-xs text-white placeholder-gray-500 outline-none focus:border-red-500/80 transition-colors"
+                            className="w-44 sm:w-56 pl-9 pr-3 py-1.5 bg-dark-800 border border-white/10 rounded-xl text-xs text-white placeholder-gray-500 outline-none focus:border-violet-400/80 transition-colors"
                         />
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -130,11 +130,11 @@ export default function ChaptersList({ chapters, novelSlug }: ChaptersListProps)
                                 key={chapter.slug}
                                 className="flex items-center gap-4 p-4 rounded-xl bg-white/[0.02] hover:bg-white/[0.06] border border-transparent hover:border-red-500/30 transition-all group"
                             >
-                                <div className="w-10 h-10 rounded-lg bg-dark-800 text-gray-400 font-black flex items-center justify-center text-sm border border-white/5 group-hover:text-red-400 group-hover:border-red-500/30 transition-colors shrink-0">
+                                <div className="w-10 h-10 rounded-lg bg-dark-800 text-gray-400 font-black flex items-center justify-center text-sm border border-white/5 group-hover:text-violet-300 group-hover:border-violet-400/40 transition-colors shrink-0">
                                     {chapter.chapter_number}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <h4 className="text-white font-bold text-sm truncate group-hover:text-red-400 transition-colors">
+                                    <h4 className="text-white font-bold text-sm truncate group-hover:text-violet-300 transition-colors">
                                         {chapter.title}
                                     </h4>
                                     <span className="text-xs text-gray-500 mt-0.5 block">
@@ -178,7 +178,7 @@ export default function ChaptersList({ chapters, novelSlug }: ChaptersListProps)
                                                 onClick={() => setCurrentPage(pageNum)}
                                                 className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${
                                                     isActive
-                                                        ? 'bg-red-600 text-white font-black shadow-md shadow-red-900/40'
+                                                        ? 'bg-violet-600 text-white font-black shadow-md shadow-violet-950/40'
                                                         : 'border border-white/10 bg-dark-800 text-gray-400 hover:text-white'
                                                 }`}
                                             >

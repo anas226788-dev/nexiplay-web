@@ -44,7 +44,7 @@ export default async function UpcomingPage() {
     const upcoming = await getUpcoming();
 
     return (
-        <div className="container mx-auto px-4 py-8">
+        <div className="container mx-auto px-4 pt-20 md:pt-24 pb-12">
             {/* Type Tabs */}
             <div className="flex justify-center mb-8">
                 <TypeTabs activeType="upcoming" />
@@ -53,7 +53,7 @@ export default async function UpcomingPage() {
             {/* Page Header */}
             <div className="mb-8 text-center">
                 <h1 className="text-3xl md:text-4xl font-bold mb-2">
-                    <span className="bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent">
+                    <span className="bg-gradient-to-r from-violet-300 to-violet-600 bg-clip-text text-transparent">
                         🔥 Upcoming Releases
                     </span>
                 </h1>
@@ -120,7 +120,7 @@ export default async function UpcomingPage() {
                                 {/* Trailer badge if available */}
                                 {item.trailer_url && (
                                     <div className="absolute bottom-2 right-2">
-                                        <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-red-600/90 backdrop-blur-sm uppercase text-white shadow-lg flex items-center gap-1">
+                                        <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-violet-600/90 backdrop-blur-sm uppercase text-white shadow-lg flex items-center gap-1">
                                             <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                                                 <path d="M8 5v14l11-7z" />
                                             </svg>
@@ -132,7 +132,7 @@ export default async function UpcomingPage() {
 
                             {/* Title & Info */}
                             <div className="mt-2 px-0.5">
-                                <h3 className="font-medium text-sm text-gray-200 line-clamp-2 group-hover:text-red-400 transition-colors leading-tight">
+                                <h3 className="font-medium text-sm text-gray-200 line-clamp-2 group-hover:text-violet-300 transition-colors leading-tight">
                                     {item.title}
                                 </h3>
                                 <p className="text-[11px] text-gray-400 mt-1 font-medium">

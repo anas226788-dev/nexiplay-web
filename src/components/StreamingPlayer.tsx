@@ -21,25 +21,291 @@ interface Server {
 
 const BUILT_IN_SERVERS: Server[] = [
     {
-        id: 'vidsrc_to',
-        name: 'Server VidSrc (Pro)',
-        icon: '⚡',
+        id: 'vidrock',
+        name: 'VidRock',
+        icon: '🪨',
         getUrl: (id, tmdb, imdb, mal, s, e) => {
-            if (!tmdb) return null;
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
             return s !== undefined && e !== undefined
-                ? `https://vidsrc.pm/embed/tv/${tmdb}/${s}/${e}`
-                : `https://vidsrc.pm/embed/movie/${tmdb}`;
+                ? `https://vidrock.net/tv/${targetId}/${s}/${e}`
+                : `https://vidrock.net/movie/${targetId}`;
         }
     },
     {
-        id: 'vidsrc_me',
-        name: 'Server VidSrc.me',
+        id: 'videasy',
+        name: 'Videasy HD',
+        icon: '🎯',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://player.videasy.net/tv/${targetId}/${s}/${e}`
+                : `https://player.videasy.net/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'vidzee',
+        name: 'VidZee',
+        icon: '🐝',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://player.vidzee.wtf/embed/tv/${targetId}/${s}/${e}`
+                : `https://player.vidzee.wtf/embed/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'vidlink',
+        name: 'VidLink (Ultra)',
+        icon: '🔗',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://vidlink.pro/tv/${targetId}/${s}/${e}`
+                : `https://vidlink.pro/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'vidsrc_pm',
+        name: 'VidSrc (PM)',
         icon: '🚀',
         getUrl: (id, tmdb, imdb, mal, s, e) => {
-            if (!tmdb) return null;
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
             return s !== undefined && e !== undefined
-                ? `https://vidsrc.in/embed/tv?tmdb=${tmdb}&season=${s}&episode=${e}`
-                : `https://vidsrc.in/embed/movie?tmdb=${tmdb}`;
+                ? `https://vidsrc.pm/embed/tv/${targetId}/${s}/${e}`
+                : `https://vidsrc.pm/embed/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'autoembed',
+        name: 'AutoEmbed (Multi-Audio)',
+        icon: '🎬',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://autoembed.co/tv/tmdb/${targetId}/${s}/${e}`
+                : `https://autoembed.co/movie/tmdb/${targetId}`;
+        }
+    },
+    {
+        id: 'vidfast',
+        name: 'VidFast',
+        icon: '⚡',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://vidfast.pro/tv/${targetId}/${s}/${e}`
+                : `https://vidfast.pro/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'vidsrc_to',
+        name: 'VidSrc.to',
+        icon: '⚡',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://vidsrc.to/embed/tv/${targetId}/${s}/${e}`
+                : `https://vidsrc.to/embed/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'twoembed',
+        name: '2Embed (Multi-Audio)',
+        icon: '🛡️',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://www.2embed.cc/embedtv/${targetId}&s=${s}&e=${e}`
+                : `https://www.2embed.cc/embed/${targetId}`;
+        }
+    },
+    {
+        id: 'vidking',
+        name: 'VidKing',
+        icon: '👑',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://www.vidking.net/embed/tv/${targetId}/${s}/${e}`
+                : `https://www.vidking.net/embed/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'vidsrc_cc',
+        name: 'VidSrc CC',
+        icon: '🎥',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://vidsrc.cc/v2/embed/tv/${targetId}/${s}/${e}`
+                : `https://vidsrc.cc/v2/embed/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'moviesapi',
+        name: 'MoviesAPI',
+        icon: '🍿',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://moviesapi.to/tv/${targetId}/${s}/${e}`
+                : `https://moviesapi.to/movie/${targetId}`;
+        }
+    },
+    {
+        id: '111movies',
+        name: '111Movies',
+        icon: '🎞️',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://111movies.com/tv/${targetId}/${s}/${e}`
+                : `https://111movies.com/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'vixsrc',
+        name: 'VixSrc (Multi-Lang)',
+        icon: '🌐',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://vixsrc.to/tv/${targetId}/${s}/${e}`
+                : `https://vixsrc.to/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'smashystream',
+        name: 'SmashyStream (Multi-Server)',
+        icon: '💥',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://embed.smashystream.com/playere.php?tmdb=${targetId}&season=${s}&episode=${e}`
+                : `https://embed.smashystream.com/playere.php?tmdb=${targetId}`;
+        }
+    },
+    {
+        id: 'nontongo',
+        name: 'Nontongo',
+        icon: '📽️',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://nontongo.win/embed/tv/${targetId}/${s}/${e}`
+                : `https://nontongo.win/embed/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'multiembed',
+        name: 'MultiEmbed (Hindi)',
+        icon: '🧩',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://multiembed.mov/?video_id=${targetId}&tmdb=1&s=${s}&e=${e}`
+                : `https://multiembed.mov/?video_id=${targetId}&tmdb=1`;
+        }
+    },
+    {
+        id: 'godrive',
+        name: 'GDrivePlayer',
+        icon: '💎',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = imdb || tmdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://database.gdriveplayer.us/player.php?imdb=${targetId}&s=${s}&e=${e}`
+                : `https://database.gdriveplayer.us/player.php?imdb=${targetId}`;
+        }
+    },
+    {
+        id: 'vidapi',
+        name: 'VidAPI',
+        icon: '🎞️',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://vaplayer.ru/embed/tv/${targetId}/${s}/${e}`
+                : `https://vaplayer.ru/embed/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'vidcore',
+        name: 'VidCore (Fast HD)',
+        icon: '⚡',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://vidcore.org/embed/tv/${targetId}/${s}/${e}`
+                : `https://vidcore.org/embed/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'vidsrc_su',
+        name: 'VidSrc SU (Multi)',
+        icon: '🛡️',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://vidsrc.su/embed/tv/${targetId}/${s}/${e}`
+                : `https://vidsrc.su/embed/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'anyembed',
+        name: 'AnyEmbed (Multi-Audio)',
+        icon: '🎬',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://anyembed.xyz/embed/tmdb-tv-${targetId}-${s}-${e}`
+                : `https://anyembed.xyz/embed/tmdb-movie-${targetId}`;
+        }
+    },
+    {
+        id: 'frembed',
+        name: 'FrEmbed (Multi-Lang)',
+        icon: '🌐',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://frembed.pro/api/serie.php?id=${targetId}&s=${s}&e=${e}`
+                : `https://frembed.pro/api/film.php?id=${targetId}`;
+        }
+    },
+    {
+        id: 'superembed',
+        name: 'SuperEmbed (Multi)',
+        icon: '🛡️',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://www.2embed.cc/embedtv/${targetId}&s=${s}&e=${e}`
+                : `https://www.2embed.cc/embed/${targetId}`;
         }
     }
 ];
@@ -313,7 +579,7 @@ function HLSVideoPlayer({ src }: { src: string }) {
                                 onClick={() => handleAudioTrackChange(idx)}
                                 className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1 ${
                                     currentTrackIndex === idx
-                                        ? 'bg-gradient-to-r from-red-600 to-orange-600 text-white shadow-lg shadow-red-900/20 scale-105'
+                                        ? 'bg-gradient-to-r from-violet-600 to-violet-700 text-white shadow-lg shadow-violet-950/20 scale-105'
                                         : 'bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white'
                                 }`}
                             >
@@ -520,7 +786,7 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 np-player-bar rounded-np-panel border border-white/10 shadow-lg">
                 {/* Server Switcher */}
                 <div className="flex flex-wrap gap-2 items-center">
-                    <span className="text-xs font-bold text-[#A7AABD] uppercase tracking-wider mr-2">Servers:</span>
+                    <span className="text-xs font-bold text-[#ADA6B9] uppercase tracking-wider mr-2">Servers:</span>
                     {customUrl && isServerEnabled(movie.scraper_source === 'toonplay' ? 'toonplay' : 'custom') && (
                         <button
                             onClick={() => setActiveServerId('custom')}
@@ -587,8 +853,8 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
                                 onChange={(e) => setSandboxMode(e.target.checked)}
                                 className="sr-only peer"
                             />
-                            <div className="w-9 h-5 bg-[#0B0D16] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#28D391]"></div>
-                            <span className="ml-2.5 text-xs font-bold text-[#F7F8FC]">
+                            <div className="w-9 h-5 bg-[#0D0B12] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#57D6C0]"></div>
+                            <span className="ml-2.5 text-xs font-bold text-[#F4F0FA]">
                                 {sandboxMode ? '🛡️ Ad-Blocker Mode (On)' : 'Compatible Mode'}
                             </span>
                         </label>
@@ -603,7 +869,7 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
             >
                 {isResolving ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 p-6">
-                        <div className="w-10 h-10 border-4 border-[#E51D48] border-t-transparent rounded-full animate-spin mb-3" />
+                        <div className="w-10 h-10 border-4 border-[#9273F5] border-t-transparent rounded-full animate-spin mb-3" />
                         <p className="font-bold text-white">Resolving server...</p>
                         <p className="text-xs text-gray-500 mt-1">Connecting to streaming source</p>
                     </div>
@@ -615,12 +881,12 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
                             ref={playerIframeRef}
                             src={embedUrl}
                             title="Streaming player"
-                            className="nexiplay-player-frame absolute inset-0 w-full h-full"
+                            className="nexiplay-player-frame absolute inset-0 w-full h-full overflow-hidden"
+                            scrolling="no"
                             {...FULLSCREEN_IFRAME_ATTRS}
-                            // If sandboxMode is enabled, exclude allow-popups and allow-top-navigation to block ads
                             sandbox={
-                                sandboxMode && activeServerId !== 'custom' && !activeServerId.startsWith('scraper_')
-                                    ? "allow-scripts allow-same-origin allow-forms"
+                                activeServerId !== 'trailer' && activeServerId !== 'twoembed' && !isNativeStreamActive
+                                    ? "allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock allow-orientation-lock allow-modals"
                                     : undefined
                             }
                             referrerPolicy={isYouTubeActive ? 'strict-origin-when-cross-origin' : 'no-referrer'}
@@ -649,7 +915,7 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
                     {/* Season selection */}
                     {sortedSeasons.length > 1 && (
                         <div className="flex flex-wrap gap-2 items-center">
-                            <span className="text-xs font-bold text-[#A7AABD] uppercase mr-2">Season:</span>
+                            <span className="text-xs font-bold text-[#ADA6B9] uppercase mr-2">Season:</span>
                             {sortedSeasons.map((season) => (
                                 <button
                                     key={season.id}
@@ -671,7 +937,7 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
 
                     {/* Episode selection */}
                     <div className="space-y-2">
-                        <span className="text-xs font-bold text-[#A7AABD] uppercase block mb-2">
+                        <span className="text-xs font-bold text-[#ADA6B9] uppercase block mb-2">
                             Select Episode: {activeEpisode?.episode_title ? `(S${currentSeasonNum} E${currentEpisodeNum} - ${activeEpisode.episode_title})` : `(Episode ${currentEpisodeNum})`}
                         </span>
                         <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-10 gap-2">
@@ -681,8 +947,8 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
                                     onClick={() => setCurrentEpisodeNum(ep.episode_number)}
                                     className={`py-3 rounded-xl text-xs font-bold transition-all text-center flex flex-col items-center justify-center relative ${
                                         currentEpisodeNum === ep.episode_number
-                                            ? 'bg-gradient-to-r from-[#E51D48] to-[#A70F35] text-white shadow-lg scale-105 border border-[#E51D48]/50'
-                                            : 'bg-[#141625] hover:bg-[#1B1E31] text-[#F7F8FC] border border-white/10'
+                                            ? 'bg-gradient-to-r from-[#9273F5] to-[#5C46B2] text-white shadow-lg scale-105 border border-[#9273F5]/50'
+                                            : 'bg-[#17141F] hover:bg-[#211D2B] text-[#F4F0FA] border border-white/10'
                                     }`}
                                 >
                                     <span className="text-[10px] opacity-70 mb-0.5">EP</span>
@@ -690,7 +956,7 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
                                     
                                     {/* Indicator for custom stream URL overrides */}
                                     {ep.streaming_url && (
-                                        <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-[#28D391] rounded-full" title="Custom stream override available" />
+                                        <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-[#57D6C0] rounded-full" title="Custom stream override available" />
                                     )}
                                 </button>
                             ))}
@@ -700,7 +966,7 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
             )}
 
             {/* Helper Notice */}
-            <div className="text-xs text-[#A7AABD] np-glass-solid p-4 rounded-xl border border-white/10 flex gap-2">
+            <div className="text-xs text-[#ADA6B9] np-glass-solid p-4 rounded-xl border border-white/10 flex gap-2">
                 <span className="text-sm">💡</span>
                 <p>
                     <strong>Tip:</strong> If the video shows an error or fails to load, try switching servers. 

@@ -68,12 +68,12 @@ export default async function NovelDetailsPage({ params }: PageProps) {
 
     return (
         <NovelVerificationGuard novelId={novel.id}>
-        <div className="container mx-auto px-4 py-8 md:py-12 max-w-5xl min-h-screen">
+        <div className="container mx-auto px-4 pt-24 md:pt-28 pb-12 max-w-5xl min-h-screen">
             {/* Breadcrumb Navigation */}
             <nav className="flex flex-wrap items-center text-sm text-gray-400 mb-8 gap-2">
-                <Link href="/" className="hover:text-red-500 transition-colors">Home</Link>
+                <Link href="/" className="hover:text-violet-300 transition-colors">Home</Link>
                 <span>›</span>
-                <Link href="/novels" className="hover:text-red-500 transition-colors">Novels</Link>
+                <Link href="/novels" className="hover:text-violet-300 transition-colors">Novels</Link>
                 <span>›</span>
                 <span className="text-white truncate">{novel.title}</span>
             </nav>
@@ -96,7 +96,7 @@ export default async function NovelDetailsPage({ params }: PageProps) {
                                     NEXIPLAY NOVEL
                                 </div>
                                 <div className="flex flex-col items-center">
-                                    <div className="w-16 h-16 rounded-2xl bg-white/[0.04] border border-white/10 flex items-center justify-center text-red-400 mb-3 shadow-inner">
+                                    <div className="w-16 h-16 rounded-2xl bg-white/[0.04] border border-white/10 flex items-center justify-center text-violet-300 mb-3 shadow-inner">
                                         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                                         </svg>
@@ -117,7 +117,7 @@ export default async function NovelDetailsPage({ params }: PageProps) {
                 <div className="flex-1 flex flex-col justify-center">
                     <div className="flex flex-wrap items-center gap-2 mb-3">
                         {novel.genre && (
-                            <span className="px-3 py-1 bg-red-600/20 text-red-400 border border-red-500/20 rounded-full text-xs font-bold uppercase tracking-wider">
+                            <span className="px-3 py-1 bg-violet-600/20 text-violet-300 border border-red-500/20 rounded-full text-xs font-bold uppercase tracking-wider">
                                 {novel.genre}
                             </span>
                         )}
@@ -148,7 +148,7 @@ export default async function NovelDetailsPage({ params }: PageProps) {
                     {chapters.length > 0 ? (
                         <Link 
                             href={`/novels/${novel.slug}/chapter/${chapters[0].slug}`} 
-                            className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-red-900/40 w-full md:w-auto"
+                            className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-violet-950/40 w-full md:w-auto"
                         >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
                             Start Reading

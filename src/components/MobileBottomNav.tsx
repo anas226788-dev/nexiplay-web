@@ -14,8 +14,8 @@ export default function MobileBottomNav() {
             label: 'Home',
             href: '/',
             icon: (active: boolean) => (
-                <svg className={`w-5 h-5 transition-transform duration-200 ${active ? 'scale-110' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={active ? 2.2 : 1.8} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                <svg className={`w-[19px] h-[19px] transition-transform duration-200 ${active ? 'scale-105' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={active ? 2.2 : 1.7} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                 </svg>
             )
         },
@@ -23,8 +23,8 @@ export default function MobileBottomNav() {
             label: 'Movies',
             href: '/movies',
             icon: (active: boolean) => (
-                <svg className={`w-5 h-5 transition-transform duration-200 ${active ? 'scale-110' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={active ? 2.2 : 1.8} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+                <svg className={`w-[19px] h-[19px] transition-transform duration-200 ${active ? 'scale-105' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={active ? 2.2 : 1.7} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
                 </svg>
             )
         },
@@ -32,9 +32,27 @@ export default function MobileBottomNav() {
             label: 'Anime',
             href: '/anime',
             icon: (active: boolean) => (
-                <svg className={`w-5 h-5 transition-transform duration-200 ${active ? 'scale-110' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={active ? 2.2 : 1.8} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={active ? 2.2 : 1.8} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg className={`w-[19px] h-[19px] transition-transform duration-200 ${active ? 'scale-105' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={active ? 2.2 : 1.7} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={active ? 2.2 : 1.7} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            )
+        },
+        {
+            label: 'Shorts',
+            href: '/shorts',
+            icon: (active: boolean) => (
+                <svg className={`w-[19px] h-[19px] transition-transform duration-200 ${active ? 'scale-110 text-rose-400' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={active ? 2.2 : 1.7} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+            )
+        },
+        {
+            label: 'Vibe',
+            href: '/mood',
+            icon: (active: boolean) => (
+                <svg className={`w-[19px] h-[19px] transition-transform duration-200 ${active ? 'scale-105' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={active ? 2.2 : 1.7} d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2L12 3zm7 12 .9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15z" />
                 </svg>
             )
         },
@@ -42,8 +60,8 @@ export default function MobileBottomNav() {
             label: 'Novels',
             href: '/novels',
             icon: (active: boolean) => (
-                <svg className={`w-5 h-5 transition-transform duration-200 ${active ? 'scale-110' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={active ? 2.2 : 1.8} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                <svg className={`w-[19px] h-[19px] transition-transform duration-200 ${active ? 'scale-105' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={active ? 2.2 : 1.7} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
             )
         },
@@ -51,8 +69,8 @@ export default function MobileBottomNav() {
             label: 'Me',
             href: '/account',
             icon: (active: boolean) => (
-                <svg className={`w-5 h-5 transition-transform duration-200 ${active ? 'scale-110' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={active ? 2.2 : 1.8} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                <svg className={`w-[19px] h-[19px] transition-transform duration-200 ${active ? 'scale-105' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={active ? 2.2 : 1.7} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
             )
         }
@@ -66,37 +84,42 @@ export default function MobileBottomNav() {
     return (
         <nav
             aria-label="Mobile Navigation"
-            className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-[#0e101c]/85 backdrop-blur-xl border-t border-white/10 px-2 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(0,0,0,0.55)] transition-all"
+            className="fixed bottom-3.5 left-3.5 right-3.5 sm:left-1/2 sm:-translate-x-1/2 sm:max-w-md z-50 md:hidden"
         >
-            <div className="flex items-center justify-around max-w-md mx-auto">
-                {navItems.map((item) => {
-                    const active = isItemActive(item.href);
-                    return (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-all duration-200 min-w-[56px] relative group ${
-                                active
-                                    ? 'text-white'
-                                    : 'text-[#A7AABD] hover:text-white'
-                            }`}
-                        >
-                            {/* Clay active background pill */}
-                            {active && (
-                                <span className="absolute inset-x-1.5 inset-y-0.5 rounded-xl bg-gradient-to-r from-[#E51D48]/25 via-[#E51D48]/15 to-transparent border border-[#E51D48]/40 shadow-[0_0_12px_rgba(229,29,72,0.35)] -z-10" />
-                            )}
-                            <div className={`relative ${active ? 'text-[#E51D48]' : 'text-current'}`}>
-                                {item.icon(active)}
+            <div className="np-glass relative rounded-2xl p-1.5 shadow-[0_12px_36px_rgba(0,0,0,0.45)]">
+
+                <div className="flex items-center justify-between gap-1">
+                    {navItems.map((item) => {
+                        const active = isItemActive(item.href);
+                        return (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                prefetch={true}
+                                className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl transition-all duration-300 flex-1 relative group active:scale-95 ${
+                                    active
+                                        ? 'text-white'
+                                        : 'text-[#ADA6B9] hover:text-white hover:bg-white/[0.04]'
+                                }`}
+                            >
                                 {active && (
-                                    <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#E51D48] shadow-[0_0_6px_#E51D48]" />
+                                    <div className="absolute inset-0 rounded-xl bg-[#9273F5]/15 border border-[#9273F5]/25 pointer-events-none" />
                                 )}
-                            </div>
-                            <span className={`text-[10px] mt-0.5 transition-colors ${active ? 'font-bold text-white' : 'font-medium text-[#A7AABD]'}`}>
-                                {item.label}
-                            </span>
-                        </Link>
-                    );
-                })}
+
+                                <div className={`relative flex items-center justify-center transition-all duration-200 ${active ? 'scale-105 text-[#B09AFF]' : 'text-current'}`}>
+                                    {item.icon(active)}
+                                </div>
+                                <span className={`text-[10px] tracking-tight leading-none mt-1 transition-colors ${active ? 'font-semibold text-white' : 'font-medium text-[#ADA6B9]'}`}>
+                                    {item.label}
+                                </span>
+
+                                {active && (
+                                    <span className="w-1 h-1 rounded-full bg-[#57D6C0] mt-1" />
+                                )}
+                            </Link>
+                        );
+                    })}
+                </div>
             </div>
         </nav>
     );

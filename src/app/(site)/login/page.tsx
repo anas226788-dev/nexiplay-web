@@ -149,7 +149,7 @@ export default function LoginPage() {
                             value={email}
                             onChange={(event) => setEmail(event.target.value)}
                             required
-                            className="w-full rounded-xl bg-black/40 border border-white/10 px-4 py-3 text-white outline-none focus:border-red-500/60 transition-colors"
+                            className="w-full rounded-xl bg-black/40 border border-white/10 px-4 py-3 text-white outline-none focus:border-violet-400/60 transition-colors"
                             placeholder="you@example.com"
                         />
                     </div>
@@ -160,11 +160,11 @@ export default function LoginPage() {
                             value={password}
                             onChange={(event) => setPassword(event.target.value)}
                             required
-                            className="w-full rounded-xl bg-black/40 border border-white/10 px-4 py-3 text-white outline-none focus:border-red-500/60 transition-colors"
+                            className="w-full rounded-xl bg-black/40 border border-white/10 px-4 py-3 text-white outline-none focus:border-violet-400/60 transition-colors"
                             placeholder="Your password"
                         />
                         <div className="flex justify-end mt-2">
-                            <Link href="/forgot-password" className="text-xs text-red-400 hover:text-red-300 font-bold">
+                            <Link href="/forgot-password" className="text-xs text-violet-300 hover:text-violet-200 font-bold">
                                 Forgot password?
                             </Link>
                         </div>
@@ -172,7 +172,7 @@ export default function LoginPage() {
                     <button
                         type="submit"
                         disabled={loading || googleLoading}
-                        className="w-full rounded-xl bg-red-600 px-5 py-3 font-black text-white hover:bg-red-500 disabled:opacity-60 transition-colors shadow-lg shadow-red-600/20"
+                        className="w-full rounded-xl bg-violet-600 px-5 py-3 font-black text-white hover:bg-violet-500 disabled:opacity-60 transition-colors shadow-lg shadow-red-600/20"
                     >
                         {loading ? 'Logging in...' : 'Login'}
                     </button>
@@ -180,7 +180,7 @@ export default function LoginPage() {
 
                 <p className="mt-6 text-center text-sm text-gray-400">
                     New here?{' '}
-                    <Link href="/register" className="font-bold text-red-400 hover:text-red-300">
+                    <Link href="/register" className="font-bold text-violet-300 hover:text-violet-200">
                         Create account
                     </Link>
                 </p>

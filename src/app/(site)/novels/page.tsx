@@ -55,10 +55,10 @@ export default async function NovelsIndexPage({ searchParams }: PageProps) {
     const totalPages = Math.max(1, Math.ceil(totalNovels / PAGE_SIZE));
 
     return (
-        <div className="container mx-auto px-4 py-8 md:py-12 min-h-screen">
+        <div className="container mx-auto px-4 pt-24 md:pt-28 pb-12 min-h-screen">
             <div className="mb-8 md:mb-10 text-center">
                 <h1 className="text-3xl md:text-5xl font-black text-white mb-3">
-                    <span className="bg-gradient-to-r from-red-500 to-red-600 bg-clip-text text-transparent">Nexiplay</span> Novels
+                    <span className="bg-gradient-to-r from-violet-300 to-violet-700 bg-clip-text text-transparent">Nexiplay</span> Novels
                 </h1>
                 <p className="text-gray-400 max-w-2xl mx-auto text-sm md:text-base">
                     Dive into our collection of free romantic novels. Search, browse, and experience seamless reading anywhere.

@@ -55,7 +55,7 @@ export default function ContactPage() {
                         <p className="text-gray-400">Thank you for contacting us. We will get back to you shortly.</p>
                         <button
                             onClick={() => setSuccess(false)}
-                            className="mt-6 text-red-500 hover:text-red-400 font-medium"
+                            className="mt-6 text-violet-300 hover:text-violet-300 font-medium"
                         >
                             Send another message
                         </button>
@@ -109,7 +109,7 @@ export default function ContactPage() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full py-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-red-900/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                            className="w-full py-4 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-violet-950/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                         >
                             {loading ? (
                                 <svg className="w-6 h-6 animate-spin text-white" fill="none" viewBox="0 0 24 24">

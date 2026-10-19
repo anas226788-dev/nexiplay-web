@@ -4,12 +4,13 @@ import Pagination from '@/components/Pagination';
 import { buildPageMetadata } from '@/lib/metadata';
 import { supabase } from '@/lib/supabase';
 import { Movie } from '@/lib/types';
+import { fetchTmdbSeries, getExistingDatabaseCatalog, normalizeTitle } from '@/lib/tmdb';
 
 const ITEMS_PER_PAGE = 24;
 
 export const metadata: Metadata = buildPageMetadata({
     title: 'Series',
-    description: 'Browse and download the latest TV series in HD quality. Free series downloads available.',
+    description: 'Browse and stream the latest TV series in HD quality. Infinite catalog on Nexiplay.',
     path: '/series',
 });
 
@@ -23,38 +24,62 @@ interface SeriesPageProps {
 async function getSeries(page: number): Promise<{ series: Movie[]; totalCount: number }> {
     const from = (page - 1) * ITEMS_PER_PAGE;
     const to = from + ITEMS_PER_PAGE - 1;
-    const fields = 'id, title, slug, type, poster_url, description, release_year, created_at, trending_badge, is_adult, admin_note';
+    const fields = 'id, title, slug, type, poster_url, description, release_year, created_at, trending_badge, is_adult, admin_note, tmdb_id';
 
-    // Get total count
-    const { count } = await supabase
-        .from('movies')
-        .select('id', { count: 'exact', head: true })
-        .eq('type', 'series');
-
-    // Get paginated data + pinned items on page 1
-    const [paginatedRes, pinnedRes] = await Promise.all([
+    // 1. Fetch local database series & the existing catalog index for deduplication
+    const [paginatedRes, pinnedRes, dbCatalog] = await Promise.all([
         supabase
             .from('movies')
-            .select(fields)
+            .select(fields, { count: 'exact' })
             .eq('type', 'series')
             .order('created_at', { ascending: false })
             .range(from, to),
         page === 1
             ? supabase.from('movies').select(fields).eq('type', 'series').eq('admin_note', 'pinned').order('created_at', { ascending: false })
-            : Promise.resolve({ data: [] })
+            : Promise.resolve({ data: [] }),
+        getExistingDatabaseCatalog(),
     ]);
 
-    if (paginatedRes.error) {
-        console.error('Error fetching series:', paginatedRes.error);
-        return { series: [], totalCount: 0 };
+    const localCount = paginatedRes.count || 0;
+    const localData = (paginatedRes.data || []) as Movie[];
+
+    let localPageSeries: Movie[] = [];
+    if (page === 1) {
+        const pinned: Movie[] = (pinnedRes.data || []).map((m: any) => ({ ...m, is_pinned: true }));
+        const pinnedIds = new Set(pinned.map(m => m.id));
+        const regular = localData.filter(m => !pinnedIds.has(m.id)).map(m => ({ ...m, is_pinned: m.admin_note === 'pinned' }));
+        localPageSeries = [...pinned, ...regular];
+    } else {
+        localPageSeries = localData.map(m => ({ ...m, is_pinned: m.admin_note === 'pinned' }));
     }
 
-    const pinned: Movie[] = (pinnedRes.data || []).map((m: any) => ({ ...m, is_pinned: true }));
-    const pinnedIds = new Set(pinned.map(m => m.id));
-    const regular: Movie[] = (paginatedRes.data || []).filter((m: any) => !pinnedIds.has(m.id)).map((m: any) => ({ ...m, is_pinned: m.admin_note === 'pinned' }));
-    const finalSeries: Movie[] = page === 1 ? [...pinned, ...regular] : (paginatedRes.data || []).map((m: any) => ({ ...m, is_pinned: m.admin_note === 'pinned' }));
+    const finalSeries: Movie[] = [...localPageSeries];
 
-    return { series: finalSeries, totalCount: count || 0 };
+    // 2. If this page has room or local DB series are exhausted, fill from TMDB on-demand
+    const needed = ITEMS_PER_PAGE - finalSeries.length;
+    if (needed > 0) {
+        const localPages = Math.max(1, Math.ceil(localCount / ITEMS_PER_PAGE));
+        const tmdbPage = Math.max(1, page - localPages + 1);
+
+        try {
+            const { results: tmdbResults } = await fetchTmdbSeries(tmdbPage);
+            // Strict Deduplication: filter out any title that exists in Supabase
+            const freshTmdbSeries = tmdbResults.filter(item => {
+                if (item.tmdb_id && dbCatalog.existingTmdbIds.has(item.tmdb_id)) return false;
+                if (dbCatalog.existingTitles.has(normalizeTitle(item.title))) return false;
+                return true;
+            });
+
+            finalSeries.push(...freshTmdbSeries.slice(0, needed));
+        } catch (tmdbErr) {
+            console.warn('[Series Page] TMDB fill failed:', tmdbErr);
+        }
+    }
+
+    // Total count reflects local DB items + infinite TMDB universe (500 pages * 24 = 12,000)
+    const totalCount = localCount + 12000;
+
+    return { series: finalSeries, totalCount };
 }
 
 export default async function SeriesPage({ searchParams }: SeriesPageProps) {
@@ -64,11 +89,11 @@ export default async function SeriesPage({ searchParams }: SeriesPageProps) {
     const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
     return (
-        <div className="container mx-auto px-4 py-8">
+        <div className="container mx-auto px-4 pt-20 md:pt-24 pb-12">
             <div className="mb-8">
-                <h1 className="text-3xl md:text-4xl font-bold mb-2">Series</h1>
-                <p className="text-gray-400">
-                    Browse our collection of {totalCount} TV series available for download
+                <h1 className="text-3xl md:text-4xl font-bold mb-2 text-white">TV Series</h1>
+                <p className="text-gray-400 text-sm">
+                    Browse thousands of TV shows &amp; series in HD quality · Watch online &amp; stream
                 </p>
             </div>
 
@@ -88,7 +113,7 @@ export default async function SeriesPage({ searchParams }: SeriesPageProps) {
                         <path d="M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 14H3V5h18v12z" />
                     </svg>
                     <h2 className="text-2xl font-bold text-gray-300 mb-2">No Series Found</h2>
-                    <p className="text-gray-500">Series will appear here once added to the database.</p>
+                    <p className="text-gray-500">Series will appear here once loaded.</p>
                 </div>
             )}
         </div>

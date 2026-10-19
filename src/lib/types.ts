@@ -54,6 +54,7 @@ export interface Movie {
     streaming_url_toonplay?: string;
     // Multi-scraper config JSON (from streaming table)
     scraper_url?: string;
+    admin_note?: string;
 }
 
 export interface Upcoming {
@@ -204,6 +205,7 @@ export interface Season {
     movie_id: string;
     season_number: number;
     season_title?: string;
+    title?: string;
     poster_url?: string;
     season_zip_link?: string;
     episodes?: Episode[];
@@ -215,6 +217,7 @@ export interface Episode {
     season_id: string;
     episode_number: number;
     episode_title?: string;
+    title?: string;
     download_links?: EpisodeDownloadLink[];
     streaming_url?: string;
     streaming_url_animerulz?: string;

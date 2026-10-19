@@ -75,7 +75,7 @@ export default function AdultGateGuard({ children }: { children: React.ReactNode
                     {/* Content */}
                     <div className="relative p-8 text-center">
                         {/* Icon */}
-                        <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-red-600/20 border border-red-500/30 flex items-center justify-center">
+                        <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-violet-600/20 border border-red-500/30 flex items-center justify-center">
                             <span className="text-4xl">🔞</span>
                         </div>
 
@@ -83,7 +83,7 @@ export default function AdultGateGuard({ children }: { children: React.ReactNode
                         <h2 className="text-2xl font-black text-white mb-3 tracking-tight">
                             Age Restricted Content
                         </h2>
-                        <div className="inline-block px-3 py-1 mb-5 rounded-full bg-red-600/20 border border-red-500/30">
+                        <div className="inline-block px-3 py-1 mb-5 rounded-full bg-violet-600/20 border border-red-500/30">
                             <span className="text-red-400 text-xs font-bold uppercase tracking-wider">18+ Only</span>
                         </div>
 
@@ -103,7 +103,7 @@ export default function AdultGateGuard({ children }: { children: React.ReactNode
                             </button>
                             <button
                                 onClick={handleAgree}
-                                className="flex-1 px-6 py-3.5 rounded-xl bg-red-600 text-white font-bold hover:bg-red-500 transition-all duration-200 shadow-lg shadow-red-900/40 hover:shadow-red-800/60 active:scale-95"
+                                className="flex-1 px-6 py-3.5 rounded-xl bg-violet-600 text-white font-bold hover:bg-violet-500 transition-all duration-200 shadow-lg shadow-violet-950/40 hover:shadow-red-800/60 active:scale-95"
                             >
                                 I Am 18+
                             </button>
