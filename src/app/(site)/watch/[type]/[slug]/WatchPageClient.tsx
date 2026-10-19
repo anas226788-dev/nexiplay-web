@@ -2606,11 +2606,6 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                                         className="nexiplay-player-frame absolute inset-0 w-full h-full bg-black overflow-hidden"
                                         scrolling="no"
                                         {...FULLSCREEN_IFRAME_ATTRS}
-                                        sandbox={
-                                            playerAdBlocker && activeServerId !== 'trailer' && activeServerId !== 'twoembed' && !isNativeStreamActive
-                                                ? "allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock allow-orientation-lock allow-modals"
-                                                : undefined
-                                        }
                                         referrerPolicy={isYouTubeActive ? 'strict-origin-when-cross-origin' : 'no-referrer'}
                                         onError={() => handleNextServer(activeServerId)}
                                     />
