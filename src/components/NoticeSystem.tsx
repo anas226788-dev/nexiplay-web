@@ -16,6 +16,8 @@ export default function NoticeSystem() {
     const pathname = usePathname();
     const [closedNotices, setClosedNotices] = useState<string[]>([]);
     const [selectedVideoUrl, setSelectedVideoUrl] = useState<string | null>(null);
+    const [lightboxImageUrl, setLightboxImageUrl] = useState<string | null>(null);
+    const [dismissTodayMap, setDismissTodayMap] = useState<Record<string, boolean>>({});
     const { activeMovie } = useActiveMovie();
 
     // ── Live In-Browser APK Download Progress State ──
@@ -186,6 +188,18 @@ export default function NoticeSystem() {
     const isMatch = (notice: NoticeFields) => {
         if (closedNotices.includes(notice.id)) return false;
 
+        // Check if dismissed for today
+        if (typeof window !== 'undefined') {
+            const today = new Date().toISOString().slice(0, 10);
+            try {
+                if (localStorage.getItem(`nexiplay_notice_dismissed_${notice.id}`) === today) {
+                    return false;
+                }
+            } catch {
+                // ignore
+            }
+        }
+
         // If it's a specific content notice
         if (notice.movie_id) {
             return isMoviePage && activeMovie?.id === notice.movie_id;
@@ -206,8 +220,35 @@ export default function NoticeSystem() {
         }
     };
 
-    const handleClose = (id: string) => {
+    const handleClose = (id: string, dismissToday = false) => {
         setClosedNotices(prev => [...prev, id]);
+        if (dismissToday && typeof window !== 'undefined') {
+            const today = new Date().toISOString().slice(0, 10);
+            try {
+                localStorage.setItem(`nexiplay_notice_dismissed_${id}`, today);
+            } catch {
+                // ignore
+            }
+        }
+    };
+
+    const handleCloseWithOption = (id: string) => {
+        const dismissToday = !!dismissTodayMap[id];
+        handleClose(id, dismissToday);
+    };
+
+    const isAppNotice = (notice: NoticeFields) => {
+        const text = (notice.content || '').toLowerCase();
+        return (
+            text.includes('/api/download/apk') ||
+            text.includes('.apk') ||
+            text.includes('notice-app-btn') ||
+            text.includes('download app') ||
+            text.includes('app download') ||
+            text.includes('android app') ||
+            text.includes('apk download') ||
+            text.includes('nexiplay app')
+        );
     };
 
     // Helper to extract video info
@@ -423,56 +464,236 @@ export default function NoticeSystem() {
                 </div>
             )}
 
-            {/* Popups */}
-            {popupNotices.length > 0 && (
-                <div data-notice-modal="true" className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-fade-in">
-                    <div
-                        className={`max-w-xl w-full rounded-3xl p-8 shadow-2xl border border-white/15 relative overflow-hidden animate-scale-in font-medium bg-dark-900/90 backdrop-blur-2xl text-white ${isTailwind(popupNotices[0].bg_color) ? popupNotices[0].bg_color : ''}`}
-                        style={{
-                            backgroundColor: !isTailwind(popupNotices[0].bg_color) ? popupNotices[0].bg_color : undefined
-                        }}
-                    >
-                        {/* Decorative Glow Orbs */}
-                        <div className="absolute -right-24 -bottom-24 w-72 h-72 bg-violet-600/10 rounded-full blur-[90px] pointer-events-none animate-pulse-slow" />
-                        <div className="absolute -left-24 -top-24 w-72 h-72 bg-blue-600/10 rounded-full blur-[90px] pointer-events-none animate-pulse-slow [animation-delay:3s]" />
+            {/* Popups (Manus.im Inspired Professional Notice System) */}
+            {popupNotices.length > 0 && (() => {
+                const notice = popupNotices[0];
+                const isApp = isAppNotice(notice);
+                const isDismissToday = !!dismissTodayMap[notice.id];
 
-                        <button
-                            onClick={() => handleClose(popupNotices[0].id)}
-                            className="absolute top-4 right-4 p-2 bg-white/5 hover:bg-violet-500/20 text-white/70 hover:text-white rounded-full border border-white/10 hover:border-red-500/30 transition-all duration-300 hover:rotate-90 z-20"
+                return (
+                    <div data-notice-modal="true" className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-xl p-4 sm:p-6 animate-in fade-in duration-300">
+                        {/* Backdrop Dismiss */}
+                        <div className="absolute inset-0" onClick={() => handleCloseWithOption(notice.id)} />
+
+                        {/* Modal Card */}
+                        <div
+                            className={`relative max-w-lg w-full rounded-[32px] p-6 sm:p-8 shadow-[0_30px_90px_rgba(0,0,0,0.85)] border border-white/15 overflow-hidden animate-in zoom-in-95 duration-300 font-sans z-10 bg-dark-950/95 backdrop-blur-3xl text-white ${
+                                isTailwind(notice.bg_color) ? notice.bg_color : ''
+                            }`}
+                            style={{
+                                backgroundColor: !isTailwind(notice.bg_color) ? notice.bg_color : undefined
+                            }}
+                            onClick={e => e.stopPropagation()}
                         >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
+                            {/* Top subtle light sheen line */}
+                            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-violet-400 to-transparent opacity-80" />
 
-                        <div className="relative z-10 flex flex-col gap-6 mt-2">
-                            <div className="flex justify-center">
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-widest bg-red-500/20 text-red-400 border border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse">
-                                    📢 Announcement
-                                </span>
+                            {/* Ambient Glow Orbs */}
+                            <div className="absolute -right-24 -bottom-24 w-72 h-72 bg-violet-600/15 rounded-full blur-[90px] pointer-events-none" />
+                            <div className="absolute -left-24 -top-24 w-72 h-72 bg-indigo-600/15 rounded-full blur-[90px] pointer-events-none" />
+
+                            {/* Header Row */}
+                            <div className="flex items-center justify-between gap-3 mb-5">
+                                <div className="flex items-center gap-2">
+                                    {isApp ? (
+                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-violet-500/20 text-violet-300 border border-violet-500/30 shadow-[0_0_15px_rgba(139,92,246,0.3)]">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
+                                            ✨ Official App Release
+                                        </span>
+                                    ) : (
+                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-white/10 text-white/90 border border-white/15 shadow-sm">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                            📢 Announcement
+                                        </span>
+                                    )}
+                                </div>
+
+                                <button
+                                    onClick={() => handleCloseWithOption(notice.id)}
+                                    className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white flex items-center justify-center transition-all border border-white/10 hover:scale-105 active:scale-95 cursor-pointer"
+                                    title="Close"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
                             </div>
 
-                            {popupNotices[0].video_url ? (
-                                <div className="w-full overflow-hidden rounded-2xl border border-white/5 shadow-2xl">
-                                    <RenderVideo url={popupNotices[0].video_url} />
-                                </div>
-                            ) : popupNotices[0].image_url ? (
-                                <img
-                                    src={popupNotices[0].image_url}
-                                    alt=""
-                                    className="w-full h-auto rounded-2xl object-cover max-h-64 border border-white/10 shadow-2xl transform hover:scale-[1.02] transition-transform duration-500"
-                                />
-                            ) : null}
+                            {/* App Download Specific Hero (Manus.im Style) */}
+                            {isApp ? (
+                                <div className="space-y-5">
+                                    {/* App Brand Header */}
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-violet-600 via-indigo-600 to-purple-500 p-0.5 shadow-[0_10px_25px_rgba(139,92,246,0.4)] flex items-center justify-center shrink-0">
+                                            <div className="w-full h-full rounded-[14px] bg-dark-950 flex items-center justify-center overflow-hidden">
+                                                <span className="text-3xl font-black bg-gradient-to-br from-violet-300 via-white to-indigo-300 bg-clip-text text-transparent">
+                                                    N
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <h3 className="text-lg font-black text-white tracking-tight">
+                                                    NexiPlay for Android
+                                                </h3>
+                                                <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                                    v2.0 APK
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-gray-400 mt-0.5">
+                                                Zero popup ads • 4K Streams • Background Play
+                                            </p>
+                                        </div>
+                                    </div>
 
-                            <div
-                                className={`text-base md:text-lg font-bold text-center leading-relaxed ${isTailwind(popupNotices[0].text_color) ? popupNotices[0].text_color : 'text-gray-100'}`}
-                                style={{ color: !isTailwind(popupNotices[0].text_color) ? popupNotices[0].text_color : undefined }}
-                                dangerouslySetInnerHTML={{ __html: popupNotices[0].content }}
-                            />
+                                    {/* Optional App Screenshot Image */}
+                                    {notice.image_url && (
+                                        <div 
+                                            className="relative rounded-2xl overflow-hidden border border-white/10 shadow-xl group cursor-pointer max-h-56"
+                                            onClick={() => setLightboxImageUrl(notice.image_url || null)}
+                                        >
+                                            <img
+                                                src={notice.image_url}
+                                                alt="App Preview"
+                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                            />
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-end p-3">
+                                                <span className="px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur-md text-[11px] font-bold text-white border border-white/20 flex items-center gap-1.5 shadow-lg">
+                                                    <span>🔍</span> Click to zoom
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Notice HTML Content Description */}
+                                    <div
+                                        className={`text-sm text-gray-200 leading-relaxed font-medium ${
+                                            isTailwind(notice.text_color) ? notice.text_color : ''
+                                        }`}
+                                        style={{ color: !isTailwind(notice.text_color) ? notice.text_color : undefined }}
+                                        dangerouslySetInnerHTML={{ __html: notice.content }}
+                                    />
+
+                                    {/* Feature Pills Grid (Manus.im Style) */}
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                        <div className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 flex items-center gap-2 text-gray-300">
+                                            <span className="text-emerald-400 font-bold">✓</span>
+                                            <span className="font-semibold truncate">100% Ad-Free Player</span>
+                                        </div>
+                                        <div className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 flex items-center gap-2 text-gray-300">
+                                            <span className="text-violet-400 font-bold">✓</span>
+                                            <span className="font-semibold truncate">4K Ultra HD Streams</span>
+                                        </div>
+                                        <div className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 flex items-center gap-2 text-gray-300">
+                                            <span className="text-amber-400 font-bold">✓</span>
+                                            <span className="font-semibold truncate">Offline Downloads</span>
+                                        </div>
+                                        <div className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 flex items-center gap-2 text-gray-300">
+                                            <span className="text-cyan-400 font-bold">✓</span>
+                                            <span className="font-semibold truncate">Android TV & Mobile</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Download Action Section */}
+                                    {downloadState.active ? (
+                                        <div className="p-4 rounded-2xl bg-violet-950/40 border border-violet-500/40 space-y-2.5 shadow-xl animate-in fade-in">
+                                            <div className="flex items-center justify-between text-xs">
+                                                <span className="font-bold text-white flex items-center gap-1.5">
+                                                    <span className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
+                                                    {downloadState.complete ? 'Download Complete!' : 'Downloading NexiPlay.apk...'}
+                                                </span>
+                                                <span className="font-black text-violet-300 font-mono">
+                                                    {downloadState.percent}%
+                                                </span>
+                                            </div>
+                                            <div className="w-full h-2.5 bg-black/40 rounded-full overflow-hidden border border-white/10 relative">
+                                                <div 
+                                                    className="h-full bg-gradient-to-r from-violet-600 via-indigo-500 to-purple-400 rounded-full transition-all duration-200"
+                                                    style={{ width: `${downloadState.percent}%` }}
+                                                />
+                                            </div>
+                                            <p className="text-[11px] text-gray-400">
+                                                {downloadState.complete
+                                                    ? 'File saved to your Downloads! Tap file to install.'
+                                                    : `${downloadState.loadedMb} MB / ${downloadState.totalMb} MB • Fast Direct Stream`}
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={() => startDirectApkDownload('/api/download/apk')}
+                                            className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-500 hover:via-purple-500 hover:to-indigo-500 text-white font-extrabold text-sm shadow-[0_10px_30px_rgba(139,92,246,0.5)] border border-violet-400/30 hover:border-violet-300 transition-all flex items-center justify-center gap-2 group cursor-pointer hover:scale-[1.02] active:scale-95"
+                                        >
+                                            <svg className="w-5 h-5 group-hover:translate-y-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                            </svg>
+                                            <span>Download Android App (APK)</span>
+                                            <span className="text-[11px] font-bold text-violet-200 ml-1 opacity-80">(~45 MB)</span>
+                                        </button>
+                                    )}
+                                </div>
+                            ) : (
+                                /* Photo & Standard Announcement Hero (Manus.im Style) */
+                                <div className="space-y-4">
+                                    {notice.video_url ? (
+                                        <div className="w-full overflow-hidden rounded-2xl border border-white/10 shadow-2xl">
+                                            <RenderVideo url={notice.video_url} />
+                                        </div>
+                                    ) : notice.image_url ? (
+                                        <div
+                                            className="relative rounded-2xl overflow-hidden border border-white/10 shadow-2xl group cursor-pointer max-h-72"
+                                            onClick={() => setLightboxImageUrl(notice.image_url || null)}
+                                        >
+                                            <img
+                                                src={notice.image_url}
+                                                alt="Notice Banner"
+                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                            />
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-end p-3">
+                                                <span className="px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur-md text-[11px] font-bold text-white border border-white/20 flex items-center gap-1.5 shadow-lg">
+                                                    <span>🔍</span> Click to zoom
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ) : null}
+
+                                    <div
+                                        className={`text-base font-semibold leading-relaxed ${
+                                            isTailwind(notice.text_color) ? notice.text_color : 'text-gray-100'
+                                        }`}
+                                        style={{ color: !isTailwind(notice.text_color) ? notice.text_color : undefined }}
+                                        dangerouslySetInnerHTML={{ __html: notice.content }}
+                                    />
+                                </div>
+                            )}
+
+                            {/* Footer: "Don't show again today" & Dismiss Action */}
+                            <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between gap-3 flex-wrap">
+                                <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-gray-400 hover:text-gray-200 transition-colors">
+                                    <input
+                                        type="checkbox"
+                                        checked={isDismissToday}
+                                        onChange={e => {
+                                            const val = e.target.checked;
+                                            setDismissTodayMap(prev => ({ ...prev, [notice.id]: val }));
+                                        }}
+                                        className="w-4 h-4 rounded border-white/20 bg-white/10 text-violet-600 focus:ring-0 focus:ring-offset-0 cursor-pointer accent-violet-600"
+                                    />
+                                    <span>Don't show again today</span>
+                                </label>
+
+                                <button
+                                    type="button"
+                                    onClick={() => handleCloseWithOption(notice.id)}
+                                    className="px-4 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-bold text-gray-300 hover:text-white border border-white/10 hover:border-white/20 transition-all cursor-pointer active:scale-95"
+                                >
+                                    Got it, continue
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
 
             {/* Toast Notifications - Bottom Right Corner (like YouTube/Discord) */}
             <div className="fixed bottom-6 right-6 z-[100] flex flex-col-reverse gap-3 max-w-sm w-full pointer-events-none">
@@ -637,6 +858,33 @@ export default function NoticeSystem() {
                     </div>
                 </div>
             )}
+
+            {/* High-Resolution Photo Lightbox Modal (Manus.im Style) */}
+            {lightboxImageUrl && (
+                <div
+                    className="fixed inset-0 z-[160] flex items-center justify-center bg-black/95 backdrop-blur-2xl p-4 sm:p-8 animate-in fade-in duration-200"
+                    onClick={() => setLightboxImageUrl(null)}
+                >
+                    <button
+                        onClick={() => setLightboxImageUrl(null)}
+                        className="absolute top-5 right-5 p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/10 transition-all hover:scale-105 z-20 cursor-pointer shadow-xl"
+                        title="Close image"
+                    >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                    <div className="relative max-w-4xl max-h-[90vh] flex items-center justify-center">
+                        <img
+                            src={lightboxImageUrl}
+                            alt="Notice Preview"
+                            className="max-h-[85vh] max-w-[92vw] object-contain rounded-2xl shadow-2xl border border-white/15 animate-in zoom-in-95 duration-200"
+                            onClick={e => e.stopPropagation()}
+                        />
+                    </div>
+                </div>
+            )}
+
             {/* ── Live APK Download Progress Floating Modal ── */}
             {downloadState.active && (
                 <div className="fixed bottom-6 right-6 md:right-8 z-[130] max-w-md w-[calc(100%-3rem)] bg-dark-900/95 backdrop-blur-2xl border border-red-500/30 rounded-3xl p-5 shadow-[0_12px_40px_rgba(0,0,0,0.8)] animate-slide-up font-sans">
