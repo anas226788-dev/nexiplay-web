@@ -11,7 +11,7 @@ interface Game {
     thumbnailUrl100?: string;
     url: string;
     description: string;
-    orientation?: string;
+    orientation?: 'portrait' | 'landscape' | string;
     rkScore?: number;
     featured?: boolean;
 }
@@ -176,10 +176,19 @@ export default function GamesClient() {
     const [totalGames, setTotalGames] = useState(1000);
     const [loadingMore, setLoadingMore] = useState(false);
     const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
+    const [orientationCounts, setOrientationCounts] = useState<{ all: number; portrait: number; landscape: number }>({
+        all: 1000,
+        portrait: 426,
+        landscape: 574,
+    });
     const [selectedCategory, setSelectedCategory] = useState('All');
+    const [orientationFilter, setOrientationFilter] = useState<'all' | 'portrait' | 'landscape'>('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [sortBy, setSortBy] = useState<'popular' | 'featured' | 'name'>('popular');
     const [activeTab, setActiveTab] = useState<'all' | 'favorites' | 'recent'>('all');
+
+    // Mobile landscape viewport detection
+    const [isMobileLandscape, setIsMobileLandscape] = useState(false);
 
     // Active Game in Theater Modal
     const [activeGame, setActiveGame] = useState<Game | null>(null);
@@ -206,6 +215,22 @@ export default function GamesClient() {
         } catch (_) {}
     }, []);
 
+    // Detect mobile landscape mode (height < 600 and width > height)
+    useEffect(() => {
+        const handleResize = () => {
+            if (typeof window === 'undefined') return;
+            const isLand = window.innerWidth > window.innerHeight && window.innerHeight < 600;
+            setIsMobileLandscape(isLand);
+        };
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        window.addEventListener('orientationchange', handleResize);
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            window.removeEventListener('orientationchange', handleResize);
+        };
+    }, []);
+
     // Lock body scroll when activeGame modal is open to ensure seamless mobile & desktop play
     useEffect(() => {
         if (activeGame) {
@@ -217,12 +242,13 @@ export default function GamesClient() {
         }
     }, [activeGame]);
 
-    const loadGames = useCallback(async (cat: string, q: string, sort: string) => {
+    const loadGames = useCallback(async (cat: string, q: string, sort: string, orient: string) => {
         setLoading(true);
         setPage(1);
         try {
             const params = new URLSearchParams();
             if (cat && cat !== 'All') params.set('category', cat);
+            if (orient && orient !== 'all') params.set('orientation', orient);
             if (q.trim()) params.set('q', q.trim());
             params.set('sort', sort);
             params.set('page', '1');
@@ -234,6 +260,7 @@ export default function GamesClient() {
                 setGames(data.games);
                 if (typeof data.total === 'number') setTotalGames(data.total);
                 if (data.categoryCounts) setCategoryCounts(data.categoryCounts);
+                if (data.orientationCounts) setOrientationCounts(data.orientationCounts);
             } else {
                 setGames([]);
             }
@@ -252,6 +279,7 @@ export default function GamesClient() {
         try {
             const params = new URLSearchParams();
             if (selectedCategory && selectedCategory !== 'All') params.set('category', selectedCategory);
+            if (orientationFilter && orientationFilter !== 'all') params.set('orientation', orientationFilter);
             if (searchQuery.trim()) params.set('q', searchQuery.trim());
             params.set('sort', sortBy);
             params.set('page', String(nextPage));
@@ -262,7 +290,8 @@ export default function GamesClient() {
             if (data.success && Array.isArray(data.games) && data.games.length > 0) {
                 setGames(prev => {
                     const existingIds = new Set(prev.map(g => g.id));
-                    const newOnes = data.games.filter((g: Game) => !existingIds.has(g.id));
+                    const existingUrls = new Set(prev.map(g => g.url));
+                    const newOnes = data.games.filter((g: Game) => !existingIds.has(g.id) && !existingUrls.has(g.url));
                     return [...prev, ...newOnes];
                 });
                 setPage(nextPage);
@@ -277,10 +306,10 @@ export default function GamesClient() {
 
     useEffect(() => {
         const timeoutId = setTimeout(() => {
-            loadGames(selectedCategory, searchQuery, sortBy);
+            loadGames(selectedCategory, searchQuery, sortBy, orientationFilter);
         }, 200);
         return () => clearTimeout(timeoutId);
-    }, [selectedCategory, searchQuery, sortBy, loadGames]);
+    }, [selectedCategory, searchQuery, sortBy, orientationFilter, loadGames]);
 
     const handlePlayGame = (game: Game) => {
         setActiveGame(game);
@@ -291,6 +320,18 @@ export default function GamesClient() {
             setRecentIds(nextRecent);
             localStorage.setItem('nexiplay_recent_games', JSON.stringify(nextRecent));
         } catch (_) {}
+    };
+
+    const handleCloseGame = () => {
+        setActiveGame(null);
+        setShowInfoDrawer(false);
+        setIsTheaterFullscreen(false);
+        if (typeof document !== 'undefined' && document.fullscreenElement) {
+            document.exitFullscreen().catch(() => {});
+        }
+        if (typeof screen !== 'undefined' && screen.orientation && (screen.orientation as any).unlock) {
+            (screen.orientation as any).unlock();
+        }
     };
 
     const toggleFavorite = (e: React.MouseEvent, gameId: string) => {
@@ -309,12 +350,20 @@ export default function GamesClient() {
         if (!document.fullscreenElement) {
             playerContainerRef.current.requestFullscreen().then(() => {
                 setIsTheaterFullscreen(true);
+                // Attempt orientation lock on mobile devices for the best gaming experience
+                if (typeof screen !== 'undefined' && screen.orientation && (screen.orientation as any).lock) {
+                    const targetOrientation = activeGame?.orientation === 'portrait' ? 'portrait' : 'landscape';
+                    (screen.orientation as any).lock(targetOrientation).catch(() => {});
+                }
             }).catch(() => {
                 setIsTheaterFullscreen(prev => !prev);
             });
         } else {
             document.exitFullscreen().then(() => {
                 setIsTheaterFullscreen(false);
+                if (typeof screen !== 'undefined' && screen.orientation && (screen.orientation as any).unlock) {
+                    (screen.orientation as any).unlock();
+                }
             }).catch(() => {
                 setIsTheaterFullscreen(false);
             });
@@ -342,7 +391,7 @@ export default function GamesClient() {
                 if (showInfoDrawer) {
                     setShowInfoDrawer(false);
                 } else {
-                    setActiveGame(null);
+                    handleCloseGame();
                 }
             } else if (e.key.toLowerCase() === 'f') {
                 toggleFullscreen();
@@ -381,16 +430,19 @@ export default function GamesClient() {
     }, [games]);
 
     const displayedGames = useMemo(() => {
+        let list = games;
         if (activeTab === 'favorites') {
-            return games.filter(g => favorites.includes(g.id));
-        }
-        if (activeTab === 'recent') {
-            return recentIds
+            list = list.filter(g => favorites.includes(g.id));
+        } else if (activeTab === 'recent') {
+            list = recentIds
                 .map(id => games.find(g => g.id === id))
                 .filter((g): g is Game => Boolean(g));
         }
-        return games;
-    }, [games, activeTab, favorites, recentIds]);
+        if (orientationFilter !== 'all') {
+            list = list.filter(g => (g.orientation || 'landscape').toLowerCase() === orientationFilter);
+        }
+        return list;
+    }, [games, activeTab, favorites, recentIds, orientationFilter]);
 
     // Recommended next games list for the cinema theater dock
     const moreGames = useMemo(() => {
@@ -407,7 +459,7 @@ export default function GamesClient() {
                 <div className="space-y-4 mb-8">
                     <div className="inline-flex items-center gap-2.5 px-3 py-1 rounded-full bg-[#9273F5]/10 border border-[#9273F5]/25 text-[#B09AFF] text-[11px] font-bold uppercase tracking-wider">
                         <span className="w-2 h-2 rounded-full bg-[#9273F5] animate-pulse" />
-                        <span>Nexiplay Gaming Hub • 1,000+ HTML5 Games</span>
+                        <span>Nexiplay Arcade • 1,000+ Verified HTML5 Games</span>
                     </div>
 
                     <div className="space-y-2">
@@ -429,7 +481,7 @@ export default function GamesClient() {
                             </div>
                             <input
                                 type="text"
-                                placeholder="Search 1,000+ games (e.g. moto, 2048, guns)..."
+                                placeholder="Search 1,000+ games (e.g. moto, stickman, subway)..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="w-full pl-11 pr-10 py-3 bg-[#17141F]/80 border border-white/10 rounded-2xl text-white placeholder-[#ADA6B9]/60 text-sm focus:outline-none focus:border-[#9273F5] focus:ring-2 focus:ring-[#9273F5]/20 transition-all shadow-inner"
@@ -465,7 +517,7 @@ export default function GamesClient() {
                 </div>
 
                 {/* ──────────────────────────────────────────────────────── */}
-                {/* Two Filter Rows (COLLECTION & GENRE with SVG Icons)      */}
+                {/* Three Filter Rows: COLLECTION, DEVICE & GENRE           */}
                 {/* ──────────────────────────────────────────────────────── */}
                 <div className="space-y-3.5 pt-2 border-t border-white/10 mb-8">
                     {/* Row 1: COLLECTION Filter (All Games, Favorites, Recently Played) */}
@@ -530,7 +582,57 @@ export default function GamesClient() {
                         </div>
                     </div>
 
-                    {/* Row 2: GENRE Filter with bespoke SVG icons */}
+                    {/* Row 2: DEVICE & ORIENTATION Filter (Solves Mobile Rotate Confusion) */}
+                    <div className="flex items-center gap-3 overflow-x-auto pb-1.5 scrollbar-hide">
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#57D6C0] shrink-0">
+                            FORMAT
+                        </span>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setOrientationFilter('all')}
+                                className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all duration-200 flex items-center gap-2 shrink-0 ${
+                                    orientationFilter === 'all'
+                                        ? 'bg-gradient-to-r from-[#57D6C0] to-[#20B2AA] text-black font-extrabold shadow-[0_4px_16px_rgba(87,214,192,0.4)] scale-105'
+                                        : 'bg-[#17141F]/80 text-[#ADA6B9] hover:text-white hover:bg-[#211D2D] border border-white/10'
+                                }`}
+                            >
+                                <span>🌟 All Formats</span>
+                                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${orientationFilter === 'all' ? 'bg-black/20 text-black' : 'bg-white/5 text-gray-400'}`}>
+                                    {orientationCounts.all || totalGames}
+                                </span>
+                            </button>
+
+                            <button
+                                onClick={() => setOrientationFilter('portrait')}
+                                className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all duration-200 flex items-center gap-2 shrink-0 ${
+                                    orientationFilter === 'portrait'
+                                        ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-[0_4px_16px_rgba(16,185,129,0.4)] scale-105 border border-emerald-400/30'
+                                        : 'bg-[#17141F]/80 text-[#ADA6B9] hover:text-emerald-300 hover:bg-[#211D2D] border border-white/10'
+                                }`}
+                            >
+                                <span>📱 Mobile Portrait (No Rotate!)</span>
+                                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${orientationFilter === 'portrait' ? 'bg-white/25 text-white' : 'bg-emerald-500/15 text-emerald-400'}`}>
+                                    {orientationCounts.portrait || 426}
+                                </span>
+                            </button>
+
+                            <button
+                                onClick={() => setOrientationFilter('landscape')}
+                                className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all duration-200 flex items-center gap-2 shrink-0 ${
+                                    orientationFilter === 'landscape'
+                                        ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-[0_4px_16px_rgba(245,158,11,0.4)] scale-105 border border-amber-400/30'
+                                        : 'bg-[#17141F]/80 text-[#ADA6B9] hover:text-amber-300 hover:bg-[#211D2D] border border-white/10'
+                                }`}
+                            >
+                                <span>🔄 Landscape / PC</span>
+                                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${orientationFilter === 'landscape' ? 'bg-white/25 text-white' : 'bg-amber-500/15 text-amber-400'}`}>
+                                    {orientationCounts.landscape || 574}
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Row 3: GENRE Filter with bespoke SVG icons */}
                     {activeTab === 'all' && (
                         <div className="flex items-center gap-3 overflow-x-auto pb-1.5 scrollbar-hide">
                             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#9273F5] shrink-0">
@@ -567,7 +669,7 @@ export default function GamesClient() {
                 </div>
 
                 {/* ──────────────────────────────────────────────────────── */}
-                {/* Horizontal Game Cards (5 columns - Matches Live TV Style) */}
+                {/* Game Cards Grid (5 columns - Matches Live TV Style)      */}
                 {/* ──────────────────────────────────────────────────────── */}
                 <div className="space-y-4">
                     <div className="flex items-center justify-between border-b border-white/10 pb-3">
@@ -582,6 +684,13 @@ export default function GamesClient() {
                                     ? 'All Games'
                                     : `${selectedCategory} Games`}
                             </span>
+                            {orientationFilter !== 'all' && (
+                                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md ml-1 ${
+                                    orientationFilter === 'portrait' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'
+                                }`}>
+                                    ({orientationFilter === 'portrait' ? 'Mobile Portrait Only' : 'Landscape Only'})
+                                </span>
+                            )}
                         </h3>
                         <span className="text-xs text-[#ADA6B9] font-mono">
                             Showing {displayedGames.length} of {totalGames} games
@@ -624,10 +733,22 @@ export default function GamesClient() {
                                             <h4 className="text-sm font-bold text-white group-hover:text-[#B09AFF] transition-colors truncate">
                                                 {game.title}
                                             </h4>
-                                            <div className="flex items-center gap-2 mt-1 text-[11px] text-[#ADA6B9] font-medium">
+                                            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#ADA6B9] font-medium flex-wrap">
                                                 <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded bg-[#9273F5]/15 text-[#B09AFF] border border-[#9273F5]/25">
                                                     {game.category || 'Arcade'}
                                                 </span>
+
+                                                {/* Orientation Tag */}
+                                                {(game.orientation || '').toLowerCase() === 'portrait' ? (
+                                                    <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 flex items-center gap-0.5" title="No phone rotation needed!">
+                                                        📱 Portrait
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-300 border border-amber-500/25 flex items-center gap-0.5" title="Rotate phone or play on PC">
+                                                        🔄 Landscape
+                                                    </span>
+                                                )}
+
                                                 <span className="flex items-center gap-1 text-amber-400 font-bold text-[10px]">
                                                     <svg className="w-2.5 h-2.5 fill-current" viewBox="0 0 24 24">
                                                         <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
@@ -694,15 +815,29 @@ export default function GamesClient() {
                             <p className="text-xs text-[#ADA6B9] max-w-sm mx-auto">
                                 {activeTab === 'favorites'
                                     ? 'You haven’t added any favorite games yet. Click the heart icon on any game to save it!'
+                                    : orientationFilter === 'portrait'
+                                    ? 'No portrait games match your current filter. Try clearing your search or switching to All Formats.'
                                     : 'Try searching for something else or explore another category.'}
                             </p>
-                            {searchQuery && (
-                                <button
-                                    onClick={() => setSearchQuery('')}
-                                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#9273F5] to-[#5C46B2] text-white text-xs font-bold shadow-md shadow-violet-950/40"
-                                >
-                                    Clear Search
-                                </button>
+                            {(searchQuery || orientationFilter !== 'all') && (
+                                <div className="flex items-center justify-center gap-2 pt-2">
+                                    {searchQuery && (
+                                        <button
+                                            onClick={() => setSearchQuery('')}
+                                            className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#9273F5] to-[#5C46B2] text-white text-xs font-bold shadow-md shadow-violet-950/40"
+                                        >
+                                            Clear Search
+                                        </button>
+                                    )}
+                                    {orientationFilter !== 'all' && (
+                                        <button
+                                            onClick={() => setOrientationFilter('all')}
+                                            className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold"
+                                        >
+                                            Show All Formats
+                                        </button>
+                                    )}
+                                </div>
                             )}
                         </div>
                     )}
@@ -714,7 +849,7 @@ export default function GamesClient() {
             {/* ──────────────────────────────────────────────────────────── */}
             {activeGame && (
                 <div
-                    className="fixed inset-0 z-[120] bg-black/90 backdrop-blur-xl flex flex-col md:p-3 lg:p-6 items-center justify-center animate-fade-in overscroll-contain select-none"
+                    className="fixed inset-0 z-[120] bg-black/95 backdrop-blur-2xl flex flex-col md:p-3 lg:p-6 items-center justify-center animate-fade-in overscroll-contain select-none touch-none"
                     role="dialog"
                     aria-modal="true"
                     aria-labelledby="active-game-title"
@@ -722,157 +857,210 @@ export default function GamesClient() {
                     {/* Ambient Glow Aura (Desktop) */}
                     <div className="absolute -inset-10 bg-gradient-to-tr from-[#9273F5]/25 via-[#57D6C0]/10 to-transparent blur-3xl pointer-events-none -z-10 hidden md:block" />
 
-                    {/* Modal Screen Container (Full Viewport on Mobile, Cinema Box on Desktop) */}
+                    {/* Modal Screen Container (Full Viewport on Mobile & Landscape, Cinema Box on Desktop) */}
                     <div
                         ref={playerContainerRef}
                         className={`relative w-full h-[100dvh] md:h-[88vh] md:max-w-6xl md:rounded-3xl bg-[#090710] border-0 md:border md:border-[#9273F5]/35 md:shadow-[0_25px_80px_rgba(0,0,0,0.9),0_0_50px_rgba(146,115,245,0.22)] overflow-hidden flex flex-col transition-all duration-300 ${
-                            isTheaterFullscreen ? '!fixed !inset-0 !w-screen !h-[100dvh] !max-w-none !rounded-none !border-none !z-[999]' : ''
+                            isTheaterFullscreen || isMobileLandscape ? '!fixed !inset-0 !w-screen !h-[100dvh] !max-w-none !rounded-none !border-none !z-[999]' : ''
                         }`}
                     >
-                        {/* Top HUD Controller Bar */}
-                        <div className="px-2.5 py-2 sm:px-5 sm:py-3 bg-[#110D1D]/95 backdrop-blur-xl border-b border-white/[0.08] flex items-center justify-between gap-2 sm:gap-3 shrink-0 z-20">
-                            {/* Left: Close/Back & Game Identity */}
-                            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                                {/* Close / Exit Button */}
-                                <button
-                                    onClick={() => setActiveGame(null)}
-                                    className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/5 hover:bg-rose-500/20 text-gray-400 hover:text-rose-300 border border-white/10 hover:border-rose-500/30 flex items-center justify-center transition-all shrink-0 active:scale-95"
-                                    title="Close Game (Esc)"
-                                    aria-label="Close Game"
-                                >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-
-                                {/* Game Thumbnail - STRICTLY CONTROLLED SIZE */}
-                                <div className="w-9 h-9 sm:w-10 sm:h-10 min-w-[36px] max-w-[36px] h-[36px] max-h-[36px] rounded-xl overflow-hidden bg-black/60 border border-[#9273F5]/40 shadow-[0_0_12px_rgba(146,115,245,0.3)] shrink-0 relative flex items-center justify-center p-0.5">
-                                    <SafeGameThumb src={activeGame.thumbnailUrl} alt={activeGame.title} />
-                                </div>
-
-                                {/* Title & Badges */}
-                                <div className="min-w-0 flex-1">
-                                    <h3 id="active-game-title" className="font-black text-xs sm:text-base text-white truncate tracking-tight">
-                                        {activeGame.title}
-                                    </h3>
-                                    <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5">
-                                        {/* Category Badge - shrink-0 prevents compressing */}
-                                        <span className="shrink-0 px-2 py-0.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider bg-gradient-to-r from-[#9273F5]/20 to-[#57D6C0]/20 text-[#C4B5FD] border border-[#9273F5]/30 flex items-center gap-1">
-                                            <GameCategorySvgIcon category={activeGame.category} className="w-2.5 h-2.5 text-[#57D6C0] shrink-0" />
-                                            <span>{activeGame.category || 'Arcade'}</span>
-                                        </span>
-
-                                        {/* Score Badge - shrink-0 prevents overlapping */}
-                                        <span className="shrink-0 inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-bold text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/20">
-                                            <svg className="w-2.5 h-2.5 fill-current shrink-0" viewBox="0 0 24 24">
-                                                <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
-                                            </svg>
-                                            <span>{((activeGame.rkScore || 0.88) * 5).toFixed(1)}</span>
-                                        </span>
-
-                                        {/* Live Gaming Indicator (Desktop & Tablet) */}
-                                        <span className="hidden xs:inline-flex shrink-0 items-center gap-1 text-[9px] font-black uppercase tracking-wider text-emerald-400 pl-0.5">
-                                            <span className="relative flex h-1.5 w-1.5">
-                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
-                                            </span>
-                                            <span>Playing</span>
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Right: Gaming Action Controls HUD */}
-                            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-                                {/* Info / Controls Drawer Toggle */}
-                                <button
-                                    onClick={() => setShowInfoDrawer(prev => !prev)}
-                                    className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border flex items-center justify-center transition-all ${
-                                        showInfoDrawer
-                                            ? 'bg-[#9273F5]/25 border-[#9273F5] text-white shadow-[0_0_12px_rgba(146,115,245,0.4)]'
-                                            : 'bg-white/5 hover:bg-white/10 border-white/10 text-gray-300 hover:text-white'
-                                    }`}
-                                    title="Game Controls & Info"
-                                    aria-label="Game Info"
-                                >
-                                    <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <circle cx="12" cy="12" r="10" strokeWidth="2" />
-                                        <line x1="12" y1="16" x2="12" y2="12" strokeWidth="2" strokeLinecap="round" />
-                                        <circle cx="12" cy="8" r="1" fill="currentColor" />
-                                    </svg>
-                                </button>
-
-                                {/* Favorite Button */}
-                                <button
-                                    onClick={(e) => toggleFavorite(e, activeGame.id)}
-                                    className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border flex items-center justify-center transition-all ${
-                                        favorites.includes(activeGame.id)
-                                            ? 'bg-rose-500/20 border-rose-500/50 text-rose-500 shadow-[0_0_14px_rgba(244,63,94,0.4)] scale-105'
-                                            : 'bg-white/5 hover:bg-white/10 border-white/10 text-gray-400 hover:text-rose-400'
-                                    }`}
-                                    title={favorites.includes(activeGame.id) ? 'Favorited' : 'Add to Favorites'}
-                                    aria-label="Favorite"
-                                >
-                                    <svg className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${favorites.includes(activeGame.id) ? 'fill-rose-500' : 'fill-none stroke-current'}`} viewBox="0 0 24 24">
-                                        <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                                    </svg>
-                                </button>
-
-                                {/* Reload / Restart */}
-                                <button
-                                    onClick={handleReloadGame}
-                                    className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white flex items-center justify-center transition-all ${
-                                        isReloading ? 'rotate-180 duration-500 text-[#57D6C0]' : ''
-                                    }`}
-                                    title="Restart Game (R)"
-                                    aria-label="Restart"
-                                >
-                                    <svg className="w-3.5 h-3.5 fill-none stroke-current" viewBox="0 0 24 24">
-                                        <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                    </svg>
-                                </button>
-
-                                {/* Share Button (hidden on small phones to keep spacing clean, accessible in Info drawer) */}
-                                <div className="relative hidden sm:block">
-                                    <button
-                                        onClick={() => handleShare(activeGame)}
-                                        className="h-9 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95"
-                                        title="Share Game"
-                                        aria-label="Share"
-                                    >
-                                        <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
-                                            <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/>
-                                        </svg>
-                                        <span className="text-[11px]">Share</span>
-                                    </button>
-
-                                    {copiedShare && (
-                                        <div className="absolute top-full right-0 mt-2 px-2.5 py-1 rounded-lg bg-emerald-500 text-black font-black text-[10px] tracking-wider uppercase shadow-lg shadow-emerald-950/60 whitespace-nowrap animate-in fade-in zoom-in-95 duration-150 z-30">
-                                            ✓ Copied!
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Fullscreen / Theater Toggle */}
+                        {/* ─────────────────────────────────────────────────── */}
+                        {/* Mobile Landscape Floating Minimalist HUD            */}
+                        {/* ─────────────────────────────────────────────────── */}
+                        {isMobileLandscape ? (
+                            <div className="absolute top-2 right-2 z-50 flex items-center gap-1.5 bg-[#090710]/90 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/20 shadow-2xl opacity-75 hover:opacity-100 transition-opacity">
                                 <button
                                     onClick={toggleFullscreen}
-                                    className="w-8 h-8 sm:w-auto sm:h-9 px-0 sm:px-3.5 rounded-xl bg-gradient-to-r from-[#9273F5] to-[#57D6C0] text-black text-xs font-black transition-all shadow-[0_0_16px_rgba(146,115,245,0.4)] hover:shadow-[0_0_22px_rgba(87,214,192,0.5)] active:scale-95 flex items-center justify-center gap-1.5"
-                                    title={isTheaterFullscreen ? 'Exit Fullscreen (F)' : 'Fullscreen / Theater (F)'}
-                                    aria-label="Fullscreen"
+                                    className="p-1 text-violet-300 hover:text-white"
+                                    title={isTheaterFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
                                 >
-                                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
-                                        {isTheaterFullscreen ? (
-                                            <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z" />
-                                        ) : (
-                                            <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
-                                        )}
+                                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                        <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
                                     </svg>
-                                    <span className="hidden md:inline text-[11px] font-black uppercase tracking-wider">
-                                        {isTheaterFullscreen ? 'Exit' : 'Full'}
-                                    </span>
+                                </button>
+                                <button
+                                    onClick={handleReloadGame}
+                                    className={`p-1 text-emerald-300 hover:text-white ${isReloading ? 'animate-spin' : ''}`}
+                                    title="Restart Game"
+                                >
+                                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                        <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
+                                </button>
+                                <button
+                                    onClick={handleCloseGame}
+                                    className="px-2 py-0.5 rounded-full bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white font-bold text-[10px] transition-colors"
+                                    title="Exit Game"
+                                >
+                                    ✕ Exit
                                 </button>
                             </div>
-                        </div>
+                        ) : (
+                            /* ─────────────────────────────────────────────────── */
+                            /* Standard Top HUD Controller Bar (Desktop & Mobile Portrait) */
+                            /* ─────────────────────────────────────────────────── */
+                            <div className="px-2.5 py-2 sm:px-5 sm:py-3 bg-[#110D1D]/95 backdrop-blur-xl border-b border-white/[0.08] flex items-center justify-between gap-2 sm:gap-3 shrink-0 z-20">
+                                {/* Left: Close/Back & Game Identity */}
+                                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                                    {/* Close / Exit Button */}
+                                    <button
+                                        onClick={handleCloseGame}
+                                        className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/5 hover:bg-rose-500/20 text-gray-400 hover:text-rose-300 border border-white/10 hover:border-rose-500/30 flex items-center justify-center transition-all shrink-0 active:scale-95"
+                                        title="Close Game (Esc)"
+                                        aria-label="Close Game"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+
+                                    {/* Game Thumbnail */}
+                                    <div className="w-9 h-9 sm:w-10 sm:h-10 min-w-[36px] max-w-[36px] h-[36px] max-h-[36px] rounded-xl overflow-hidden bg-black/60 border border-[#9273F5]/40 shadow-[0_0_12px_rgba(146,115,245,0.3)] shrink-0 relative flex items-center justify-center p-0.5">
+                                        <SafeGameThumb src={activeGame.thumbnailUrl} alt={activeGame.title} />
+                                    </div>
+
+                                    {/* Title & Badges */}
+                                    <div className="min-w-0 flex-1">
+                                        <h3 id="active-game-title" className="font-black text-xs sm:text-base text-white truncate tracking-tight">
+                                            {activeGame.title}
+                                        </h3>
+                                        <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5">
+                                            {/* Category Badge */}
+                                            <span className="shrink-0 px-2 py-0.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider bg-gradient-to-r from-[#9273F5]/20 to-[#57D6C0]/20 text-[#C4B5FD] border border-[#9273F5]/30 flex items-center gap-1">
+                                                <GameCategorySvgIcon category={activeGame.category} className="w-2.5 h-2.5 text-[#57D6C0] shrink-0" />
+                                                <span>{activeGame.category || 'Arcade'}</span>
+                                            </span>
+
+                                            {/* Orientation Indicator */}
+                                            {(activeGame.orientation || '').toLowerCase() === 'portrait' ? (
+                                                <span className="shrink-0 text-[9px] sm:text-[10px] font-bold text-emerald-300 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                                                    📱 Portrait
+                                                </span>
+                                            ) : (
+                                                <span className="shrink-0 text-[9px] sm:text-[10px] font-bold text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                                                    🔄 Landscape
+                                                </span>
+                                            )}
+
+                                            {/* Score Badge */}
+                                            <span className="shrink-0 inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-bold text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/20">
+                                                <svg className="w-2.5 h-2.5 fill-current shrink-0" viewBox="0 0 24 24">
+                                                    <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+                                                </svg>
+                                                <span>{((activeGame.rkScore || 0.88) * 5).toFixed(1)}</span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Right: Gaming Action Controls HUD */}
+                                <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+                                    {/* Info / Controls Drawer Toggle */}
+                                    <button
+                                        onClick={() => setShowInfoDrawer(prev => !prev)}
+                                        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border flex items-center justify-center transition-all ${
+                                            showInfoDrawer
+                                                ? 'bg-[#9273F5]/25 border-[#9273F5] text-white shadow-[0_0_12px_rgba(146,115,245,0.4)]'
+                                                : 'bg-white/5 hover:bg-white/10 border-white/10 text-gray-300 hover:text-white'
+                                        }`}
+                                        title="Game Controls & Info"
+                                        aria-label="Game Info"
+                                    >
+                                        <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <circle cx="12" cy="12" r="10" strokeWidth="2" />
+                                            <line x1="12" y1="16" x2="12" y2="12" strokeWidth="2" strokeLinecap="round" />
+                                            <circle cx="12" cy="8" r="1" fill="currentColor" />
+                                        </svg>
+                                    </button>
+
+                                    {/* Favorite Button */}
+                                    <button
+                                        onClick={(e) => toggleFavorite(e, activeGame.id)}
+                                        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border flex items-center justify-center transition-all ${
+                                            favorites.includes(activeGame.id)
+                                                ? 'bg-rose-500/20 border-rose-500/50 text-rose-500 shadow-[0_0_14px_rgba(244,63,94,0.4)] scale-105'
+                                                : 'bg-white/5 hover:bg-white/10 border-white/10 text-gray-400 hover:text-rose-400'
+                                        }`}
+                                        title={favorites.includes(activeGame.id) ? 'Favorited' : 'Add to Favorites'}
+                                        aria-label="Favorite"
+                                    >
+                                        <svg className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${favorites.includes(activeGame.id) ? 'fill-rose-500' : 'fill-none stroke-current'}`} viewBox="0 0 24 24">
+                                            <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                                        </svg>
+                                    </button>
+
+                                    {/* Reload / Restart */}
+                                    <button
+                                        onClick={handleReloadGame}
+                                        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white flex items-center justify-center transition-all ${
+                                            isReloading ? 'rotate-180 duration-500 text-[#57D6C0]' : ''
+                                        }`}
+                                        title="Restart Game (R)"
+                                        aria-label="Restart"
+                                    >
+                                        <svg className="w-3.5 h-3.5 fill-none stroke-current" viewBox="0 0 24 24">
+                                            <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                        </svg>
+                                    </button>
+
+                                    {/* Share Button (desktop/tablet) */}
+                                    <div className="relative hidden sm:block">
+                                        <button
+                                            onClick={() => handleShare(activeGame)}
+                                            className="h-9 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95"
+                                            title="Share Game"
+                                            aria-label="Share"
+                                        >
+                                            <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                                                <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/>
+                                            </svg>
+                                            <span className="text-[11px]">Share</span>
+                                        </button>
+
+                                        {copiedShare && (
+                                            <div className="absolute top-full right-0 mt-2 px-2.5 py-1 rounded-lg bg-emerald-500 text-black font-black text-[10px] tracking-wider uppercase shadow-lg shadow-emerald-950/60 whitespace-nowrap animate-in fade-in zoom-in-95 duration-150 z-30">
+                                                ✓ Copied!
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Fullscreen / Theater Toggle */}
+                                    <button
+                                        onClick={toggleFullscreen}
+                                        className="w-8 h-8 sm:w-auto sm:h-9 px-0 sm:px-3.5 rounded-xl bg-gradient-to-r from-[#9273F5] to-[#57D6C0] text-black text-xs font-black transition-all shadow-[0_0_16px_rgba(146,115,245,0.4)] hover:shadow-[0_0_22px_rgba(87,214,192,0.5)] active:scale-95 flex items-center justify-center gap-1.5"
+                                        title={isTheaterFullscreen ? 'Exit Fullscreen (F)' : 'Fullscreen / Theater (F)'}
+                                        aria-label="Fullscreen"
+                                    >
+                                        <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                                            {isTheaterFullscreen ? (
+                                                <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z" />
+                                            ) : (
+                                                <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+                                            )}
+                                        </svg>
+                                        <span className="hidden md:inline text-[11px] font-black uppercase tracking-wider">
+                                            {isTheaterFullscreen ? 'Exit' : 'Full'}
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Smart Landscape Helper Banner on Mobile Portrait */}
+                        {activeGame.orientation === 'landscape' && !isMobileLandscape && (
+                            <div className="bg-gradient-to-r from-amber-500/20 via-violet-600/20 to-amber-500/20 border-b border-amber-500/30 px-3 py-1.5 flex items-center justify-between text-xs text-amber-200 z-20 shrink-0">
+                                <span className="flex items-center gap-1.5 font-bold text-[11px]">
+                                    <span>🔄</span>
+                                    <span>Rotate phone or go Fullscreen for best widescreen experience</span>
+                                </span>
+                                <button
+                                    onClick={toggleFullscreen}
+                                    className="px-2.5 py-0.5 rounded-lg bg-amber-500 text-black font-extrabold text-[10px] uppercase tracking-wider shadow hover:bg-amber-400 active:scale-95 transition-transform shrink-0"
+                                >
+                                    ⛶ Fullscreen
+                                </button>
+                            </div>
+                        )}
 
                         {/* Interactive Controls & Game Info Dropdown / Drawer */}
                         {showInfoDrawer && (
@@ -884,6 +1072,9 @@ export default function GamesClient() {
                                                 <h4 className="text-white font-black text-base">{activeGame.title}</h4>
                                                 <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-violet-500/20 text-violet-300 border border-violet-500/30">
                                                     {activeGame.category}
+                                                </span>
+                                                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-white/10 text-gray-300">
+                                                    {activeGame.orientation === 'portrait' ? '📱 Mobile Portrait' : '🔄 Landscape'}
                                                 </span>
                                             </div>
                                             <p className="text-xs text-[#ADA6B9] mt-1 leading-relaxed">
@@ -936,7 +1127,7 @@ export default function GamesClient() {
                         )}
 
                         {/* Game Canvas Container */}
-                        <div className="relative flex-1 w-full bg-[#050409] flex items-center justify-center overflow-hidden">
+                        <div className="relative flex-1 w-full h-full bg-[#050409] flex items-center justify-center overflow-hidden">
                             {/* Loading Overlay */}
                             {iframeLoading && (
                                 <div className="absolute inset-0 z-10 bg-[#090710] flex flex-col items-center justify-center p-6 text-center space-y-4">
@@ -953,7 +1144,7 @@ export default function GamesClient() {
                                             Loading Game Engine...
                                         </h4>
                                         <p className="text-xs text-[#ADA6B9] font-medium">
-                                            {activeGame.title} • Instant HTML5 Play
+                                            {activeGame.title} • {activeGame.orientation === 'portrait' ? '📱 Mobile Portrait' : '🔄 Landscape Arcade'}
                                         </p>
                                     </div>
 
@@ -964,20 +1155,21 @@ export default function GamesClient() {
                                 </div>
                             )}
 
-                            {/* Responsive Iframe */}
+                            {/* Responsive Iframe - Unique Key forces clean isolation and prevents stale session bug */}
                             <iframe
+                                key={`${activeGame.id}_${activeGame.url}`}
                                 ref={iframeRef}
                                 src={activeGame.url}
                                 title={activeGame.title}
                                 onLoad={() => setIframeLoading(false)}
                                 className="w-full h-full border-0 absolute inset-0 bg-black"
-                                allow="fullscreen; autoplay; gamepad; encrypted-media"
-                                sandbox="allow-scripts allow-same-origin allow-forms allow-pointer-lock allow-popups"
+                                allow="fullscreen; autoplay; gamepad; encrypted-media; screen-wake-lock; orientation; accelerometer; gyroscope"
+                                sandbox="allow-scripts allow-same-origin allow-forms allow-pointer-lock allow-popups allow-modals allow-orientation-lock"
                             />
                         </div>
 
-                        {/* Bottom Gamer Dock: Up Next Strip */}
-                        {!isTheaterFullscreen && (
+                        {/* Bottom Gamer Dock: Up Next Strip (Hidden in Fullscreen and Mobile Landscape to maximize game canvas) */}
+                        {!isTheaterFullscreen && !isMobileLandscape && (
                             <div className="bg-[#110D1D]/95 border-t border-white/[0.08] backdrop-blur-xl shrink-0 z-20">
                                 {/* Toggle Bar / Header */}
                                 <div 
@@ -1029,8 +1221,10 @@ export default function GamesClient() {
                                                         <div className={`text-xs font-bold truncate max-w-[120px] ${isCurrent ? 'text-[#C4B5FD]' : 'text-white group-hover:text-[#B09AFF]'}`}>
                                                             {g.title}
                                                         </div>
-                                                        <div className="text-[10px] text-[#ADA6B9] uppercase font-semibold">
-                                                            {g.category}
+                                                        <div className="text-[10px] text-[#ADA6B9] uppercase font-semibold flex items-center gap-1">
+                                                            <span>{g.category}</span>
+                                                            <span>•</span>
+                                                            <span>{g.orientation === 'portrait' ? '📱' : '🔄'}</span>
                                                         </div>
                                                     </div>
                                                 </button>

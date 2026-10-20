@@ -99,12 +99,24 @@ async function getGamePixCatalog(): Promise<GamePixGame[]> {
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category') || searchParams.get('cat') || '';
+    const orientation = (searchParams.get('orientation') || searchParams.get('or') || '').toLowerCase().trim();
     const query = (searchParams.get('q') || searchParams.get('search') || '').toLowerCase().trim();
     const sort = searchParams.get('sort') || 'popular'; // 'popular' | 'featured' | 'name'
     const limit = Math.min(Number(searchParams.get('limit')) || 60, 1000);
     const page = Math.max(Number(searchParams.get('page')) || 1, 1);
 
-    const allGames = await getGamePixCatalog();
+    const rawGames = await getGamePixCatalog();
+
+    // Deduplicate games by id and url to guarantee zero duplicate games
+    const seenIds = new Set<string>();
+    const seenUrls = new Set<string>();
+    const allGames: GamePixGame[] = [];
+    for (const g of rawGames) {
+        if (!g.id || !g.url || seenIds.has(g.id) || seenUrls.has(g.url)) continue;
+        seenIds.add(g.id);
+        seenUrls.add(g.url);
+        allGames.push(g);
+    }
 
     // 1. Filter by category
     let filtered = allGames;
@@ -114,6 +126,11 @@ export async function GET(request: Request) {
             g.category.toLowerCase() === catLower ||
             g.categories.some(c => c.toLowerCase() === catLower)
         );
+    }
+
+    // 2. Filter by orientation (portrait vs landscape)
+    if (orientation && orientation !== 'all') {
+        filtered = filtered.filter(g => (g.orientation || 'landscape').toLowerCase() === orientation);
     }
 
     // 2. Filter by search query
@@ -156,6 +173,13 @@ export async function GET(request: Request) {
         Junior: allGames.filter(g => g.category.toLowerCase() === 'junior' || g.categories.some(c => c.toLowerCase() === 'junior')).length,
     };
 
+    // Orientation breakdown counts across whole catalog
+    const orientationCounts = {
+        all: allGames.length,
+        portrait: allGames.filter(g => (g.orientation || '').toLowerCase() === 'portrait').length,
+        landscape: allGames.filter(g => (g.orientation || '').toLowerCase() !== 'portrait').length,
+    };
+
     return NextResponse.json({
         success: true,
         total,
@@ -164,6 +188,7 @@ export async function GET(request: Request) {
         totalPages: Math.ceil(total / limit),
         categories,
         categoryCounts,
+        orientationCounts,
         games: paginated,
     });
 }
