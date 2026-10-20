@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Season, Episode, EpisodeDownloadLink } from '@/lib/types';
 import { useAdSettings } from '@/hooks/useAdSettings';
 import { useTutorial } from '@/context/TutorialContext';
@@ -116,11 +117,16 @@ export default function EpisodeList({
     const [isSeasonDropdownOpen, setIsSeasonDropdownOpen] = useState(false);
     const [seasonSearchQuery, setSeasonSearchQuery] = useState('');
     const [episodeSearchQuery, setEpisodeSearchQuery] = useState('');
+    const [isMounted, setIsMounted] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const [fastLoadingKey, setFastLoadingKey] = useState<string | null>(null);
     const { settings: adSettings } = useAdSettings();
     const { hasTutorial, openTutorial } = useTutorial();
     const { trackEvent } = useAuth();
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     const handleFastEpisodeDownload = async (seasonNum: number, episodeNum: number, quality: string) => {
         const key = `${seasonNum}_${episodeNum}_${quality}`;
@@ -331,10 +337,10 @@ export default function EpisodeList({
                 />
             )}
 
-            {/* Season Picker Modal (Full dark backdrop, 100% solid container — ZERO overlapping!) */}
-            {isSeasonDropdownOpen && (
+            {/* Season Picker Modal (Rendered into document.body with createPortal — ZERO containing block or transform issues!) */}
+            {isMounted && isSeasonDropdownOpen && typeof document !== 'undefined' && createPortal(
                 <div
-                    className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150"
+                    className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-150"
                     onClick={() => setIsSeasonDropdownOpen(false)}
                 >
                     <div
@@ -437,7 +443,8 @@ export default function EpisodeList({
                             )}
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* Current Season Card */}
@@ -580,6 +587,8 @@ export default function EpisodeList({
                                 {currentSeason.season_zip_link && (
                                     <a
                                         href={currentSeason.season_zip_link}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
                                         onClick={(e) => handleDownloadClick(
                                             currentSeason.season_zip_link!,
                                             'ZIP / Full Season',
@@ -746,6 +755,7 @@ export default function EpisodeList({
                                                                                 {/* Download Button */}
                                                                                 <a
                                                                                     href={isExpired ? '#' : provider.url}
+                                                                                    target="_blank"
                                                                                     rel="noopener noreferrer"
                                                                                     onClick={(e) => {
                                                                                         if (isExpired) { e.preventDefault(); return; }
