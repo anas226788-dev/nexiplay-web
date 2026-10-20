@@ -22,6 +22,15 @@ const nextConfig = {
             },
         ],
     },
+    async redirects() {
+        return [
+            {
+                source: '/anime/naruto-shippuden-season-1-16-2026',
+                destination: '/anime/naruto-shippuden-season-1-22-2026',
+                permanent: true,
+            },
+        ];
+    },
     async headers() {
         return [
             {
