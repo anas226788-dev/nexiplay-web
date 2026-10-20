@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { Season, Episode, EpisodeDownloadLink } from '@/lib/types';
 import { useAdSettings } from '@/hooks/useAdSettings';
 import { useTutorial } from '@/context/TutorialContext';
@@ -113,6 +113,11 @@ export default function EpisodeList({
     const [activeResolution, setActiveResolution] = useState<string | null>(null);
     const [showVerification, setShowVerification] = useState(false);
     const [pendingDownloadUrl, setPendingDownloadUrl] = useState<string | null>(null);
+    const [isSeasonDropdownOpen, setIsSeasonDropdownOpen] = useState(false);
+    const [seasonSearchQuery, setSeasonSearchQuery] = useState('');
+    const [episodeSearchQuery, setEpisodeSearchQuery] = useState('');
+    const dropdownRef = useRef<HTMLDivElement>(null);
+    const seasonRailRef = useRef<HTMLDivElement>(null);
     const [fastLoadingKey, setFastLoadingKey] = useState<string | null>(null);
     const { settings: adSettings } = useAdSettings();
     const { hasTutorial, openTutorial } = useTutorial();
@@ -202,8 +207,81 @@ export default function EpisodeList({
         }
     };
 
-    const currentSeason = seasons.find(s => s.season_number === activeSeason);
-    const episodes = currentSeason?.episodes?.sort((a, b) => a.episode_number - b.episode_number) || [];
+    const sortedSeasons = useMemo(() => {
+        return [...seasons].sort((a, b) => a.season_number - b.season_number);
+    }, [seasons]);
+
+    const currentSeason = sortedSeasons.find(s => s.season_number === activeSeason) || sortedSeasons[0];
+    const episodes = useMemo(() => {
+        return currentSeason?.episodes?.sort((a, b) => a.episode_number - b.episode_number) || [];
+    }, [currentSeason]);
+
+    const filteredEpisodes = useMemo(() => {
+        if (!episodeSearchQuery.trim()) return episodes;
+        const q = episodeSearchQuery.toLowerCase().trim();
+        return episodes.filter(e => 
+            e.episode_number.toString().includes(q) ||
+            (e.episode_title && e.episode_title.toLowerCase().includes(q))
+        );
+    }, [episodes, episodeSearchQuery]);
+
+    const filteredSeasons = useMemo(() => {
+        if (!seasonSearchQuery.trim()) return sortedSeasons;
+        const q = seasonSearchQuery.toLowerCase().trim();
+        return sortedSeasons.filter(s => 
+            s.season_number.toString().includes(q) ||
+            `season ${s.season_number}`.includes(q) ||
+            (s.season_title && s.season_title.toLowerCase().includes(q))
+        );
+    }, [sortedSeasons, seasonSearchQuery]);
+
+    const currentSeasonIndex = sortedSeasons.findIndex(s => s.season_number === activeSeason);
+    const prevSeason = currentSeasonIndex > 0 ? sortedSeasons[currentSeasonIndex - 1] : null;
+    const nextSeason = currentSeasonIndex >= 0 && currentSeasonIndex < sortedSeasons.length - 1 ? sortedSeasons[currentSeasonIndex + 1] : null;
+
+    const selectSeason = (seasonNum: number) => {
+        setActiveSeason(seasonNum);
+        setActiveEpisode(null);
+        setActiveResolution(null);
+        setIsSeasonDropdownOpen(false);
+        setSeasonSearchQuery('');
+        setEpisodeSearchQuery('');
+    };
+
+    const scrollRail = (direction: 'left' | 'right') => {
+        if (seasonRailRef.current) {
+            const offset = direction === 'left' ? -260 : 260;
+            seasonRailRef.current.scrollBy({ left: offset, behavior: 'smooth' });
+        }
+    };
+
+    // Close dropdown on click outside or Escape
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+                setIsSeasonDropdownOpen(false);
+            }
+        };
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setIsSeasonDropdownOpen(false);
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, []);
+
+    // Auto-scroll active season chip into view
+    useEffect(() => {
+        if (seasonRailRef.current) {
+            const activeEl = seasonRailRef.current.querySelector('[data-active="true"]');
+            if (activeEl) {
+                activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }
+        }
+    }, [activeSeason]);
 
     // Check if resolution has any links
     const hasLinks = (episode: Episode, resolution: string) => {
@@ -270,92 +348,363 @@ export default function EpisodeList({
                     contentType="download"
                 />
             )}
-            {/* Season Tabs */}
-            <div className="flex flex-wrap gap-2.5 items-center">
-                <span className="text-gray-400 font-bold text-xs uppercase tracking-wider mr-1">Seasons:</span>
-                {seasons
-                    .sort((a, b) => a.season_number - b.season_number)
-                    .map((season) => {
-                        const isCurrent = activeSeason === season.season_number;
-                        const epCount = season.episodes?.length || 0;
-                        return (
-                            <button
-                                key={season.id}
-                                onClick={() => {
-                                    setActiveSeason(season.season_number);
-                                    setActiveEpisode(null);
-                                    setActiveResolution(null);
-                                }}
-                                className={`
-                                    px-4 py-2 rounded-xl font-bold text-xs md:text-sm transition-all duration-300 flex items-center gap-2 cursor-pointer
-                                    ${isCurrent
-                                        ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/40 scale-105 border border-violet-400/30'
-                                        : 'bg-white/[0.04] hover:bg-white/[0.08] text-gray-300 hover:text-white border border-white/10'
-                                    }
-                                `}
+            {/* Industry Standard Season Selector Bar */}
+            <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-white/[0.02] p-3 rounded-2xl border border-white/5 backdrop-blur-md">
+                    {/* Left: Season Dropdown Trigger + Prev/Next buttons */}
+                    <div className="flex items-center gap-2 relative" ref={dropdownRef}>
+                        {/* Dropdown Button */}
+                        <button
+                            type="button"
+                            onClick={() => setIsSeasonDropdownOpen(prev => !prev)}
+                            className="
+                                group relative flex items-center gap-2.5 px-4 py-2.5 rounded-xl
+                                bg-gradient-to-r from-violet-600/20 via-indigo-600/20 to-purple-600/10
+                                hover:from-violet-600/30 hover:to-indigo-600/30
+                                border border-violet-500/30 hover:border-violet-400/60
+                                text-white font-bold text-sm md:text-base
+                                transition-all duration-300 shadow-lg shadow-violet-950/20
+                                cursor-pointer backdrop-blur-md active:scale-[0.98]
+                            "
+                            aria-expanded={isSeasonDropdownOpen}
+                            aria-haspopup="listbox"
+                        >
+                            <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-violet-500/20 text-violet-300 border border-violet-400/30 text-xs">
+                                🎬
+                            </span>
+                            <span className="font-black tracking-tight text-white">
+                                Season {currentSeason?.season_number || 1}
+                            </span>
+                            {currentSeason?.episodes && (
+                                <span className="hidden sm:inline-flex text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/10 text-gray-200 border border-white/10">
+                                    {currentSeason.episodes.length} Episodes
+                                </span>
+                            )}
+                            <svg
+                                className={`w-4 h-4 text-gray-300 group-hover:text-white transition-transform duration-300 ${
+                                    isSeasonDropdownOpen ? 'rotate-180 text-violet-400' : ''
+                                }`}
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth={2.5}
                             >
-                                <span>Season {season.season_number}</span>
-                                {epCount > 0 && (
-                                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isCurrent ? 'bg-white/20 text-white' : 'bg-white/5 text-gray-400'}`}>
-                                        {epCount} eps
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+
+                        {/* Prev Season Button */}
+                        <button
+                            type="button"
+                            onClick={() => prevSeason && selectSeason(prevSeason.season_number)}
+                            disabled={!prevSeason}
+                            title={prevSeason ? `Go to Season ${prevSeason.season_number}` : 'First season'}
+                            className={`
+                                flex items-center justify-center w-10 h-10 rounded-xl border transition-all duration-200
+                                ${prevSeason
+                                    ? 'bg-white/[0.05] hover:bg-white/[0.1] text-gray-200 hover:text-white border-white/10 cursor-pointer active:scale-95'
+                                    : 'bg-white/[0.02] text-gray-600 border-white/5 cursor-not-allowed opacity-30'
+                                }
+                            `}
+                        >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                            </svg>
+                        </button>
+
+                        {/* Next Season Button */}
+                        <button
+                            type="button"
+                            onClick={() => nextSeason && selectSeason(nextSeason.season_number)}
+                            disabled={!nextSeason}
+                            title={nextSeason ? `Go to Season ${nextSeason.season_number}` : 'Last season'}
+                            className={`
+                                flex items-center justify-center w-10 h-10 rounded-xl border transition-all duration-200
+                                ${nextSeason
+                                    ? 'bg-white/[0.05] hover:bg-white/[0.1] text-gray-200 hover:text-white border-white/10 cursor-pointer active:scale-95'
+                                    : 'bg-white/[0.02] text-gray-600 border-white/5 cursor-not-allowed opacity-30'
+                                }
+                            `}
+                        >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                            </svg>
+                        </button>
+
+                        {/* Dropdown Menu Popover */}
+                        {isSeasonDropdownOpen && (
+                            <div className="
+                                absolute top-full left-0 mt-2 z-50
+                                w-[300px] sm:w-[360px] max-w-[calc(100vw-2rem)]
+                                rounded-2xl np-glass border border-white/15
+                                shadow-[0_20px_60px_rgba(0,0,0,0.85)]
+                                p-3 space-y-2.5 backdrop-blur-2xl bg-[#120F1D]/95
+                                animate-in fade-in zoom-in-95 duration-150
+                            ">
+                                <div className="flex items-center justify-between px-2 pt-1 pb-2 border-b border-white/10">
+                                    <span className="text-xs font-black uppercase tracking-wider text-gray-300">
+                                        Select Season
                                     </span>
+                                    <span className="text-[11px] font-bold text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded-full border border-violet-500/20">
+                                        {sortedSeasons.length} Seasons Available
+                                    </span>
+                                </div>
+
+                                {/* Quick Filter if > 6 seasons */}
+                                {sortedSeasons.length > 6 && (
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            placeholder="Find season (e.g. 16)..."
+                                            value={seasonSearchQuery}
+                                            onChange={(e) => setSeasonSearchQuery(e.target.value)}
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 outline-none focus:border-violet-500/50 transition-colors"
+                                            autoFocus
+                                        />
+                                        {seasonSearchQuery && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setSeasonSearchQuery('')}
+                                                className="absolute right-2.5 top-2.5 text-xs text-gray-400 hover:text-white"
+                                            >
+                                                ✕
+                                            </button>
+                                        )}
+                                    </div>
                                 )}
-                            </button>
-                        );
-                    })}
+
+                                {/* Seasons Scroll List */}
+                                <div className="max-h-[300px] overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                                    {filteredSeasons.length === 0 ? (
+                                        <div className="text-center py-6 text-xs text-gray-500">
+                                            No seasons found matching &quot;{seasonSearchQuery}&quot;
+                                        </div>
+                                    ) : (
+                                        filteredSeasons.map((season) => {
+                                            const isSelected = activeSeason === season.season_number;
+                                            const epCount = season.episodes?.length || 0;
+                                            return (
+                                                <button
+                                                    key={season.id}
+                                                    type="button"
+                                                    onClick={() => selectSeason(season.season_number)}
+                                                    className={`
+                                                        w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl
+                                                        text-left text-xs md:text-sm font-semibold transition-all duration-200
+                                                        cursor-pointer
+                                                        ${isSelected
+                                                            ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold shadow-md shadow-violet-700/30 border border-violet-400/30'
+                                                            : 'text-gray-300 hover:text-white hover:bg-white/[0.07]'
+                                                        }
+                                                    `}
+                                                >
+                                                    <div className="flex flex-col">
+                                                        <span className="flex items-center gap-2">
+                                                            <span>Season {season.season_number}</span>
+                                                            {isSelected && (
+                                                                <span className="text-white text-xs font-black">✓</span>
+                                                            )}
+                                                        </span>
+                                                        {season.season_title && (
+                                                            <span className={`text-[11px] font-normal truncate max-w-[200px] ${
+                                                                isSelected ? 'text-violet-100' : 'text-gray-400'
+                                                            }`}>
+                                                                {season.season_title}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold shrink-0 ${
+                                                        isSelected ? 'bg-white/20 text-white' : 'bg-white/5 text-gray-400'
+                                                    }`}>
+                                                        {epCount} eps
+                                                    </span>
+                                                </button>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Right: Seasons Total Overview Badge & Status */}
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-gray-400 bg-white/[0.04] px-3 py-1.5 rounded-xl border border-white/5">
+                            Season {currentSeason?.season_number || 1} of {sortedSeasons.length}
+                        </span>
+                        {running_status && (
+                            <span className={`text-xs font-bold px-2.5 py-1 rounded-xl border ${
+                                running_status === 'Ongoing'
+                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 animate-pulse'
+                                    : 'bg-white/5 text-gray-400 border-white/10'
+                            }`}>
+                                {running_status}
+                            </span>
+                        )}
+                    </div>
+                </div>
+
+                {/* Sleek Horizontal Scroll Rail for Season Chips (Single-row rail, no wrapping mess!) */}
+                {sortedSeasons.length > 1 && (
+                    <div className="relative group/rail flex items-center">
+                        {/* Scroll Left Button */}
+                        <button
+                            type="button"
+                            onClick={() => scrollRail('left')}
+                            className="hidden md:flex items-center justify-center w-7 h-7 rounded-lg bg-black/70 hover:bg-violet-600 text-white border border-white/15 shadow-xl absolute left-0 z-10 opacity-0 group-hover/rail:opacity-100 transition-opacity cursor-pointer"
+                            aria-label="Scroll left"
+                        >
+                            ‹
+                        </button>
+
+                        {/* Rail Container */}
+                        <div
+                            ref={seasonRailRef}
+                            className="flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth w-full py-1.5 px-0.5"
+                        >
+                            {sortedSeasons.map((season) => {
+                                const isCurrent = activeSeason === season.season_number;
+                                const epCount = season.episodes?.length || 0;
+                                return (
+                                    <button
+                                        key={season.id}
+                                        data-active={isCurrent}
+                                        onClick={() => selectSeason(season.season_number)}
+                                        className={`
+                                            shrink-0 px-3.5 py-1.5 rounded-xl font-bold text-xs md:text-sm transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap
+                                            ${isCurrent
+                                                ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-600/40 scale-105 border border-violet-400/40'
+                                                : 'bg-white/[0.04] hover:bg-white/[0.08] text-gray-300 hover:text-white border border-white/10 hover:border-white/20'
+                                            }
+                                        `}
+                                    >
+                                        <span>Season {season.season_number}</span>
+                                        {epCount > 0 && (
+                                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-semibold ${
+                                                isCurrent ? 'bg-white/20 text-white' : 'bg-white/5 text-gray-400'
+                                            }`}>
+                                                {epCount}
+                                            </span>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* Scroll Right Button */}
+                        <button
+                            type="button"
+                            onClick={() => scrollRail('right')}
+                            className="hidden md:flex items-center justify-center w-7 h-7 rounded-lg bg-black/70 hover:bg-violet-600 text-white border border-white/15 shadow-xl absolute right-0 z-10 opacity-0 group-hover/rail:opacity-100 transition-opacity cursor-pointer"
+                            aria-label="Scroll right"
+                        >
+                            ›
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Current Season Card */}
             {currentSeason && (
                 <div className="np-glass-solid rounded-np-panel border border-white/10 overflow-hidden shadow-xl">
-                    {/* Season Header & ZIP Download */}
-                    <div className="p-6 border-b border-white/10 bg-gradient-to-b from-white/5 to-transparent">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    {/* Season Header, Episode Search & ZIP Download */}
+                    <div className="p-5 md:p-6 border-b border-white/10 bg-gradient-to-b from-white/5 to-transparent">
+                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                             <div>
-                                <h3 className="text-xl font-bold text-[#F7F8FC] mb-1">
-                                    Season {currentSeason.season_number}
-                                    {currentSeason.season_title && <span className="text-[#A7AABD] font-normal ml-2">{currentSeason.season_title}</span>}
+                                <h3 className="text-xl md:text-2xl font-black text-[#F7F8FC] mb-1 flex items-center gap-2">
+                                    <span>Season {currentSeason.season_number}</span>
+                                    {currentSeason.season_title && (
+                                        <span className="text-[#A7AABD] font-normal text-base md:text-lg">
+                                            — {currentSeason.season_title}
+                                        </span>
+                                    )}
                                 </h3>
-                                <p className="text-sm text-[#A7AABD]">{episodes.length} Episodes</p>
+                                <p className="text-xs md:text-sm text-[#A7AABD] flex items-center gap-2">
+                                    <span>{episodes.length} Episodes available</span>
+                                    {episodeSearchQuery && (
+                                        <span className="text-violet-400 font-semibold">
+                                            (Filtering: {filteredEpisodes.length} matched)
+                                        </span>
+                                    )}
+                                </p>
                             </div>
 
-                            {/* ZIP Download Button */}
-                            {currentSeason.season_zip_link && (
-                                <a
-                                    href={currentSeason.season_zip_link}
-                                    onClick={(e) => handleDownloadClick(
-                                        currentSeason.season_zip_link!,
-                                        'ZIP / Full Season',
-                                        'All',
-                                        undefined,
-                                        currentSeason.season_number,
-                                        e
-                                    )}
-                                    className="
-                                        flex items-center justify-center gap-2 px-6 py-3
-                                        bg-gradient-to-r from-purple-600 to-indigo-600
-                                        hover:from-purple-500 hover:to-indigo-500
-                                        text-white font-bold rounded-xl shadow-lg shadow-purple-900/40
-                                        transform hover:scale-[1.02] active:scale-[0.98] transition-all
-                                        w-full md:w-auto
-                                    "
-                                >
-                                    <span className="text-xl">📦</span>
-                                    <span>Download Full Season (ZIP)</span>
-                                </a>
-                            )}
+                            <div className="flex flex-wrap items-center gap-3">
+                                {/* Episode Search Box */}
+                                {episodes.length > 4 && (
+                                    <div className="relative w-full sm:w-auto">
+                                        <input
+                                            type="text"
+                                            placeholder="Search ep (e.g. 480)..."
+                                            value={episodeSearchQuery}
+                                            onChange={(e) => setEpisodeSearchQuery(e.target.value)}
+                                            className="w-full sm:w-56 bg-white/5 border border-white/10 rounded-xl px-3.5 py-2 pl-9 text-xs text-white placeholder-gray-500 outline-none focus:border-violet-500/50 transition-colors"
+                                        />
+                                        <span className="absolute left-3 top-2.5 text-xs text-gray-500">🔍</span>
+                                        {episodeSearchQuery && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setEpisodeSearchQuery('')}
+                                                className="absolute right-3 top-2.5 text-xs text-gray-400 hover:text-white"
+                                            >
+                                                ✕
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* ZIP Download Button */}
+                                {currentSeason.season_zip_link && (
+                                    <a
+                                        href={currentSeason.season_zip_link}
+                                        onClick={(e) => handleDownloadClick(
+                                            currentSeason.season_zip_link!,
+                                            'ZIP / Full Season',
+                                            'All',
+                                            undefined,
+                                            currentSeason.season_number,
+                                            e
+                                        )}
+                                        className="
+                                            flex items-center justify-center gap-2 px-5 py-2.5
+                                            bg-gradient-to-r from-purple-600 to-indigo-600
+                                            hover:from-purple-500 hover:to-indigo-500
+                                            text-white font-bold rounded-xl shadow-lg shadow-purple-900/40
+                                            transform hover:scale-[1.02] active:scale-[0.98] transition-all
+                                            w-full sm:w-auto text-xs md:text-sm
+                                        "
+                                    >
+                                        <span className="text-base">📦</span>
+                                        <span>Download Full Season (ZIP)</span>
+                                    </a>
+                                )}
+                            </div>
                         </div>
                     </div>
 
                     {/* Episodes List */}
-                    <div className="p-6">
-                        {episodes.length === 0 ? (
-                            <div className="text-center py-8 text-gray-400">
-                                <p>Episodes coming soon ⏳</p>
+                    <div className="p-5 md:p-6">
+                        {filteredEpisodes.length === 0 ? (
+                            <div className="text-center py-12 text-gray-400 space-y-3">
+                                <span className="text-3xl">🔍</span>
+                                <p className="text-base font-semibold">
+                                    {episodeSearchQuery
+                                        ? `No episodes found matching "${episodeSearchQuery}"`
+                                        : 'Episodes coming soon ⏳'}
+                                </p>
+                                {episodeSearchQuery && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setEpisodeSearchQuery('')}
+                                        className="px-4 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-colors cursor-pointer"
+                                    >
+                                        Clear search filter
+                                    </button>
+                                )}
                             </div>
                         ) : (
                             <div className="space-y-3">
-                                {episodes.map((episode) => {
+                                {filteredEpisodes.map((episode) => {
                                     const isActive = activeEpisode === episode.id;
                                     const availableRes = getAvailableResolutions(episode);
 

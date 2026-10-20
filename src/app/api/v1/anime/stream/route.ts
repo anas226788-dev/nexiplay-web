@@ -116,6 +116,7 @@ export async function GET(request: NextRequest) {
 
         const isSeriesOrAnime = movie.type === 'anime' || movie.type === 'series';
         let rrStreamUrl = '';
+        let targetSeasonId: string | null = null;
 
         // 2. If Series/Anime, fetch corresponding episode
         if (isSeriesOrAnime) {
@@ -126,10 +127,11 @@ export async function GET(request: NextRequest) {
                 .eq('movie_id', movie.id)
                 .eq('season_number', seasonNum)
                 .maybeSingle();
+            targetSeasonId = season?.id || null;
 
             let episodeQuery = supabase.from('episodes').select('*');
-            if (season?.id) {
-                episodeQuery = episodeQuery.eq('season_id', season.id).eq('episode_number', epNum);
+            if (targetSeasonId) {
+                episodeQuery = episodeQuery.eq('season_id', targetSeasonId).eq('episode_number', epNum);
             } else {
                 episodeQuery = episodeQuery.eq('movie_id', movie.id).eq('episode_number', epNum);
             }
@@ -183,8 +185,25 @@ export async function GET(request: NextRequest) {
             );
         }
 
+        // If rrStreamUrl is a page URL and epNum is an absolute continuous number (e.g. 349),
+        // determine the relative episode index within the season (e.g. 1)
+        let resolvedEpNum = epNum;
+        if (targetSeasonId && (!rrStreamUrl.includes('/embed/') && !rrStreamUrl.includes('.m3u8'))) {
+            const { count } = await supabase
+                .from('episodes')
+                .select('*', { count: 'exact', head: true })
+                .eq('season_id', targetSeasonId)
+                .lte('episode_number', epNum);
+            if (count && count > 0) {
+                resolvedEpNum = count;
+            }
+        }
+
         // 3. Resolve direct HLS stream (extract from rareanimes post, zipper, or embed)
-        const extracted = await extractRRStream(rrStreamUrl, epNum);
+        let extracted = await extractRRStream(rrStreamUrl, resolvedEpNum);
+        if (!extracted.success && resolvedEpNum !== epNum) {
+            extracted = await extractRRStream(rrStreamUrl, epNum);
+        }
 
         if (!extracted.success || !extracted.m3u8Url) {
             return NextResponse.json(
