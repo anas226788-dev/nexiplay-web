@@ -135,15 +135,16 @@ export default function AntiAdBlockGate() {
         };
 
         guardedRun();
-        const intervalId = window.setInterval(guardedRun, RECHECK_INTERVAL_MS);
-        window.addEventListener('focus', guardedRun);
+        // Only poll if currently blocked (to allow auto-unblock); allowed users are not repeatedly probed
+        const intervalId = window.setInterval(() => {
+            if (gateState === 'blocked') guardedRun();
+        }, RECHECK_INTERVAL_MS);
 
         return () => {
             cancelled = true;
             window.clearInterval(intervalId);
-            window.removeEventListener('focus', guardedRun);
         };
-    }, [runCheck]);
+    }, [runCheck, gateState]);
 
     useEffect(() => {
         if (gateState !== 'blocked') return;

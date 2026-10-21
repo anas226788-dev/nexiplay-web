@@ -39,11 +39,11 @@ export default function MobileBottomNav() {
             )
         },
         {
-            label: 'Shorts',
-            href: '/shorts',
+            label: 'Series',
+            href: '/series',
             icon: (active: boolean) => (
-                <svg className={`w-[19px] h-[19px] transition-transform duration-200 ${active ? 'scale-110 text-rose-400' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={active ? 2.2 : 1.7} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                <svg className={`w-[19px] h-[19px] transition-transform duration-200 ${active ? 'scale-105' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={active ? 2.2 : 1.7} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
                 </svg>
             )
         },

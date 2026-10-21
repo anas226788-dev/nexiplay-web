@@ -38,7 +38,7 @@ export default function MovieGrid({
             {/* Scrollable Container logic */}
             <div className={
                 scrollable
-                    ? "flex overflow-x-auto gap-4 scrollbar-hide snap-x px-4 -mx-4 md:mx-0 md:px-0 md:grid md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 md:overflow-visible"
+                    ? "flex overflow-x-auto overscroll-x-contain gap-4 scrollbar-hide snap-x px-4 -mx-4 md:mx-0 md:px-0 md:grid md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 md:overflow-visible"
                     : "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-6 px-4 md:px-0"
             }>
                 {movies.map((movie, index) => (

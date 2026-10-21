@@ -53,16 +53,36 @@
   .np-splash-copy, .np-splash-loader span, .np-splash-caption { animation: none !important; }
 }
 
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
   color: var(--foreground);
   background: var(--bg-deep);
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
-  /* Ambient Background Light */
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+}
+
+/* Ambient Background Light - Composited on dedicated GPU layer for lag-free 60fps mobile scrolling */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
   background-image: 
     radial-gradient(ellipse at 18% 0%, rgba(146, 115, 245, 0.13) 0%, transparent 48%),
     radial-gradient(ellipse at 88% 24%, rgba(87, 214, 192, 0.055) 0%, transparent 38%);
-  background-attachment: fixed;
+  pointer-events: none;
+  transform: translateZ(0);
+  will-change: transform;
 }
 
 /* --- Glass Utilities --- */
@@ -223,14 +243,20 @@ body {
 }
 
 @keyframes badgeGlow {
-  0%, 100% { filter: brightness(1); }
-  50% { filter: brightness(1.14); }
+  0%, 100% { opacity: 0.94; }
+  50% { opacity: 1; }
 }
 
-.badge-glow { animation: badgeGlow 1.8s ease-in-out infinite; }
-.badge-glow-gorgeous { box-shadow: 0 0 7px rgba(255, 184, 120, 0.42); }
-.badge-glow-trending { box-shadow: 0 0 10px rgba(255, 138, 50, 0.62); }
-.badge-glow-new { box-shadow: 0 0 9px rgba(84, 242, 139, 0.5); }
+.badge-glow { animation: badgeGlow 2.5s ease-in-out infinite; }
+.badge-glow-gorgeous { box-shadow: 0 0 6px rgba(255, 184, 120, 0.35); }
+.badge-glow-trending { box-shadow: 0 0 8px rgba(255, 138, 50, 0.45); }
+.badge-glow-new { box-shadow: 0 0 8px rgba(84, 242, 139, 0.4); }
+
+/* Card DOM rendering optimization */
+.movie-card {
+  content-visibility: auto;
+  contain-intrinsic-size: 160px 240px;
+}
 
 /* 3D Card Effect (Refined) */
 .movie-card-3d {
@@ -717,4 +743,42 @@ iframe, video, audio {
   -webkit-user-drag: none !important;
   user-drag: none !important;
 }
+
+/* =========================================================================
+   Mobile Performance & Smooth Scrolling Engine
+   ========================================================================= */
+@media (max-width: 768px) {
+  /* Disable heavy infinite animations across 40+ cards to stop CPU/GPU drain */
+  .badge-glow {
+    animation: none !important;
+  }
+
+  /* Lighten backdrop-blur fill-rate on mobile chips */
+  .glass-panel,
+  .glass-nav,
+  .np-glass {
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+  }
+
+  .glass-button {
+    backdrop-filter: none !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+  }
+
+  /* Lighten splash screen on phones */
+  .np-splash-aurora {
+    filter: blur(28px) !important;
+    animation: none !important;
+  }
+  .np-splash-grain {
+    display: none !important;
+  }
+
+  /* Fast responsive touch feedback */
+  button, a {
+    touch-action: manipulation;
+  }
+}
+
 

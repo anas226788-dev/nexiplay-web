@@ -106,7 +106,7 @@ export default function HeroSlider({ movies }: HeroSliderProps) {
                 grabCursor={true}
                 className="w-full h-[58vh] min-h-[500px] max-h-[780px] md:h-[72vh] lg:h-[78vh] relative"
             >
-                {filteredMovies.map((movie) => (
+                {filteredMovies.map((movie, idx) => (
                     <SwiperSlide key={movie.id}>
                         <div className="relative w-full h-full">
                             {/* Background Image (Desktop) */}
@@ -116,7 +116,9 @@ export default function HeroSlider({ movies }: HeroSliderProps) {
                                     alt={movie.title}
                                     fill
                                     className="object-cover"
-                                    priority
+                                    priority={idx === 0}
+                                    loading={idx === 0 ? 'eager' : 'lazy'}
+                                    sizes="(max-width: 768px) 100vw, 1920px"
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-t from-[#0D0B12] via-[#0D0B12]/50 to-transparent" />
                                 <div className="absolute inset-0 bg-gradient-to-r from-[#0D0B12] via-[#0D0B12]/75 to-transparent" />
@@ -129,7 +131,9 @@ export default function HeroSlider({ movies }: HeroSliderProps) {
                                     alt={movie.title}
                                     fill
                                     className="object-cover"
-                                    priority
+                                    priority={idx === 0}
+                                    loading={idx === 0 ? 'eager' : 'lazy'}
+                                    sizes="100vw"
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-t from-[#0D0B12] via-[#0D0B12]/70 to-transparent" />
                             </div>

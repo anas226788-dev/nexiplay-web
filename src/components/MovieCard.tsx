@@ -39,7 +39,6 @@ export default function MovieCard({ movie }: MovieCardProps) {
             prefetch={false}
             onMouseEnter={prefetchDetails}
             onFocus={prefetchDetails}
-            onTouchStart={prefetchDetails}
             onClick={handleClick}
             className="movie-card block group active:scale-[0.99] transition-transform duration-200 cursor-pointer hover:-translate-y-1"
         >

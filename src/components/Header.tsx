@@ -37,7 +37,6 @@ export default function Header() {
         { href: '/movies', label: 'Movies' },
         { href: '/series', label: 'Series' },
         { href: '/anime', label: 'Anime' },
-        { href: '/shorts', label: '⚡ Shorts' },
         { href: '/live-tv', label: '📺 Live TV' },
         { href: '/games', label: '🎮 Games' },
         { href: '/mood', label: 'Vibe Check' },

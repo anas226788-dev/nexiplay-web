@@ -1,12 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { usePathname } from 'next/navigation';
 import { getTelegramSettings, CachedTelegramSettings } from '@/lib/settingsCache';
 import Link from 'next/link';
 
 export default function AnimatedTelegramCTA() {
-    const pathname = usePathname();
     const [settings, setSettings] = useState<CachedTelegramSettings | null>(null);
     const [isDismissed, setIsDismissed] = useState(false);
 
@@ -15,9 +13,6 @@ export default function AnimatedTelegramCTA() {
             if (data) setSettings(data);
         });
     }, []);
-
-    // Do not show on fullscreen Shorts feed
-    if (pathname?.startsWith('/shorts')) return null;
 
     if (isDismissed || !settings?.is_active || !settings.telegram_url) return null;
 

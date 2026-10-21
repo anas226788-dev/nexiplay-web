@@ -142,28 +142,31 @@ export default function SecurityShield() {
         }
 
         // ----------------------------------------------------
-        // 5. Anti-DevTools Debugger Trap
+        // 5. Anti-DevTools Debugger Trap (Desktop Only)
         // ----------------------------------------------------
+        const isMobileOrTouch = window.innerWidth <= 1024 || 'ontouchstart' in window || (navigator.maxTouchPoints && navigator.maxTouchPoints > 0);
         let devToolsOpen = false;
-        const checkDevTools = () => {
-            const widthThreshold = window.outerWidth - window.innerWidth > 160;
-            const heightThreshold = window.outerHeight - window.innerHeight > 160;
+        let devToolsTimer: any = null;
 
-            if (widthThreshold || heightThreshold) {
-                if (!devToolsOpen) {
-                    devToolsOpen = true;
-                    // Trigger a timed debugger trap to freeze inspection
-                    try {
-                        const freeze = Function('debugger');
-                        freeze();
-                    } catch (_) {}
+        if (!isMobileOrTouch) {
+            const checkDevTools = () => {
+                const widthThreshold = window.outerWidth - window.innerWidth > 160;
+                const heightThreshold = window.outerHeight - window.innerHeight > 160;
+
+                if (widthThreshold || heightThreshold) {
+                    if (!devToolsOpen) {
+                        devToolsOpen = true;
+                        try {
+                            const freeze = Function('debugger');
+                            freeze();
+                        } catch (_) {}
+                    }
+                } else {
+                    devToolsOpen = false;
                 }
-            } else {
-                devToolsOpen = false;
-            }
-        };
-
-        const devToolsTimer = setInterval(checkDevTools, 2000);
+            };
+            devToolsTimer = setInterval(checkDevTools, 4000);
+        }
 
         // Attach global listeners with capture phase for maximum authority
         window.addEventListener('keydown', handleKeyDown, true);
