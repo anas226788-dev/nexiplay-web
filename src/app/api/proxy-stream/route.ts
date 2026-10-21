@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export const dynamic = 'force-dynamic';
+export const runtime = 'edge';
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
@@ -62,18 +62,23 @@ export async function GET(request: NextRequest) {
                     'Content-Type': 'application/vnd.apple.mpegurl',
                     'Access-Control-Allow-Origin': '*',
                     'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
-            'Access-Control-Allow-Headers': 'Range, Origin, Referer, Content-Type',
-            'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges',
+                    'Access-Control-Allow-Headers': 'Range, Origin, Referer, Content-Type',
+                    'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges',
+                    // Short cache for playlists to handle dynamic live/rolling streams
+                    'Cache-Control': 'public, max-age=10, s-maxage=30, stale-while-revalidate=60',
                 }
             });
         }
 
-        // For binary files (.ts, .xls segments, .mp4, etc.), pipe the stream directly
+        // For binary files (.ts, .m4s segments, .mp4, etc.), pipe the stream with Edge CDN caching
         const headersToPass: Record<string, string> = {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
             'Access-Control-Allow-Headers': 'Range, Origin, Referer, Content-Type',
             'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges',
+            // Aggressive Edge caching for video segments: cached once, served to all users from Edge CDN
+            'Cache-Control': 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400',
+            'CDN-Cache-Control': 'max-age=604800',
         };
         
         const originContentType = res.headers.get('content-type');

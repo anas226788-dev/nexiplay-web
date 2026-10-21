@@ -24,9 +24,9 @@ const MovieGrid = dynamicImport(() => import('@/components/MovieGrid'), {
     loading: () => <div className="h-96 bg-dark-800 animate-pulse rounded-xl my-8" />,
 });
 
-// Force dynamic to ensure immediate reflection of admin pin/unpin actions
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+// ISR: Cache on Vercel Global Edge CDN for 3 minutes (180s).
+// Even under massive traffic spikes (10,000 requests in 3 min), Vercel only executes 1 serverless function!
+export const revalidate = 180;
 
 export const metadata: Metadata = buildPageMetadata({
     title: 'Download Movies, Series & Anime',

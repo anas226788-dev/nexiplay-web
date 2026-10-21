@@ -311,6 +311,7 @@ const BUILT_IN_SERVERS: Server[] = [
 ];
 
 const SERVERS: Server[] = BUILT_IN_SERVERS;
+const STREAM_PROXY_ENDPOINT = (process.env.NEXT_PUBLIC_STREAM_PROXY_URL || '').trim().replace(/\/$/, '') || '/api/proxy-stream';
 
 // Scraper display metadata
 const SCRAPER_META: Record<string, { name: string; icon: string; needsResolve: boolean }> = {
@@ -875,7 +876,7 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
                     </div>
                 ) : embedUrl ? (
                     isNativeStreamActive ? (
-                        <HLSVideoPlayer src={`/api/proxy-stream?url=${encodeURIComponent(embedUrl)}`} />
+                        <HLSVideoPlayer src={`${STREAM_PROXY_ENDPOINT}?url=${encodeURIComponent(embedUrl)}`} />
                     ) : (
                         <iframe
                             ref={playerIframeRef}

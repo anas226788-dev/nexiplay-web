@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const runtime = 'edge';
+
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const slug = searchParams.get('slug') || searchParams.get('title') || 'nexiplay-novel';
@@ -10,5 +12,7 @@ export async function GET(req: NextRequest) {
     }
     const coverNum = (Math.abs(hash) % 9) + 1;
 
-    return NextResponse.redirect(new URL(`/novel-covers/cover-${coverNum}.jpg`, req.url), 302);
+    const res = NextResponse.redirect(new URL(`/novel-covers/cover-${coverNum}.jpg`, req.url), 308);
+    res.headers.set('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable');
+    return res;
 }

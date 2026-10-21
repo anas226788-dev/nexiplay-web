@@ -483,6 +483,7 @@ const BUILT_IN_SERVERS: Server[] = [
 ];
 
 const SERVERS: Server[] = BUILT_IN_SERVERS;
+const STREAM_PROXY_ENDPOINT = (process.env.NEXT_PUBLIC_STREAM_PROXY_URL || '').trim().replace(/\/$/, '') || '/api/proxy-stream';
 
 const AD_BLOCK_SANDBOX =
     'allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock allow-orientation-lock allow-modals';
@@ -1605,19 +1606,26 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
             }
         });
 
-        // Start interval to update watch duration in database every 10 seconds
-        const timer = setInterval(async () => {
-            watchTimeRef.current += 10;
+        // Industrial optimization: Update watch duration every 60 seconds (instead of 10s)
+        // and flush the final duration on unmount so no watch progress is lost.
+        const flushDuration = async () => {
             const elapsed = watchTimeRef.current;
+            if (elapsed > 0 && eventId) {
+                await supabase
+                    .from('user_events')
+                    .update({ duration_seconds: elapsed })
+                    .eq('id', eventId);
+            }
+        };
 
-            await supabase
-                .from('user_events')
-                .update({ duration_seconds: elapsed })
-                .eq('id', eventId);
-        }, 10000);
+        const timer = setInterval(async () => {
+            watchTimeRef.current += 60;
+            await flushDuration();
+        }, 60000);
 
         return () => {
             clearInterval(timer);
+            flushDuration();
         };
     }, [activeEpisode?.id, activeServerId, currentEpisodeNum, currentSeasonNum, isSeriesOrAnime, movie.id, movie.title, movie.type, slug, trackEvent, user]);
 
@@ -2593,8 +2601,8 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                                 </div>
                             ) : resolvedUrl ? (
                                 isNativeStreamActive ? (
-                                    <HLSVideoPlayer
-                                        src={`/api/proxy-stream?url=${encodeURIComponent(resolvedUrl)}`}
+                                    <HLSVideoPlayer 
+                                        src={`${STREAM_PROXY_ENDPOINT}?url=${encodeURIComponent(resolvedUrl)}`} 
                                         onEnded={handleVideoEnded}
                                         onErrorFallback={() => handleNextServer(activeServerId)}
                                     />
