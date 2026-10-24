@@ -181,7 +181,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (!user) return;
-        heartbeatRef.current = setInterval(() => heartbeat(user), 30000);
+
+        // Industrial optimization: 2 minutes interval, only when tab is actively visible.
+        const guardedHeartbeat = () => {
+            if (typeof document !== 'undefined' && document.hidden) return;
+            heartbeat(user);
+        };
+
+        heartbeatRef.current = setInterval(guardedHeartbeat, 120000);
         return () => {
             if (heartbeatRef.current) clearInterval(heartbeatRef.current);
         };

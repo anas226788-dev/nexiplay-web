@@ -138,7 +138,7 @@ function ServerSvgIcon({ id, isHindi, className = "w-4 h-4" }: { id: string; isH
     }
 
     // 4K Ultra HD Sparkle
-    if (cleanId === 'vidrock') {
+    if (cleanId === 'vidrock' || cleanId === 'ultra_4k' || cleanId === 'cinebros') {
         return (
             <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M4.93 19.07l14.14-14.14" />
@@ -160,6 +160,19 @@ function ServerSvgIcon({ id, isHindi, className = "w-4 h-4" }: { id: string; isH
 }
 
 const BUILT_IN_SERVERS: Server[] = [
+    {
+        id: 'ultra_4k',
+        name: 'Nexi 4K (Ultra)',
+        icon: 'sparkle',
+        badge: '4K ULTRA',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://cinebros.net/watch/tv/${targetId}?s=${s}&e=${e}`
+                : `https://cinebros.net/watch/movie/${targetId}`;
+        }
+    },
     {
         id: 'vidrock',
         name: 'VidRock',
@@ -376,6 +389,7 @@ const BUILT_IN_SERVERS: Server[] = [
 ];
 
 const SERVERS: Server[] = BUILT_IN_SERVERS;
+const STREAM_PROXY_ENDPOINT = (process.env.NEXT_PUBLIC_STREAM_PROXY_URL || '').trim().replace(/\/$/, '') || '/api/proxy-stream';
 
 const AD_BLOCK_SANDBOX =
     'allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock allow-orientation-lock allow-modals';
@@ -1498,19 +1512,26 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
             }
         });
 
-        // Start interval to update watch duration in database every 10 seconds
-        const timer = setInterval(async () => {
-            watchTimeRef.current += 10;
+        // Industrial optimization: Update watch duration every 60 seconds (instead of 10s)
+        // and flush the final duration on unmount so no watch progress is lost.
+        const flushDuration = async () => {
             const elapsed = watchTimeRef.current;
+            if (elapsed > 0 && eventId) {
+                await supabase
+                    .from('user_events')
+                    .update({ duration_seconds: elapsed })
+                    .eq('id', eventId);
+            }
+        };
 
-            await supabase
-                .from('user_events')
-                .update({ duration_seconds: elapsed })
-                .eq('id', eventId);
-        }, 10000);
+        const timer = setInterval(async () => {
+            watchTimeRef.current += 60;
+            await flushDuration();
+        }, 60000);
 
         return () => {
             clearInterval(timer);
+            flushDuration();
         };
     }, [activeEpisode?.id, activeServerId, currentEpisodeNum, currentSeasonNum, isSeriesOrAnime, movie.id, movie.title, movie.type, slug, trackEvent, user]);
 
@@ -2486,8 +2507,8 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                                 </div>
                             ) : resolvedUrl ? (
                                 isNativeStreamActive ? (
-                                    <HLSVideoPlayer
-                                        src={`/api/proxy-stream?url=${encodeURIComponent(resolvedUrl)}`}
+                                    <HLSVideoPlayer 
+                                        src={`${STREAM_PROXY_ENDPOINT}?url=${encodeURIComponent(resolvedUrl)}`} 
                                         onEnded={handleVideoEnded}
                                         onErrorFallback={() => handleNextServer(activeServerId)}
                                     />

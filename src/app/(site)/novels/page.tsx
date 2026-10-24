@@ -9,7 +9,8 @@ export const metadata: Metadata = buildPageMetadata({
     path: '/novels',
 });
 
-export const revalidate = 0; // Dynamic server-rendered for snappy pagination & low DB load
+// ISR: Cache for 5 minutes on Edge CDN
+export const revalidate = 300;
 
 interface PageProps {
     searchParams: Promise<{

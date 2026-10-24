@@ -14,8 +14,8 @@ export const metadata: Metadata = buildPageMetadata({
     path: '/series',
 });
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+// ISR: Cache on Vercel Global Edge CDN for 5 minutes (300s)
+export const revalidate = 300;
 
 interface SeriesPageProps {
     searchParams: Promise<{ page?: string }>;

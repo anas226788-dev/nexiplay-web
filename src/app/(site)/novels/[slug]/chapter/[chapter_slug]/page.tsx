@@ -5,7 +5,8 @@ import { buildPageMetadata } from '@/lib/metadata';
 import ReaderUI from '@/components/ReaderUI';
 import NovelVerificationGuard from '@/components/NovelVerificationGuard';
 
-export const revalidate = 0; // Dynamic rendering for fresh CDN fetch
+// ISR: Novel chapters never change once published. Cache for 24 hours on Vercel Edge.
+export const revalidate = 86400;
 
 interface PageProps {
     params: Promise<{ slug: string; chapter_slug: string }>;
@@ -77,7 +78,7 @@ export default async function ChapterReaderPage({ params }: PageProps) {
     const r2Url = `${r2Base}/chapters/${novel.id}/${chapter.chapter_number}.json`;
 
     try {
-        const r2Res = await fetch(r2Url, { cache: 'no-store' });
+        const r2Res = await fetch(r2Url, { next: { revalidate: 86400 } });
         if (r2Res.ok) {
             const r2Data = await r2Res.json();
             chapter.content = r2Data.content || '';

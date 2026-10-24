@@ -21,6 +21,18 @@ interface Server {
 
 const BUILT_IN_SERVERS: Server[] = [
     {
+        id: 'ultra_4k',
+        name: 'Nexi 4K (Ultra)',
+        icon: '🌟',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://cinebros.net/watch/tv/${targetId}?s=${s}&e=${e}`
+                : `https://cinebros.net/watch/movie/${targetId}`;
+        }
+    },
+    {
         id: 'vidrock',
         name: 'VidRock',
         icon: '🪨',
@@ -215,6 +227,7 @@ const BUILT_IN_SERVERS: Server[] = [
 ];
 
 const SERVERS: Server[] = BUILT_IN_SERVERS;
+const STREAM_PROXY_ENDPOINT = (process.env.NEXT_PUBLIC_STREAM_PROXY_URL || '').trim().replace(/\/$/, '') || '/api/proxy-stream';
 
 // Scraper display metadata
 const SCRAPER_META: Record<string, { name: string; icon: string; needsResolve: boolean }> = {
@@ -779,7 +792,7 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
                     </div>
                 ) : embedUrl ? (
                     isNativeStreamActive ? (
-                        <HLSVideoPlayer src={`/api/proxy-stream?url=${encodeURIComponent(embedUrl)}`} />
+                        <HLSVideoPlayer src={`${STREAM_PROXY_ENDPOINT}?url=${encodeURIComponent(embedUrl)}`} />
                     ) : (
                         <iframe
                             ref={playerIframeRef}
