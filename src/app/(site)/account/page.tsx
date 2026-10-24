@@ -504,7 +504,10 @@ export default function AccountPage() {
 
         setUploadingAvatar(true);
         try {
-            const apiKey = process.env.NEXT_PUBLIC_IMGBB_API_KEY || 'c0386a7ef3811c25731e5504e51960a4';
+            const apiKey = process.env.NEXT_PUBLIC_IMGBB_API_KEY;
+            if (!apiKey) {
+                throw new Error('Image upload API key is not configured.');
+            }
             const formData = new FormData();
             formData.append('image', file);
 

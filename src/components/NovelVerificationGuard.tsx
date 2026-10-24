@@ -4,38 +4,7 @@ import { useState, useEffect } from 'react';
 import AdVerificationPopup from './AdVerificationPopup';
 import { useAdSettings } from '@/hooks/useAdSettings';
 
-// 🛠 localStorage helpers for download verification 🛠
-const checkDownloadVerified = (contentId: string, contentType: string): boolean => {
-    try {
-        const raw = localStorage.getItem('nexiplay_download_verification');
-        if (!raw) return false;
-        
-        const records = JSON.parse(raw);
-        const record = records[`${contentType}_${contentId}`];
-        if (!record) return false;
-
-        // 24 hour expiry
-        const isExpired = Date.now() - record.timestamp > 24 * 60 * 60 * 1000;
-        return !isExpired;
-    } catch {
-        return false;
-    }
-};
-
-const saveDownloadVerification = (contentId: string, contentType: string) => {
-    try {
-        const raw = localStorage.getItem('nexiplay_download_verification') || '{}';
-        const records = JSON.parse(raw);
-        
-        records[`${contentType}_${contentId}`] = {
-            timestamp: Date.now()
-        };
-        
-        localStorage.setItem('nexiplay_download_verification', JSON.stringify(records));
-    } catch (e) {
-        console.error('Failed to save download verification:', e);
-    }
-};
+import { checkDownloadVerified, saveDownloadVerification } from '@/lib/verification';
 
 export default function NovelVerificationGuard({ novelId, children }: { novelId: string, children: React.ReactNode }) {
     const { settings: adSettings, isLoading } = useAdSettings();

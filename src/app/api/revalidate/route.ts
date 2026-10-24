@@ -2,15 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 
 // Secret token for securing the revalidation endpoint
-const REVALIDATE_SECRET = process.env.REVALIDATE_SECRET || 'nexiplay-revalidate-2026';
+const REVALIDATE_SECRET = process.env.REVALIDATE_SECRET;
 
 export async function POST(request: NextRequest) {
     try {
+        if (!REVALIDATE_SECRET) {
+            console.error('[Revalidate] REVALIDATE_SECRET is not configured.');
+            return NextResponse.json({ error: 'Endpoint not configured' }, { status: 500 });
+        }
+
         const body = await request.json();
         const { secret, paths } = body;
 
         // Validate secret
-        if (secret !== REVALIDATE_SECRET) {
+        if (!secret || secret !== REVALIDATE_SECRET) {
             return NextResponse.json({ error: 'Invalid secret' }, { status: 401 });
         }
 

@@ -29,42 +29,25 @@ export function isMobileClient(): boolean {
 export function openAdTab(targetUrl: string): boolean {
     if (!targetUrl || typeof window === 'undefined') return false;
 
-    // 1. Try True Tab-Under: open current page in foreground new tab, replace background tab with ad
+    // 1. Direct window.open into a separate new tab (current tab remains untouched on Nexiplay)
     try {
-        const newSiteTab = window.open(window.location.href, '_blank');
-        if (newSiteTab) {
-            let replaced = false;
-            const replaceBackgroundWithAd = () => {
-                if (replaced) return;
-                replaced = true;
-                try {
-                    window.location.replace(targetUrl);
-                } catch {
-                    window.location.href = targetUrl;
-                }
-            };
-            document.addEventListener('visibilitychange', () => {
-                if (document.visibilityState === 'hidden') replaceBackgroundWithAd();
-            }, { once: true });
-            window.addEventListener('pagehide', replaceBackgroundWithAd, { once: true });
-            setTimeout(replaceBackgroundWithAd, isMobileClient() ? 250 : 120);
-            return true;
-        }
-    } catch (e) {}
-
-    // 2. Standard window.open with user gesture fallback
-    try {
-        const win = window.open(targetUrl, '_blank', 'noopener,noreferrer');
+        const win = window.open(targetUrl, '_blank');
         if (win) {
             try {
                 win.blur();
                 window.focus();
             } catch (e) {}
+            setTimeout(() => {
+                try { window.focus(); } catch (e) {}
+            }, 50);
+            setTimeout(() => {
+                try { window.focus(); } catch (e) {}
+            }, 150);
             return true;
         }
     } catch (e) {}
 
-    // 3. Fallback: Programmatic anchor dispatch (bypasses Mobile Chrome / Safari strict popup blocker)
+    // 2. Fallback: Programmatic anchor dispatch (bypasses Mobile Chrome / Safari strict popup blocker)
     try {
         const a = document.createElement('a');
         a.href = targetUrl;
@@ -89,6 +72,8 @@ export function openAdTab(targetUrl: string): boolean {
         return false;
     }
 }
+
+
 
 /**
  * Kept for backward compatibility with existing imports.
@@ -216,6 +201,7 @@ function PopunderAdInner() {
                 target.closest('[data-verification-modal]') ||
                 target.closest('.ad-verification-popup') ||
                 target.closest('.ad-verification-container') ||
+                target.closest('#np-cloud-gateway') ||
                 target.closest('[data-notice-modal]') ||
                 target.closest('.notice-system-modal')
             ) {

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 // Initialize Supabase with Service Role Key for Admin Access
@@ -42,7 +42,17 @@ async function checkUrl(url: string): Promise<'ACTIVE' | 'EXPIRED'> {
     }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+    const cronSecret = process.env.CRON_SECRET;
+    const authHeader = request.headers.get('authorization');
+    const { searchParams } = new URL(request.url);
+    const keyParam = searchParams.get('key');
+    const isVercelCron = request.headers.get('x-vercel-cron') === '1';
+
+    if (!isVercelCron && (!cronSecret || (authHeader !== `Bearer ${cronSecret}` && keyParam !== cronSecret))) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     try {
         const limit = 20; // Check 20 items per run to stay within free tier limits
 

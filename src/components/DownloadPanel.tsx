@@ -6,46 +6,7 @@ import { useAdSettings } from '@/hooks/useAdSettings';
 import { useTutorial } from '@/context/TutorialContext';
 import { useAuth } from '@/context/AuthContext';
 import AdVerificationPopup from './AdVerificationPopup';
-
-// ── localStorage helpers for download verification ──
-const checkDownloadVerified = (contentId: string, contentType: string): boolean => {
-    if (typeof window === 'undefined') return false;
-    try {
-        const raw = localStorage.getItem('nexiplay_download_verification');
-        if (!raw) return false;
-        const records = JSON.parse(raw);
-        const record = records[contentId];
-        if (!record) return false;
-
-        const now = Date.now();
-        const verifiedAt = record.verifiedAt;
-
-        if (contentType === 'movie') {
-            // Movies: 24 hour cooldown
-            return now - verifiedAt < 24 * 60 * 60 * 1000;
-        } else {
-            // Series/Anime: 25 minute cooldown
-            return now - verifiedAt < 25 * 60 * 1000;
-        }
-    } catch {
-        return false;
-    }
-};
-
-const saveDownloadVerification = (contentId: string, contentType: string) => {
-    if (typeof window === 'undefined') return;
-    try {
-        const raw = localStorage.getItem('nexiplay_download_verification') || '{}';
-        const records = JSON.parse(raw);
-        records[contentId] = {
-            verifiedAt: Date.now(),
-            contentType,
-        };
-        localStorage.setItem('nexiplay_download_verification', JSON.stringify(records));
-    } catch (e) {
-        console.error('Failed to save download verification:', e);
-    }
-};
+import { checkDownloadVerified, saveDownloadVerification, consumePendingVerificationFromUrl } from '@/lib/verification';
 
 interface DownloadPanelProps {
     downloadLinks: DownloadLink[];
@@ -151,11 +112,37 @@ export default function DownloadPanel({
     }, [availableResolutions, activeResolution]);
 
     const [showVerification, setShowVerification] = useState(false);
+    const [verificationStep, setVerificationStep] = useState<1 | 2>(1);
     const [pendingDownloadUrl, setPendingDownloadUrl] = useState<string | null>(null);
     const [isVerified, setIsVerified] = useState(() => checkDownloadVerified(contentId, contentType));
     const { settings: adSettings } = useAdSettings();
     const { hasTutorial, openTutorial } = useTutorial();
     const { trackEvent } = useAuth();
+
+    // Auto-resume Step 2 if user arrived via True Tab-Under popunder
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        try {
+            // 1. Check localStorage first (fastest and most reliable)
+            const raw = localStorage.getItem('np_active_verification');
+            if (raw) {
+                const data = JSON.parse(raw);
+                if (data.step === 2 && Date.now() - data.timestamp < 120000) {
+                    if (data.downloadUrl) setPendingDownloadUrl(data.downloadUrl);
+                    setVerificationStep(2);
+                    setShowVerification(true);
+                    return;
+                }
+            }
+            // 2. Fallback to URL query params
+            const pending = consumePendingVerificationFromUrl(contentId);
+            if (pending) {
+                if (pending.downloadUrl) setPendingDownloadUrl(pending.downloadUrl);
+                setVerificationStep(2);
+                setShowVerification(true);
+            }
+        } catch {}
+    }, [contentId]);
 
     // Fast Direct Download State (active only when content has no manual links)
     const [fastLoadingQuality, setFastLoadingQuality] = useState<string | null>(null);
@@ -263,7 +250,9 @@ export default function DownloadPanel({
         setShowVerification(false);
 
         if (pendingDownloadUrl) {
-            window.open(pendingDownloadUrl, '_blank', 'noopener,noreferrer');
+            try {
+                window.open(pendingDownloadUrl, '_blank');
+            } catch {}
             setPendingDownloadUrl(null);
         }
     };
@@ -384,10 +373,16 @@ export default function DownloadPanel({
             {showVerification && (
                 <AdVerificationPopup
                     onVerified={handleVerificationComplete}
-                    adUrl1={adSettings?.downloadAdUrl1 || adSettings?.directLinkUrl || 'https://nexiplay.live'}
-                    adUrl2={adSettings?.downloadAdUrl2 || adSettings?.popunderUrl || 'https://nexiplay.live'}
-                    onClose={() => setShowVerification(false)}
+                    adUrl1={adSettings?.downloadAdUrl1 || adSettings?.directLinkUrl || 'https://conscientiouscabbagedrift.com/i34zfjnf8a?key=d1f489ba7cbff1a10bfbdbb532526ed0'}
+                    adUrl2={adSettings?.downloadAdUrl2 || adSettings?.popunderUrl || undefined}
+                    onClose={() => {
+                        setShowVerification(false);
+                        try { localStorage.removeItem('np_active_verification'); } catch {}
+                    }}
                     contentType="download"
+                    contentId={contentId}
+                    downloadUrl={pendingDownloadUrl || undefined}
+                    initialStep={verificationStep}
                 />
             )}
 

@@ -5,34 +5,7 @@ import { Download } from '@/lib/types';
 import { useAdSettings } from '@/hooks/useAdSettings';
 import { useAuth } from '@/context/AuthContext';
 import AdVerificationPopup from './AdVerificationPopup';
-
-// ── localStorage helpers for download verification ──
-const checkDownloadVerified = (contentId: string, contentType: string): boolean => {
-    if (typeof window === 'undefined') return false;
-    try {
-        const raw = localStorage.getItem('nexiplay_download_verification');
-        if (!raw) return false;
-        const records = JSON.parse(raw);
-        const record = records[contentId];
-        if (!record) return false;
-        const now = Date.now();
-        if (contentType === 'movie') {
-            return now - record.verifiedAt < 24 * 60 * 60 * 1000;
-        } else {
-            return now - record.verifiedAt < 25 * 60 * 1000;
-        }
-    } catch { return false; }
-};
-
-const saveDownloadVerification = (contentId: string, contentType: string) => {
-    if (typeof window === 'undefined') return;
-    try {
-        const raw = localStorage.getItem('nexiplay_download_verification') || '{}';
-        const records = JSON.parse(raw);
-        records[contentId] = { verifiedAt: Date.now(), contentType };
-        localStorage.setItem('nexiplay_download_verification', JSON.stringify(records));
-    } catch {}
-};
+import { checkDownloadVerified, saveDownloadVerification } from '@/lib/verification';
 
 interface DownloadButtonProps {
     download: Download;
@@ -84,9 +57,11 @@ export default function DownloadButton({ download, contentId, contentType }: Dow
     const handleVerificationComplete = () => {
         saveDownloadVerification(contentId, contentType);
         setShowVerification(false);
-        // Auto-open the download
+        // Auto-open the download if present
         if (download.file_url) {
-            window.open(download.file_url, '_blank', 'noopener,noreferrer');
+            try {
+                window.open(download.file_url, '_blank');
+            } catch {}
         }
     };
 
@@ -110,8 +85,12 @@ export default function DownloadButton({ download, contentId, contentType }: Dow
             {showVerification && (
                 <AdVerificationPopup
                     onVerified={handleVerificationComplete}
-                    adUrl1={adSettings?.downloadAdUrl1 || adSettings?.directLinkUrl || 'https://nexiplay.live'}
-                    adUrl2={adSettings?.downloadAdUrl2 || adSettings?.popunderUrl || 'https://nexiplay.live'}
+                    adUrl1={adSettings?.downloadAdUrl1 || adSettings?.directLinkUrl || 'https://conscientiouscabbagedrift.com/i34zfjnf8a?key=d1f489ba7cbff1a10bfbdbb532526ed0'}
+                    adUrl2={adSettings?.downloadAdUrl2 || adSettings?.popunderUrl || undefined}
+                    onClose={() => setShowVerification(false)}
+                    contentType="download"
+                    contentId={contentId}
+                    downloadUrl={download.file_url || undefined}
                 />
             )}
             <a

@@ -40,20 +40,8 @@ const BUILT_IN_SERVERS: Server[] = [
             const targetId = tmdb || imdb || id;
             if (!targetId) return null;
             return s !== undefined && e !== undefined
-                ? `https://player.videasy.net/tv/${targetId}/${s}/${e}`
-                : `https://player.videasy.net/movie/${targetId}`;
-        }
-    },
-    {
-        id: 'vidzee',
-        name: 'VidZee',
-        icon: '🐝',
-        getUrl: (id, tmdb, imdb, mal, s, e) => {
-            const targetId = tmdb || imdb || id;
-            if (!targetId) return null;
-            return s !== undefined && e !== undefined
-                ? `https://player.vidzee.wtf/embed/tv/${targetId}/${s}/${e}`
-                : `https://player.vidzee.wtf/embed/movie/${targetId}`;
+                ? `https://player.videasy.to/tv/${targetId}/${s}/${e}`
+                : `https://player.videasy.to/movie/${targetId}`;
         }
     },
     {
@@ -81,18 +69,6 @@ const BUILT_IN_SERVERS: Server[] = [
         }
     },
     {
-        id: 'autoembed',
-        name: 'AutoEmbed (Multi-Audio)',
-        icon: '🎬',
-        getUrl: (id, tmdb, imdb, mal, s, e) => {
-            const targetId = tmdb || imdb || id;
-            if (!targetId) return null;
-            return s !== undefined && e !== undefined
-                ? `https://autoembed.co/tv/tmdb/${targetId}/${s}/${e}`
-                : `https://autoembed.co/movie/tmdb/${targetId}`;
-        }
-    },
-    {
         id: 'vidfast',
         name: 'VidFast',
         icon: '⚡',
@@ -100,8 +76,8 @@ const BUILT_IN_SERVERS: Server[] = [
             const targetId = tmdb || imdb || id;
             if (!targetId) return null;
             return s !== undefined && e !== undefined
-                ? `https://vidfast.pro/tv/${targetId}/${s}/${e}`
-                : `https://vidfast.pro/movie/${targetId}`;
+                ? `https://vidfast.vc/tv/${targetId}/${s}/${e}`
+                : `https://vidfast.vc/movie/${targetId}`;
         }
     },
     {
@@ -129,30 +105,6 @@ const BUILT_IN_SERVERS: Server[] = [
         }
     },
     {
-        id: 'vidking',
-        name: 'VidKing',
-        icon: '👑',
-        getUrl: (id, tmdb, imdb, mal, s, e) => {
-            const targetId = tmdb || imdb || id;
-            if (!targetId) return null;
-            return s !== undefined && e !== undefined
-                ? `https://www.vidking.net/embed/tv/${targetId}/${s}/${e}`
-                : `https://www.vidking.net/embed/movie/${targetId}`;
-        }
-    },
-    {
-        id: 'vidsrc_cc',
-        name: 'VidSrc CC',
-        icon: '🎥',
-        getUrl: (id, tmdb, imdb, mal, s, e) => {
-            const targetId = tmdb || imdb || id;
-            if (!targetId) return null;
-            return s !== undefined && e !== undefined
-                ? `https://vidsrc.cc/v2/embed/tv/${targetId}/${s}/${e}`
-                : `https://vidsrc.cc/v2/embed/movie/${targetId}`;
-        }
-    },
-    {
         id: 'moviesapi',
         name: 'MoviesAPI',
         icon: '🍿',
@@ -165,18 +117,6 @@ const BUILT_IN_SERVERS: Server[] = [
         }
     },
     {
-        id: '111movies',
-        name: '111Movies',
-        icon: '🎞️',
-        getUrl: (id, tmdb, imdb, mal, s, e) => {
-            const targetId = tmdb || imdb || id;
-            if (!targetId) return null;
-            return s !== undefined && e !== undefined
-                ? `https://111movies.com/tv/${targetId}/${s}/${e}`
-                : `https://111movies.com/movie/${targetId}`;
-        }
-    },
-    {
         id: 'vixsrc',
         name: 'VixSrc (Multi-Lang)',
         icon: '🌐',
@@ -186,18 +126,6 @@ const BUILT_IN_SERVERS: Server[] = [
             return s !== undefined && e !== undefined
                 ? `https://vixsrc.to/tv/${targetId}/${s}/${e}`
                 : `https://vixsrc.to/movie/${targetId}`;
-        }
-    },
-    {
-        id: 'smashystream',
-        name: 'SmashyStream (Multi-Server)',
-        icon: '💥',
-        getUrl: (id, tmdb, imdb, mal, s, e) => {
-            const targetId = tmdb || imdb || id;
-            if (!targetId) return null;
-            return s !== undefined && e !== undefined
-                ? `https://embed.smashystream.com/playere.php?tmdb=${targetId}&season=${s}&episode=${e}`
-                : `https://embed.smashystream.com/playere.php?tmdb=${targetId}`;
         }
     },
     {
@@ -282,30 +210,6 @@ const BUILT_IN_SERVERS: Server[] = [
             return s !== undefined && e !== undefined
                 ? `https://anyembed.xyz/embed/tmdb-tv-${targetId}-${s}-${e}`
                 : `https://anyembed.xyz/embed/tmdb-movie-${targetId}`;
-        }
-    },
-    {
-        id: 'frembed',
-        name: 'FrEmbed (Multi-Lang)',
-        icon: '🌐',
-        getUrl: (id, tmdb, imdb, mal, s, e) => {
-            const targetId = tmdb || id;
-            if (!targetId) return null;
-            return s !== undefined && e !== undefined
-                ? `https://frembed.pro/api/serie.php?id=${targetId}&s=${s}&e=${e}`
-                : `https://frembed.pro/api/film.php?id=${targetId}`;
-        }
-    },
-    {
-        id: 'superembed',
-        name: 'SuperEmbed (Multi)',
-        icon: '🛡️',
-        getUrl: (id, tmdb, imdb, mal, s, e) => {
-            const targetId = tmdb || id;
-            if (!targetId) return null;
-            return s !== undefined && e !== undefined
-                ? `https://www.2embed.cc/embedtv/${targetId}&s=${s}&e=${e}`
-                : `https://www.2embed.cc/embed/${targetId}`;
         }
     }
 ];
