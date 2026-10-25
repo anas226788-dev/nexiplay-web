@@ -118,6 +118,13 @@ export async function GET(request: NextRequest) {
         let rrStreamUrl = '';
         let targetSeasonId: string | null = null;
 
+        // Fetch streaming row if available
+        const { data: streamingRow } = await supabase
+            .from('streaming')
+            .select('*')
+            .eq('movie_id', movie.id)
+            .maybeSingle();
+
         // 2. If Series/Anime, fetch corresponding episode
         if (isSeriesOrAnime) {
             // Try fetching with season
@@ -148,27 +155,37 @@ export async function GET(request: NextRequest) {
                 }
             }
 
-            // Also check multi-scraper config on movie level
-            if (!rrStreamUrl && movie.scraper_source === 'multi' && movie.scraper_url) {
-                const config = parseMultiConfig(movie.scraper_url);
-                const rrConfig = config.rareanimes;
-                if (rrConfig) {
-                    const epKey = `${seasonNum}_${epNum}`;
-                    const seasonKey = String(seasonNum);
-                    rrStreamUrl = rrConfig.mode === 'episode'
-                        ? rrConfig.episodeUrls?.[epKey]
-                        : rrConfig.mode === 'separate'
-                            ? rrConfig.urls?.[seasonKey]
-                            : rrConfig.url;
+            // Also check multi-scraper config on streaming row or movie level
+            if (!rrStreamUrl) {
+                const rawConfig = (streamingRow as any)?.multi_scraper_config || (movie.scraper_source === 'multi' ? movie.scraper_url : null);
+                if (rawConfig) {
+                    const config = parseMultiConfig(rawConfig);
+                    const rrConfig = config.rareanimes;
+                    if (rrConfig) {
+                        const epKey = `${seasonNum}_${epNum}`;
+                        const seasonKey = String(seasonNum);
+                        rrStreamUrl = rrConfig.mode === 'episode'
+                            ? rrConfig.episodeUrls?.[epKey]
+                            : rrConfig.mode === 'separate'
+                                ? rrConfig.urls?.[seasonKey]
+                                : rrConfig.url;
+                    }
                 }
+            }
+
+            // Direct fallback to movie scraper_url if configured for rareanimes
+            if (!rrStreamUrl && (movie.scraper_source === 'rareanimes' || movie.scraper_source === 'multi')) {
+                rrStreamUrl = movie.scraper_url || '';
             }
         } else {
             // Single content (Movie)
-            const streams = parseJsonStreams(movie.streaming_url);
+            const streams = parseJsonStreams(movie.streaming_url || (streamingRow as any)?.streaming_url);
             if (streams.rareanimes) {
                 rrStreamUrl = streams.rareanimes;
             } else if (movie.streaming_url && !movie.streaming_url.startsWith('{')) {
                 rrStreamUrl = movie.streaming_url;
+            } else if ((movie.scraper_source === 'rareanimes' || movie.scraper_source === 'multi') && movie.scraper_url) {
+                rrStreamUrl = movie.scraper_url;
             }
         }
 

@@ -86,7 +86,7 @@ function ServerSvgIcon({ id, isHindi, className = "w-4 h-4" }: { id: string; isH
     }
 
     // Hindi Dubbed / Multi-Audio / Soundwave
-    if (isHindi || ['moviesnexus', 'multiembed', 'vixsrc', 'twoembed', 'vidsrc_su', 'anyembed', 'toonstream', 'rareanimes'].includes(cleanId)) {
+    if (isHindi || ['moviesnexus', 'multiembed', 'vixsrc', 'twoembed', 'vidsrc_su', 'anyembed', 'toonstream', 'rareanimes', 'screenscape'].includes(cleanId)) {
         return (
             <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M2 10v4M6 7v10M10 4v16M14 8v8M18 11v2M22 9v6" />
@@ -108,6 +108,15 @@ function ServerSvgIcon({ id, isHindi, className = "w-4 h-4" }: { id: string; isH
         return (
             <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14" />
+            </svg>
+        );
+    }
+
+    // Heart / Love / Premium Stream
+    if (cleanId === 'nexi_love') {
+        return (
+            <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
             </svg>
         );
     }
@@ -138,7 +147,7 @@ function ServerSvgIcon({ id, isHindi, className = "w-4 h-4" }: { id: string; isH
     }
 
     // 4K Ultra HD Sparkle
-    if (cleanId === 'vidrock' || cleanId === 'ultra_4k' || cleanId === 'cinebros') {
+    if (cleanId === 'vidrock' || cleanId === 'ultra_4k' || cleanId === 'cinebros' || cleanId === 'nexi_frame' || cleanId === 'nexi_joy' || cleanId === 'cinesrc' || cleanId === 'cineruv' || cleanId === 'vexo' || cleanId === 'atlantic' || cleanId === 'vidbolt' || cleanId === 'nexi_velvet' || cleanId === 'nexi_flow' || cleanId === 'nexi_core' || cleanId === 'nexi_nerds') {
         return (
             <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M4.93 19.07l14.14-14.14" />
@@ -171,6 +180,188 @@ const BUILT_IN_SERVERS: Server[] = [
             return s !== undefined && e !== undefined
                 ? `https://cinebros.net/watch/tv/${targetId}?s=${s}&e=${e}`
                 : `https://cinebros.net/watch/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'luma_stream',
+        name: 'Luma Stream (HD)',
+        icon: 'film',
+        badge: 'DASH HD',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://embed.cinevu.icu/embed/tv/${targetId}/${s}/${e}`
+                : `https://embed.cinevu.icu/embed/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'nexi_frame',
+        name: 'Nexi Frame (Ultra)',
+        icon: 'sparkle',
+        badge: 'ULTRA HD',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://framextv.cc/embed/tv/${targetId}/${s}/${e}?no_ads=1&autoplay=1`
+                : `https://framextv.cc/embed/movie/${targetId}?no_ads=1&autoplay=1`;
+        }
+    },
+    {
+        id: 'nexi_joy',
+        name: 'Nexi Joy (Pro HD)',
+        icon: 'sparkle',
+        badge: 'PRO HD',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://flaxjoy.app/watch/${targetId}/${s}/${e}`
+                : `https://flaxjoy.app/watch/${targetId}`;
+        }
+    },
+    {
+        id: 'cinesrc',
+        name: 'CineSrc (Ultra HD)',
+        icon: 'sparkle',
+        badge: 'ULTRA HD',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://cinesrc.st/embed/tv/${targetId}?s=${s}&e=${e}&color=%2300f2fe`
+                : `https://cinesrc.st/embed/movie/${targetId}?color=%2300f2fe`;
+        }
+    },
+    {
+        id: 'cineruv',
+        name: 'CineRuv (Studio 4K)',
+        icon: 'sparkle',
+        badge: 'STUDIO 4K',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://cineruv.website/watch/tv/${targetId}/${s}/${e}`
+                : `https://cineruv.website/watch/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'vexo',
+        name: 'Vexo (Glass 4K)',
+        icon: 'sparkle',
+        badge: 'GLASS 4K',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://vexo.surf/watch/tv/${targetId}/${s}/${e}`
+                : `https://vexo.surf/watch/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'atlantic',
+        name: 'Nexi Wave (Multi-Audio)',
+        icon: 'sparkle',
+        badge: 'MULTI-AUDIO',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://embed.atlantic.st/embed/tv/${targetId}/${s}/${e}`
+                : `https://embed.atlantic.st/embed/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'vidbolt',
+        name: 'VidBolt (1080p HD)',
+        icon: 'sparkle',
+        badge: '1080P HD',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://vidbolt.xyz/tv/${targetId}/${s}/${e}`
+                : `https://vidbolt.xyz/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'nexi_velvet',
+        name: 'Nexi Velvet (Ultra HLS)',
+        icon: 'sparkle',
+        badge: 'ULTRA HLS',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://dulo.mov/watch/tv/${targetId}?s=${s}&e=${e}`
+                : `https://dulo.mov/watch/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'nexi_flow',
+        name: 'Nexi Flow (Multi-Stream)',
+        icon: 'sparkle',
+        badge: 'MULTI-STREAM',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://watch.rivestream.app/embed?type=tv&id=${targetId}&season=${s}&episode=${e}`
+                : `https://watch.rivestream.app/embed?type=movie&id=${targetId}`;
+        }
+    },
+    {
+        id: 'nexi_love',
+        name: 'Nexi Love (Pro HD)',
+        icon: 'heart',
+        badge: 'PRO HD',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://player.vidlove.cc/embed/tv/${targetId}/${s}/${e}`
+                : `https://player.vidlove.cc/embed/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'nexi_core',
+        name: 'Nexi Core (Ultra HD)',
+        icon: 'sparkle',
+        badge: 'CORE HD',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://vidcore.io/tv/${targetId}/${s}/${e}?autoPlay=false`
+                : `https://vidcore.io/movie/${targetId}?autoPlay=false`;
+        }
+    },
+    {
+        id: 'nexi_cinema',
+        name: 'Nexi Cinema (CinemaOS)',
+        icon: 'film',
+        badge: 'CINEMA OS',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://cinemaos.me/player/${targetId}/${s}/${e}?autoPlay=false`
+                : `https://cinemaos.me/player/${targetId}?autoPlay=false`;
+        }
+    },
+    {
+        id: 'nexi_nerds',
+        name: 'Nexi Nerds (Master HD)',
+        icon: 'sparkle',
+        badge: 'MASTER HD',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://movienerds.site/watch/tv/${targetId}?season=${s}&episode=${e}`
+                : `https://movienerds.site/watch/movie/${targetId}`;
         }
     },
     {
@@ -320,6 +511,20 @@ const BUILT_IN_SERVERS: Server[] = [
         }
     },
     {
+        id: 'screenscape',
+        name: 'Nexi Hindi (Dubbed)',
+        icon: 'audio',
+        badge: 'HINDI DUBBED',
+        isHindi: true,
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://screenscape.me/embed?tmdb=${targetId}&type=tv&lan=hindi&s=${s}&e=${e}`
+                : `https://screenscape.me/embed?tmdb=${targetId}&type=movie&lan=hindi`;
+        }
+    },
+    {
         id: 'godrive',
         name: 'GDrivePlayer',
         icon: 'sparkle',
@@ -354,8 +559,8 @@ const BUILT_IN_SERVERS: Server[] = [
             const targetId = tmdb || imdb || id;
             if (!targetId) return null;
             return s !== undefined && e !== undefined
-                ? `https://vidcore.org/embed/tv/${targetId}/${s}/${e}`
-                : `https://vidcore.org/embed/movie/${targetId}`;
+                ? `https://vidcore.io/tv/${targetId}/${s}/${e}?autoPlay=true&autoNext=true`
+                : `https://vidcore.io/movie/${targetId}?autoPlay=true`;
         }
     },
     {
@@ -1692,25 +1897,27 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
 
     const getConfiguredMultiStreams = (): Record<string, string> => {
         const movieWithConfig = movie as unknown as { scraper_source?: string; scraper_url?: string };
-        if (movieWithConfig.scraper_source !== 'multi') return {};
-
-        const config = parseMultiScraperConfig(movieWithConfig.scraper_url);
         const streams: Record<string, string> = {};
 
-        Object.entries(config).forEach(([serverKey, serverConfig]) => {
-            if (!serverConfig) return;
-            const seasonKey = String(currentSeasonNum);
-            const episodeKey = `${currentSeasonNum}_${currentEpisodeNum}`;
-            const rawUrl = serverConfig.mode === 'episode'
-                ? serverConfig.episodeUrls?.[episodeKey]
-                : serverConfig.mode === 'separate'
-                    ? serverConfig.urls?.[seasonKey]
-                    : serverConfig.url;
+        if (movieWithConfig.scraper_source === 'multi' && movieWithConfig.scraper_url) {
+            const config = parseMultiScraperConfig(movieWithConfig.scraper_url);
+            Object.entries(config).forEach(([serverKey, serverConfig]) => {
+                if (!serverConfig) return;
+                const seasonKey = String(currentSeasonNum);
+                const episodeKey = `${currentSeasonNum}_${currentEpisodeNum}`;
+                const rawUrl = serverConfig.mode === 'episode'
+                    ? serverConfig.episodeUrls?.[episodeKey]
+                    : serverConfig.mode === 'separate'
+                        ? serverConfig.urls?.[seasonKey]
+                        : serverConfig.url;
 
-            if (rawUrl && rawUrl.trim()) {
-                streams[serverKey] = normalizeConfiguredServerUrl(serverKey, rawUrl);
-            }
-        });
+                if (rawUrl && rawUrl.trim()) {
+                    streams[serverKey] = normalizeConfiguredServerUrl(serverKey, rawUrl);
+                }
+            });
+        } else if (movieWithConfig.scraper_source && movieWithConfig.scraper_url) {
+            streams[movieWithConfig.scraper_source] = normalizeConfiguredServerUrl(movieWithConfig.scraper_source, movieWithConfig.scraper_url);
+        }
 
         return streams;
     };
@@ -1840,6 +2047,9 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
         }
         if (activeServerId.startsWith('multi_')) {
             const key = activeServerId.replace('multi_', '');
+            if (key === 'rareanimes') {
+                return `/embed/rr?id=${encodeURIComponent(movie.id)}&slug=${encodeURIComponent(movie.slug || '')}&season=${currentSeasonNum}&episode=${currentEpisodeNum}`;
+            }
             return normalizePlayerUrl(multiStreams[key] || '');
         }
         if (activeServerId === 'custom') {

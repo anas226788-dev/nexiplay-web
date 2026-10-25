@@ -33,6 +33,174 @@ const BUILT_IN_SERVERS: Server[] = [
         }
     },
     {
+        id: 'luma_stream',
+        name: 'Luma Stream (HD)',
+        icon: '🎬',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://embed.cinevu.icu/embed/tv/${targetId}/${s}/${e}`
+                : `https://embed.cinevu.icu/embed/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'nexi_frame',
+        name: 'Nexi Frame (Ultra)',
+        icon: '⚡',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://framextv.cc/embed/tv/${targetId}/${s}/${e}?no_ads=1&autoplay=1`
+                : `https://framextv.cc/embed/movie/${targetId}?no_ads=1&autoplay=1`;
+        }
+    },
+    {
+        id: 'nexi_joy',
+        name: 'Nexi Joy (Pro HD)',
+        icon: '🚀',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://flaxjoy.app/watch/${targetId}/${s}/${e}`
+                : `https://flaxjoy.app/watch/${targetId}`;
+        }
+    },
+    {
+        id: 'cinesrc',
+        name: 'CineSrc (Ultra HD)',
+        icon: '🎬',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://cinesrc.st/embed/tv/${targetId}?s=${s}&e=${e}&color=%2300f2fe`
+                : `https://cinesrc.st/embed/movie/${targetId}?color=%2300f2fe`;
+        }
+    },
+    {
+        id: 'cineruv',
+        name: 'CineRuv (Studio 4K)',
+        icon: '💎',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://cineruv.website/watch/tv/${targetId}/${s}/${e}`
+                : `https://cineruv.website/watch/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'vexo',
+        name: 'Vexo (Glass 4K)',
+        icon: '🔮',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://vexo.surf/watch/tv/${targetId}/${s}/${e}`
+                : `https://vexo.surf/watch/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'atlantic',
+        name: 'Nexi Wave (Multi-Audio)',
+        icon: '🌊',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://embed.atlantic.st/embed/tv/${targetId}/${s}/${e}`
+                : `https://embed.atlantic.st/embed/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'vidbolt',
+        name: 'VidBolt (1080p HD)',
+        icon: '⚡',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://vidbolt.xyz/tv/${targetId}/${s}/${e}`
+                : `https://vidbolt.xyz/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'nexi_velvet',
+        name: 'Nexi Velvet (Ultra HLS)',
+        icon: '💎',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://dulo.mov/watch/tv/${targetId}?s=${s}&e=${e}`
+                : `https://dulo.mov/watch/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'nexi_flow',
+        name: 'Nexi Flow (Multi-Stream)',
+        icon: '🌊',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://watch.rivestream.app/embed?type=tv&id=${targetId}&season=${s}&episode=${e}`
+                : `https://watch.rivestream.app/embed?type=movie&id=${targetId}`;
+        }
+    },
+    {
+        id: 'nexi_love',
+        name: 'Nexi Love (Pro HD)',
+        icon: '💖',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://player.vidlove.cc/embed/tv/${targetId}/${s}/${e}`
+                : `https://player.vidlove.cc/embed/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'nexi_core',
+        name: 'Nexi Core (Ultra HD)',
+        icon: '⚡',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://vidcore.io/tv/${targetId}/${s}/${e}?autoPlay=false`
+                : `https://vidcore.io/movie/${targetId}?autoPlay=false`;
+        }
+    },
+    {
+        id: 'nexi_cinema',
+        name: 'Nexi Cinema (CinemaOS)',
+        icon: '🎬',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://cinemaos.me/player/${targetId}/${s}/${e}?autoPlay=false`
+                : `https://cinemaos.me/player/${targetId}?autoPlay=false`;
+        }
+    },
+    {
+        id: 'nexi_nerds',
+        name: 'Nexi Nerds (Master HD)',
+        icon: '🍿',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://movienerds.site/watch/tv/${targetId}?season=${s}&episode=${e}`
+                : `https://movienerds.site/watch/movie/${targetId}`;
+        }
+    },
+    {
         id: 'vidrock',
         name: 'VidRock',
         icon: '🪨',
@@ -165,6 +333,18 @@ const BUILT_IN_SERVERS: Server[] = [
         }
     },
     {
+        id: 'screenscape',
+        name: 'Nexi Hindi (Dubbed)',
+        icon: '🎙️',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://screenscape.me/embed?tmdb=${targetId}&type=tv&lan=hindi&s=${s}&e=${e}`
+                : `https://screenscape.me/embed?tmdb=${targetId}&type=movie&lan=hindi`;
+        }
+    },
+    {
         id: 'godrive',
         name: 'GDrivePlayer',
         icon: '💎',
@@ -196,8 +376,8 @@ const BUILT_IN_SERVERS: Server[] = [
             const targetId = tmdb || imdb || id;
             if (!targetId) return null;
             return s !== undefined && e !== undefined
-                ? `https://vidcore.org/embed/tv/${targetId}/${s}/${e}`
-                : `https://vidcore.org/embed/movie/${targetId}`;
+                ? `https://vidcore.io/tv/${targetId}/${s}/${e}?autoPlay=true&autoNext=true`
+                : `https://vidcore.io/movie/${targetId}?autoPlay=true`;
         }
     },
     {
