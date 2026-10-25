@@ -57,11 +57,11 @@ export default async function ChapterReaderPage({ params }: PageProps) {
 
     if (!novel) notFound();
 
-    // Fetch Chapters list from Supabase (only lightweight metadata)
+    // Fetch Chapters list from Supabase
     let chapters: any[] = [];
     const { data: chapterData } = await supabaseNovels
         .from('novel_chapters')
-        .select('id, novel_id, chapter_number, title, slug, created_at')
+        .select('id, novel_id, chapter_number, title, slug, content, created_at')
         .eq('novel_id', novel.id)
         .order('chapter_number', { ascending: true });
         
@@ -71,9 +71,9 @@ export default async function ChapterReaderPage({ params }: PageProps) {
     
     if (chapterIndex === -1) notFound();
 
-    const chapter = { ...chapters[chapterIndex], content: '' };
+    const chapter = { ...chapters[chapterIndex], content: chapters[chapterIndex].content || '' };
 
-    // Fetch full chapter body from Cloudflare R2 CDN
+    // Fetch full chapter body from Cloudflare R2 CDN if available
     const r2Base = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || 'https://pub-246be7bb40a14c07b8a8359e2bc8285d.r2.dev';
     const r2Url = `${r2Base}/chapters/${novel.id}/${chapter.chapter_number}.json`;
 
@@ -81,12 +81,12 @@ export default async function ChapterReaderPage({ params }: PageProps) {
         const r2Res = await fetch(r2Url, { next: { revalidate: 86400 } });
         if (r2Res.ok) {
             const r2Data = await r2Res.json();
-            chapter.content = r2Data.content || '';
-        } else {
-            console.error(`R2 CDN fetch returned HTTP ${r2Res.status} for ${r2Url}`);
+            if (r2Data.content) {
+                chapter.content = r2Data.content;
+            }
         }
     } catch (e) {
-        console.error('Error loading chapter from R2:', e);
+        console.error('Error loading chapter from R2, using DB fallback:', e);
     }
 
     const prevSlug = chapterIndex > 0 ? chapters[chapterIndex - 1].slug : null;
