@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Movie, Season, Episode } from '@/lib/types';
 import { useAdSettings } from '@/hooks/useAdSettings';
-import { canRequestPlayerFullscreen, FULLSCREEN_IFRAME_ATTRS, AD_BLOCK_SANDBOX, requestPlayerFullscreen } from '@/lib/playerFullscreen';
+import { canRequestPlayerFullscreen, FULLSCREEN_IFRAME_ATTRS, AD_BLOCK_SANDBOX, isAntiSandboxUrl, requestPlayerFullscreen } from '@/lib/playerFullscreen';
 
 interface StreamingPlayerProps {
     movie: Movie;
@@ -509,7 +509,7 @@ function normalizePlayerUrl(url: string): string {
         const host = parsed.hostname.toLowerCase();
 
         // 1. Doodstream
-        if (host.includes('dood') || host.includes('ds2play')) {
+        if (host.includes('dood') || host.includes('ds2play') || host.includes('playmogo')) {
             if (parsed.pathname.startsWith('/d/') || parsed.pathname.startsWith('/f/')) {
                 parsed.pathname = parsed.pathname.replace(/^\/(?:d|f)\//, '/e/');
                 return parsed.toString();
@@ -525,7 +525,7 @@ function normalizePlayerUrl(url: string): string {
         }
 
         // 3. Voe
-        if (host.includes('voe.sx') || host.includes('voe-network')) {
+        if (host.includes('voe.sx') || host.includes('voe-network') || host.includes('ashleyhardat')) {
             const parts = parsed.pathname.split('/').filter(Boolean);
             if (parts.length === 1 && parts[0] !== 'e') {
                 return `https://${parsed.host}/e/${parts[0]}`;
@@ -533,7 +533,7 @@ function normalizePlayerUrl(url: string): string {
         }
 
         // 4. Abyss
-        if (host.includes('abyss.to')) {
+        if (host.includes('abyss.to') || host.includes('abyssplayer') || host.includes('abysscdn')) {
             const parts = parsed.pathname.split('/').filter(Boolean);
             const id = parts[parts.length - 1];
             if (parts.includes('watch') && id) {
@@ -990,18 +990,24 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
                 {/* Sandbox Ad Block Toggle */}
                 {activeServerId !== 'custom' && (
                     <div className="flex items-center gap-2">
-                        <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={sandboxMode}
-                                onChange={(e) => setSandboxMode(e.target.checked)}
-                                className="sr-only peer"
-                            />
-                            <div className="w-9 h-5 bg-[#0D0B12] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#57D6C0]"></div>
-                            <span className="ml-2.5 text-xs font-bold text-[#F4F0FA]">
-                                {sandboxMode ? '🛡️ Ad-Blocker Mode (On)' : 'Compatible Mode'}
+                        {isAntiSandboxUrl(embedUrl, activeServerId) ? (
+                            <span className="text-xs font-bold text-[#57D6C0] bg-[#57D6C0]/10 px-2.5 py-1 rounded-full border border-[#57D6C0]/20">
+                                ⚡ Direct Stream Mode
                             </span>
-                        </label>
+                        ) : (
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={sandboxMode}
+                                    onChange={(e) => setSandboxMode(e.target.checked)}
+                                    className="sr-only peer"
+                                />
+                                <div className="w-9 h-5 bg-[#0D0B12] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#57D6C0]"></div>
+                                <span className="ml-2.5 text-xs font-bold text-[#F4F0FA]">
+                                    {sandboxMode ? '🛡️ Ad-Blocker Mode (On)' : 'Compatible Mode'}
+                                </span>
+                            </label>
+                        )}
                     </div>
                 )}
             </div>
@@ -1027,7 +1033,7 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
                             title="Streaming player"
                             className="nexiplay-player-frame absolute inset-0 w-full h-full overflow-hidden"
                             scrolling="no"
-                            sandbox={sandboxMode ? AD_BLOCK_SANDBOX : undefined}
+                            sandbox={sandboxMode && !isAntiSandboxUrl(embedUrl, activeServerId) ? AD_BLOCK_SANDBOX : undefined}
                             {...FULLSCREEN_IFRAME_ATTRS}
                             referrerPolicy={isYouTubeActive ? 'strict-origin-when-cross-origin' : 'no-referrer'}
                         />

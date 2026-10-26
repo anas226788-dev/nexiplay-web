@@ -10,7 +10,7 @@ import { AdBanner, NativeAd } from '@/components/ads';
 import CommentSection from '@/components/CommentSection';
 import RelatedPosts from '@/components/RelatedPosts';
 import AdVerificationPopup from '@/components/AdVerificationPopup';
-import { canRequestPlayerFullscreen, FULLSCREEN_IFRAME_ATTRS, requestPlayerFullscreen } from '@/lib/playerFullscreen';
+import { canRequestPlayerFullscreen, FULLSCREEN_IFRAME_ATTRS, isAntiSandboxUrl, requestPlayerFullscreen } from '@/lib/playerFullscreen';
 import { useAuth } from '@/context/AuthContext';
 
 interface WatchPageClientProps {
@@ -690,7 +690,7 @@ function normalizePlayerUrl(url: string): string {
         const host = parsed.hostname.toLowerCase();
 
         // 1. Doodstream
-        if (host.includes('dood') || host.includes('ds2play')) {
+        if (host.includes('dood') || host.includes('ds2play') || host.includes('playmogo')) {
             if (parsed.pathname.startsWith('/d/') || parsed.pathname.startsWith('/f/')) {
                 parsed.pathname = parsed.pathname.replace(/^\/(?:d|f)\//, '/e/');
                 return parsed.toString();
@@ -706,7 +706,7 @@ function normalizePlayerUrl(url: string): string {
         }
 
         // 3. Voe
-        if (host.includes('voe.sx') || host.includes('voe-network')) {
+        if (host.includes('voe.sx') || host.includes('voe-network') || host.includes('ashleyhardat')) {
             const parts = parsed.pathname.split('/').filter(Boolean);
             if (parts.length === 1 && parts[0] !== 'e') {
                 return `https://${parsed.host}/e/${parts[0]}`;
@@ -714,7 +714,7 @@ function normalizePlayerUrl(url: string): string {
         }
 
         // 4. Abyss
-        if (host.includes('abyss.to')) {
+        if (host.includes('abyss.to') || host.includes('abyssplayer') || host.includes('abysscdn')) {
             const parts = parsed.pathname.split('/').filter(Boolean);
             const id = parts[parts.length - 1];
             if (parts.includes('watch') && id) {
@@ -2671,7 +2671,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                                         title="Streaming player"
                                         className="nexiplay-player-frame absolute inset-0 w-full h-full bg-black overflow-hidden"
                                         scrolling="no"
-                                        sandbox={playerAdBlocker ? AD_BLOCK_SANDBOX : undefined}
+                                        sandbox={playerAdBlocker && !isAntiSandboxUrl(resolvedUrl, activeServerId) ? AD_BLOCK_SANDBOX : undefined}
                                         {...FULLSCREEN_IFRAME_ATTRS}
                                         referrerPolicy={isYouTubeActive ? 'strict-origin-when-cross-origin' : 'no-referrer'}
                                         onError={() => handleNextServer(activeServerId)}
@@ -2796,25 +2796,35 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                                             </div>
 
                                             {/* Player AdBlocker Toggle Button */}
-                                            <button
-                                                type="button"
-                                                onClick={togglePlayerAdBlocker}
-                                                className={`px-2.5 py-1 rounded-xl text-[11px] font-extrabold border transition-all flex items-center gap-1.5 cursor-pointer select-none active:scale-95 ${
-                                                    playerAdBlocker
-                                                        ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 shadow-sm shadow-emerald-950/40'
-                                                        : 'bg-white/5 border-white/10 text-gray-400 hover:text-gray-200'
-                                                }`}
-                                                title={playerAdBlocker ? 'Player AdBlocker is ACTIVE: Popups & new tab redirects from video servers are blocked. Website ads are unaffected.' : 'Click to enable Player AdBlocker'}
-                                            >
-                                                <span className={`w-1.5 h-1.5 rounded-full ${playerAdBlocker ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`} />
-                                                <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                                                </svg>
-                                                <span>Player AdBlocker:</span>
-                                                <span className={playerAdBlocker ? 'text-emerald-400 font-black' : 'text-gray-400'}>
-                                                    {playerAdBlocker ? 'ON' : 'OFF'}
-                                                </span>
-                                            </button>
+                                            {isAntiSandboxUrl(resolvedUrl, activeServerId) ? (
+                                                <div
+                                                    className="px-2.5 py-1 rounded-xl text-[11px] font-extrabold border bg-emerald-500/10 border-emerald-500/30 text-emerald-300 flex items-center gap-1.5 select-none"
+                                                    title="Direct Stream Mode is active for this server to prevent 'Sandbox not allowed' or 'Client blocked' errors. Video will play directly."
+                                                >
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                                    <span>⚡ Direct Player Mode</span>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    onClick={togglePlayerAdBlocker}
+                                                    className={`px-2.5 py-1 rounded-xl text-[11px] font-extrabold border transition-all flex items-center gap-1.5 cursor-pointer select-none active:scale-95 ${
+                                                        playerAdBlocker
+                                                            ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 shadow-sm shadow-emerald-950/40'
+                                                            : 'bg-white/5 border-white/10 text-gray-400 hover:text-gray-200'
+                                                    }`}
+                                                    title={playerAdBlocker ? 'Player AdBlocker is ACTIVE: Popups & new tab redirects from video servers are blocked.' : 'Click to enable Player AdBlocker'}
+                                                >
+                                                    <span className={`w-1.5 h-1.5 rounded-full ${playerAdBlocker ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`} />
+                                                    <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                                                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                                                    </svg>
+                                                    <span>Player AdBlocker:</span>
+                                                    <span className={playerAdBlocker ? 'text-emerald-400 font-black' : 'text-gray-400'}>
+                                                        {playerAdBlocker ? 'ON' : 'OFF'}
+                                                    </span>
+                                                </button>
+                                            )}
                                         </div>
 
                                         <button
