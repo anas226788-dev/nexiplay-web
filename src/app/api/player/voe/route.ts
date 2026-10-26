@@ -2,6 +2,36 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
+const ALLOWED_VOE_HOSTS = ['voe.sx', 'voe-network.net', 'ashleyhardat.com'];
+
+function isAllowedVoeHost(hostname: string) {
+    const host = hostname.toLowerCase().replace(/^www\./, '');
+    return ALLOWED_VOE_HOSTS.some(domain => host === domain || host.endsWith(`.${domain}`));
+}
+
+async function fetchVoePage(url: string, referer: string) {
+    let currentUrl = new URL(url);
+    for (let hop = 0; hop < 4; hop++) {
+        if (currentUrl.protocol !== 'https:' || !isAllowedVoeHost(currentUrl.hostname)) {
+            throw new Error('Unsupported Voe delivery host');
+        }
+        const response = await fetch(currentUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                Referer: referer,
+                Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+            },
+            redirect: 'manual',
+            signal: AbortSignal.timeout(8000)
+        });
+        if (![301, 302, 303, 307, 308].includes(response.status)) return response;
+        const location = response.headers.get('location');
+        if (!location) return response;
+        currentUrl = new URL(location, currentUrl);
+    }
+    throw new Error('Too many Voe delivery redirects');
+}
+
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const targetUrl = searchParams.get('url');
@@ -13,6 +43,9 @@ export async function GET(request: NextRequest) {
     try {
         let playerUrl = targetUrl;
         const parsed = new URL(targetUrl);
+        if (parsed.protocol !== 'https:' || !isAllowedVoeHost(parsed.hostname)) {
+            return new NextResponse('Unsupported Voe player host', { status: 400 });
+        }
         const host = parsed.hostname.toLowerCase();
 
         // Normalize /e/ path
@@ -22,14 +55,7 @@ export async function GET(request: NextRequest) {
             playerUrl = `https://${parsed.host}/e/${id}`;
         }
 
-        let res = await fetch(playerUrl, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Referer': 'https://voe.sx/',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-            },
-            signal: AbortSignal.timeout(8000)
-        });
+        let res = await fetchVoePage(playerUrl, 'https://voe.sx/');
 
         if (!res.ok) {
             return new NextResponse(`Voe returned status ${res.status}`, { status: res.status });
@@ -41,15 +67,8 @@ export async function GET(request: NextRequest) {
         if (html.length < 2500 && html.includes('window.location.href')) {
             const redirectMatch = html.match(/window\.location\.href\s*=\s*['"]([^'"]+)['"]/);
             if (redirectMatch && redirectMatch[1]) {
-                const redirectUrl = redirectMatch[1];
-                res = await fetch(redirectUrl, {
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                        'Referer': 'https://voe.sx/',
-                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-                    },
-                    signal: AbortSignal.timeout(8000)
-                });
+                const redirectUrl = new URL(redirectMatch[1], res.url);
+                res = await fetchVoePage(redirectUrl.toString(), 'https://voe.sx/');
                 if (res.ok) {
                     html = await res.text();
                 }
@@ -113,7 +132,7 @@ export async function GET(request: NextRequest) {
             status: 200,
             headers: {
                 'Content-Type': 'text/html; charset=utf-8',
-                'Cache-Control': 'public, max-age=3600, s-maxage=7200',
+                'Cache-Control': 'private, no-store',
                 'X-Frame-Options': 'SAMEORIGIN'
             }
         });

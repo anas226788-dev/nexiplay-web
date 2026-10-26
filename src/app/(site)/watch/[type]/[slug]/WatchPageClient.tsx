@@ -116,6 +116,15 @@ function ServerSvgIcon({ id, isHindi, className = "w-4 h-4" }: { id: string; isH
         );
     }
 
+    if (cleanId === 'vidmoly' || cleanId === 'multi_vidmoly') {
+        return (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="16" rx="3" stroke="#a78bfa" />
+                <polygon points="10 8 16 12 10 16 10 8" fill="#a78bfa" stroke="none" />
+            </svg>
+        );
+    }
+
     // Abyss
     if (cleanId === 'abyss' || cleanId === 'multi_abyss') {
         return (
@@ -710,8 +719,18 @@ function normalizePlayerUrl(url: string): string {
             const parts = parsed.pathname.split('/').filter(Boolean);
             const id = parts[parts.length - 1];
             if (id) {
-                return `/api/player/voe?url=${encodeURIComponent(`https://ashleyhardat.com/e/${id}`)}`;
+                const playerUrl = parsed.pathname.startsWith('/e/')
+                    ? parsed.toString()
+                    : `${parsed.origin}/e/${encodeURIComponent(id)}`;
+                return `/api/player/voe?url=${encodeURIComponent(playerUrl)}`;
             }
+        }
+
+        // Vidmoly is a video-hosting service: the playable URL is supplied per
+        // title/episode by the admin multi-server configuration. Keep its full
+        // embed/share path and query string intact.
+        if (host === 'vidmoly.me' || host.endsWith('.vidmoly.me')) {
+            return parsed.toString();
         }
 
         // 4. Abyss -> route through clean ad-free proxy player
@@ -1906,7 +1925,13 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
         const trimmed = urlStr.trim();
         if (trimmed.startsWith('{')) {
             try {
-                return JSON.parse(trimmed);
+                const parsed = JSON.parse(trimmed);
+                if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+                return Object.fromEntries(
+                    Object.entries(parsed)
+                        .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && !!entry[1].trim())
+                        .map(([key, value]) => [key.trim().toLowerCase(), value.trim()])
+                );
             } catch (e) {
                 console.error("Failed to parse streaming_url JSON:", e);
             }
@@ -1933,8 +1958,9 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
 
         if (movieWithConfig.scraper_source === 'multi' && movieWithConfig.scraper_url) {
             const config = parseMultiScraperConfig(movieWithConfig.scraper_url);
-            Object.entries(config).forEach(([serverKey, serverConfig]) => {
+            Object.entries(config).forEach(([rawServerKey, serverConfig]) => {
                 if (!serverConfig) return;
+                const serverKey = rawServerKey.trim().toLowerCase();
                 const seasonKey = String(currentSeasonNum);
                 const episodeKey = `${currentSeasonNum}_${currentEpisodeNum}`;
                 const rawUrl = serverConfig.mode === 'episode'
@@ -1948,7 +1974,8 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                 }
             });
         } else if (movieWithConfig.scraper_source && movieWithConfig.scraper_url) {
-            streams[movieWithConfig.scraper_source] = normalizeConfiguredServerUrl(movieWithConfig.scraper_source, movieWithConfig.scraper_url);
+            const serverKey = movieWithConfig.scraper_source.trim().toLowerCase();
+            streams[serverKey] = normalizeConfiguredServerUrl(serverKey, movieWithConfig.scraper_url);
         }
 
         return streams;
@@ -2096,9 +2123,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
 
         const isWebPage = embedUrl.includes('netfilm') ||
             embedUrl.includes('moviebox') ||
-            embedUrl.includes('sflix') ||
-            embedUrl.includes('streamtape') ||
-            embedUrl.includes('streamta.pe');
+            embedUrl.includes('sflix');
 
         if (isWebPage) {
             setResolvingUrl(true);
@@ -2186,12 +2211,14 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                 doodstream: 'Nexi Turbo Server',
                 streamtape: 'Nexi Pulse Server',
                 voe: 'Nexi Spark Server',
+                vidmoly: 'Vidmoly Server',
                 abyss: 'Nexi Vault Server'
             };
             const badges: Record<string, string> = {
                 doodstream: 'TURBO FAST',
                 streamtape: 'PULSE HD',
                 voe: 'SPARK PRO',
+                vidmoly: 'VIDMOLY',
                 abyss: 'VAULT CDN',
                 custom: 'DIRECT CDN',
                 rareanimes: 'HINDI DUBBED'
@@ -2260,6 +2287,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                 doodstream: 'Nexi Turbo Server',
                 streamtape: 'Nexi Pulse Server',
                 voe: 'Nexi Spark Server',
+                vidmoly: 'Vidmoly Server',
                 abyss: 'Nexi Vault Server'
             };
             return serverNames[key] || `${key.toUpperCase()} (Multi)`;
