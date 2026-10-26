@@ -12,21 +12,14 @@ export const AD_BLOCK_SANDBOX =
     'allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock allow-orientation-lock allow-modals';
 
 export const ANTI_SANDBOX_HOSTS = [
-    'voe.sx',
-    'voe',
-    'ashleyhardat',
-    'streamtape',
-    'streamta.pe',
     'dood',
     'playmogo',
-    'ds2play',
-    'abyss',
-    'short.ink',
-    'abyssplayer'
+    'ds2play'
 ];
 
 export function isAntiSandboxUrl(url?: string | null, serverId?: string | null): boolean {
     const lowerUrl = (url || '').toLowerCase();
+    if (lowerUrl.startsWith('/api/player/')) return false;
     const lowerId = (serverId || '').toLowerCase();
     return ANTI_SANDBOX_HOSTS.some(h => lowerUrl.includes(h) || lowerId.includes(h));
 }

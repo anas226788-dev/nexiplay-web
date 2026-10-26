@@ -524,11 +524,12 @@ function normalizePlayerUrl(url: string): string {
             }
         }
 
-        // 3. Voe
+        // 3. Voe -> route through clean ad-free proxy player
         if (host.includes('voe.sx') || host.includes('voe-network') || host.includes('ashleyhardat')) {
             const parts = parsed.pathname.split('/').filter(Boolean);
-            if (parts.length === 1 && parts[0] !== 'e') {
-                return `https://${parsed.host}/e/${parts[0]}`;
+            const id = parts[parts.length - 1];
+            if (id) {
+                return `/api/player/voe?url=${encodeURIComponent(`https://ashleyhardat.com/e/${id}`)}`;
             }
         }
 
