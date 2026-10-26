@@ -8,6 +8,9 @@ export const FULLSCREEN_IFRAME_ATTRS = {
     mozallowfullscreen: 'true'
 } as const;
 
+export const AD_BLOCK_SANDBOX =
+    'allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock allow-orientation-lock allow-modals';
+
 type FullscreenTarget = HTMLElement & {
     webkitRequestFullscreen?: () => Promise<void> | void;
     msRequestFullscreen?: () => Promise<void> | void;

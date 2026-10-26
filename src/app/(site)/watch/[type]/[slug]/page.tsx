@@ -190,10 +190,6 @@ export default async function WatchPage({ params }: PageProps) {
                 movieData.tmdb_id = row.tmdb_id ?? movieData.tmdb_id;
                 movieData.imdb_id = row.imdb_id ?? movieData.imdb_id;
                 movieData.mal_id = row.mal_id ?? movieData.mal_id;
-                movieData.streaming_url_animerulz = row.streaming_url_animerulz ?? movieData.streaming_url_animerulz;
-                movieData.streaming_url_toonplay = row.streaming_url_toonplay ?? movieData.streaming_url_toonplay;
-                movieData.animerulz_url = row.animerulz_url ?? movieData.animerulz_url;
-                movieData.toonplay_url = row.toonplay_url ?? movieData.toonplay_url;
 
                 if (row.is_disabled) {
                     movieData.streaming_url = 'disabled';

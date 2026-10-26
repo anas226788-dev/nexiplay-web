@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Movie, Season, Episode } from '@/lib/types';
 import { useAdSettings } from '@/hooks/useAdSettings';
-import { canRequestPlayerFullscreen, FULLSCREEN_IFRAME_ATTRS, requestPlayerFullscreen } from '@/lib/playerFullscreen';
+import { canRequestPlayerFullscreen, FULLSCREEN_IFRAME_ATTRS, AD_BLOCK_SANDBOX, requestPlayerFullscreen } from '@/lib/playerFullscreen';
 
 interface StreamingPlayerProps {
     movie: Movie;
@@ -411,9 +411,11 @@ const STREAM_PROXY_ENDPOINT = (process.env.NEXT_PUBLIC_STREAM_PROXY_URL || '').t
 
 // Scraper display metadata
 const SCRAPER_META: Record<string, { name: string; icon: string; needsResolve: boolean }> = {
-    toonstream: { name: 'ToonStream', icon: '🎬', needsResolve: true },
-    animeworld: { name: 'AnimeWorld', icon: '🌍', needsResolve: true },
-    animixstream: { name: 'AnimixStream', icon: '🎯', needsResolve: false },
+    rareanimes: { name: 'RR Nexiplay Server', icon: '🎴', needsResolve: false },
+    doodstream: { name: 'DoodStream (Fast)', icon: '⚡', needsResolve: false },
+    streamtape: { name: 'Streamtape (HD)', icon: '📼', needsResolve: false },
+    voe: { name: 'Voe (Pro Stream)', icon: '🚀', needsResolve: false },
+    abyss: { name: 'Abyss (Fast CDN)', icon: '🌌', needsResolve: false },
 };
 
 interface ScraperConfig {
@@ -494,10 +496,55 @@ function getYouTubeVideoId(urlOrId: string): string | null {
 }
 
 function normalizePlayerUrl(url: string): string {
-    const cleanUrl = url.trim();
+    const cleanUrl = (url || '').trim();
+    if (!cleanUrl) return '';
+
     const youtubeId = getYouTubeVideoId(cleanUrl);
-    if (!youtubeId) return cleanUrl;
-    return `https://www.youtube-nocookie.com/embed/${youtubeId}?rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&fs=1`;
+    if (youtubeId) {
+        return `https://www.youtube-nocookie.com/embed/${youtubeId}?rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&fs=1`;
+    }
+
+    try {
+        const parsed = new URL(cleanUrl);
+        const host = parsed.hostname.toLowerCase();
+
+        // 1. Doodstream
+        if (host.includes('dood') || host.includes('ds2play')) {
+            if (parsed.pathname.startsWith('/d/') || parsed.pathname.startsWith('/f/')) {
+                parsed.pathname = parsed.pathname.replace(/^\/(?:d|f)\//, '/e/');
+                return parsed.toString();
+            }
+        }
+
+        // 2. Streamtape
+        if (host.includes('streamtape') || host.includes('streamta.pe')) {
+            if (parsed.pathname.startsWith('/v/')) {
+                parsed.pathname = parsed.pathname.replace(/^\/v\//, '/e/');
+                return parsed.toString();
+            }
+        }
+
+        // 3. Voe
+        if (host.includes('voe.sx') || host.includes('voe-network')) {
+            const parts = parsed.pathname.split('/').filter(Boolean);
+            if (parts.length === 1 && parts[0] !== 'e') {
+                return `https://${parsed.host}/e/${parts[0]}`;
+            }
+        }
+
+        // 4. Abyss
+        if (host.includes('abyss.to')) {
+            const parts = parsed.pathname.split('/').filter(Boolean);
+            const id = parts[parts.length - 1];
+            if (parts.includes('watch') && id) {
+                return `https://short.ink/${id}`;
+            }
+        }
+    } catch {
+        // Fallback to original
+    }
+
+    return cleanUrl;
 }
 
 function HLSVideoPlayer({ src }: { src: string }) {
@@ -980,6 +1027,7 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
                             title="Streaming player"
                             className="nexiplay-player-frame absolute inset-0 w-full h-full overflow-hidden"
                             scrolling="no"
+                            sandbox={sandboxMode ? AD_BLOCK_SANDBOX : undefined}
                             {...FULLSCREEN_IFRAME_ATTRS}
                             referrerPolicy={isYouTubeActive ? 'strict-origin-when-cross-origin' : 'no-referrer'}
                         />

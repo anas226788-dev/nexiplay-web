@@ -85,8 +85,50 @@ function ServerSvgIcon({ id, isHindi, className = "w-4 h-4" }: { id: string; isH
         );
     }
 
+    // DoodStream
+    if (cleanId === 'doodstream' || cleanId === 'multi_doodstream') {
+        return (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" stroke="#f97316" />
+                <polygon points="10 8 16 12 10 16 10 8" fill="#f97316" />
+            </svg>
+        );
+    }
+
+    // Streamtape
+    if (cleanId === 'streamtape' || cleanId === 'multi_streamtape') {
+        return (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="4" width="20" height="16" rx="3" stroke="#3b82f6" />
+                <circle cx="8" cy="12" r="2.5" fill="#3b82f6" />
+                <circle cx="16" cy="12" r="2.5" fill="#3b82f6" />
+                <line x1="8" y1="14.5" x2="16" y2="14.5" stroke="#3b82f6" strokeWidth={1.5} />
+            </svg>
+        );
+    }
+
+    // Voe
+    if (cleanId === 'voe' || cleanId === 'multi_voe') {
+        return (
+            <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" fill="#10b981" />
+            </svg>
+        );
+    }
+
+    // Abyss
+    if (cleanId === 'abyss' || cleanId === 'multi_abyss') {
+        return (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="#06b6d4" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 3a9 9 0 0 1 9 9" />
+                <circle cx="12" cy="12" r="3" fill="#06b6d4" />
+            </svg>
+        );
+    }
+
     // Hindi Dubbed / Multi-Audio / Soundwave
-    if (isHindi || ['moviesnexus', 'multiembed', 'vixsrc', 'twoembed', 'vidsrc_su', 'anyembed', 'toonstream', 'rareanimes', 'screenscape'].includes(cleanId)) {
+    if (isHindi || ['moviesnexus', 'multiembed', 'vixsrc', 'twoembed', 'vidsrc_su', 'anyembed', 'rareanimes', 'screenscape'].includes(cleanId)) {
         return (
             <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M2 10v4M6 7v10M10 4v16M14 8v8M18 11v2M22 9v6" />
@@ -95,7 +137,7 @@ function ServerSvgIcon({ id, isHindi, className = "w-4 h-4" }: { id: string; isH
     }
 
     // Ultra Fast Speed / Zap
-    if (['vidlink', 'vidfast', 'vidcore', 'vidsrc_pm', 'vidsrc_to', 'vidsrc_io', 'vidsrc_sh', 'vidapi', 'animerulz', 'animixstream'].includes(cleanId)) {
+    if (['vidlink', 'vidfast', 'vidcore', 'vidsrc_pm', 'vidsrc_to', 'vidsrc_io', 'vidsrc_sh', 'vidapi'].includes(cleanId)) {
         return (
             <svg className={className} viewBox="0 0 24 24" fill="currentColor">
                 <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z" />
@@ -122,7 +164,7 @@ function ServerSvgIcon({ id, isHindi, className = "w-4 h-4" }: { id: string; isH
     }
 
     // Cloud Stream / Direct CDN / Server Stack
-    if (['vidvault_stream', 'custom', 'animeworld'].includes(cleanId) || cleanId.startsWith('multi_')) {
+    if (['vidvault_stream', 'custom'].includes(cleanId) || cleanId.startsWith('multi_')) {
         return (
             <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <rect width="20" height="7" x="2" y="3" rx="2" />
@@ -131,17 +173,6 @@ function ServerSvgIcon({ id, isHindi, className = "w-4 h-4" }: { id: string; isH
                 <line x1="6" x2="6.01" y1="17.5" y2="17.5" strokeWidth={3} />
                 <line x1="10" x2="18" y1="6.5" y2="6.5" />
                 <line x1="10" x2="18" y1="17.5" y2="17.5" />
-            </svg>
-        );
-    }
-
-    // Nexiplay Private Server / Core
-    if (cleanId === 'toonplay') {
-        return (
-            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2 2 7l10 5 10-5-10-5Z" />
-                <path d="m2 17 10 5 10-5" />
-                <path d="m2 12 10 5 10-5" />
             </svg>
         );
     }
@@ -610,9 +641,6 @@ type MultiScraperServerConfig = {
 
 function normalizeConfiguredServerUrl(serverKey: string, url: string): string {
     const cleanUrl = url.trim();
-    if (serverKey.toLowerCase() === 'toonstream' && /^\d+$/.test(cleanUrl)) {
-        return `https://toonstream.vip/?trembed=${cleanUrl}`;
-    }
     return normalizePlayerUrl(cleanUrl);
 }
 
@@ -649,10 +677,55 @@ function getYouTubeVideoId(urlOrId: string): string | null {
 }
 
 function normalizePlayerUrl(url: string): string {
-    const cleanUrl = url.trim();
+    const cleanUrl = (url || '').trim();
+    if (!cleanUrl) return '';
+
     const youtubeId = getYouTubeVideoId(cleanUrl);
-    if (!youtubeId) return cleanUrl;
-    return `https://www.youtube-nocookie.com/embed/${youtubeId}?rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&fs=1`;
+    if (youtubeId) {
+        return `https://www.youtube-nocookie.com/embed/${youtubeId}?rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&fs=1`;
+    }
+
+    try {
+        const parsed = new URL(cleanUrl);
+        const host = parsed.hostname.toLowerCase();
+
+        // 1. Doodstream
+        if (host.includes('dood') || host.includes('ds2play')) {
+            if (parsed.pathname.startsWith('/d/') || parsed.pathname.startsWith('/f/')) {
+                parsed.pathname = parsed.pathname.replace(/^\/(?:d|f)\//, '/e/');
+                return parsed.toString();
+            }
+        }
+
+        // 2. Streamtape
+        if (host.includes('streamtape') || host.includes('streamta.pe')) {
+            if (parsed.pathname.startsWith('/v/')) {
+                parsed.pathname = parsed.pathname.replace(/^\/v\//, '/e/');
+                return parsed.toString();
+            }
+        }
+
+        // 3. Voe
+        if (host.includes('voe.sx') || host.includes('voe-network')) {
+            const parts = parsed.pathname.split('/').filter(Boolean);
+            if (parts.length === 1 && parts[0] !== 'e') {
+                return `https://${parsed.host}/e/${parts[0]}`;
+            }
+        }
+
+        // 4. Abyss
+        if (host.includes('abyss.to')) {
+            const parts = parsed.pathname.split('/').filter(Boolean);
+            const id = parts[parts.length - 1];
+            if (parts.includes('watch') && id) {
+                return `https://short.ink/${id}`;
+            }
+        }
+    } catch {
+        // Fallback to original
+    }
+
+    return cleanUrl;
 }
 
 function HLSVideoPlayer({ src, onEnded, onErrorFallback }: { src: string; onEnded?: () => void; onErrorFallback?: () => void }) {
@@ -1556,10 +1629,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
     const [watchedEpisodes, setWatchedEpisodes] = useState<string[]>([]);
     const [resolvedUrl, setResolvedUrl] = useState<string>('');
     const [resolvingUrl, setResolvingUrl] = useState<boolean>(false);
-    const [activeEpisodeStreams, setActiveEpisodeStreams] = useState<Pick<Episode, 'streaming_url' | 'streaming_url_toonplay' | 'streaming_url_animerulz'> | null>(null);
-    // ToonPlay on-demand resolution state
-    const [toonplayResolvedUrl, setToonplayResolvedUrl] = useState<string>('');
-    const [toonplayResolving, setToonplayResolving] = useState<boolean>(false);
+    const [activeEpisodeStreams, setActiveEpisodeStreams] = useState<Pick<Episode, 'streaming_url'> | null>(null);
     const [canUseFullscreenAssist, setCanUseFullscreenAssist] = useState(false);
     const playerShellRef = useRef<HTMLDivElement>(null);
     const playerIframeRef = useRef<HTMLIFrameElement>(null);
@@ -1690,8 +1760,6 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                 const key = activeServerId.replace('multi_', '');
                 return `${key.toUpperCase()} (Multi)`;
             }
-            if (activeServerId === 'toonplay') return 'Toonplay';
-            if (activeServerId === 'animerulz') return 'Animerulz';
             if (activeServerId === 'custom') return 'Custom';
 
             // Find name in availableServers
@@ -1751,7 +1819,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
         const loadActiveEpisodeStreams = async () => {
             const { data, error } = await supabase
                 .from('episodes')
-                .select('streaming_url, streaming_url_toonplay, streaming_url_animerulz')
+                .select('streaming_url')
                 .eq('id', activeEpisode.id)
                 .single();
 
@@ -1765,7 +1833,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
         return () => {
             cancelled = true;
         };
-    }, [isSeriesOrAnime, activeEpisode?.id, activeEpisode?.streaming_url, activeEpisode?.streaming_url_toonplay, activeEpisode?.streaming_url_animerulz]);
+    }, [isSeriesOrAnime, activeEpisode?.id, activeEpisode?.streaming_url]);
 
     // Fetch related movies for movies sidebar
     useEffect(() => {
@@ -1829,44 +1897,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
         return activeEpisode?.streaming_url ?? activeEpisodeStreams?.streaming_url ?? null;
     };
 
-    const getToonplayUrl = (): string | null => {
-        if (!isSeriesOrAnime) {
-            return movie.streaming_url_toonplay || null;
-        }
-        return activeEpisode?.streaming_url_toonplay ?? activeEpisodeStreams?.streaming_url_toonplay ?? null;
-    };
-
-    // Get the toonplay series ID for on-demand resolution
-    const getToonplaySeriesId = (): string | null => {
-        const movieAny = movie as any;
-        const tpUrl = movieAny.toonplay_url;
-        if (!tpUrl) return null;
-        // Extract series ID from full URL or use as-is
-        const trimmed = tpUrl.trim();
-        if (trimmed.startsWith('http')) {
-            try {
-                const urlObj = new URL(trimmed);
-                const parts = urlObj.pathname.split('/').filter(Boolean);
-                const lastPart = parts[parts.length - 1] || '';
-                if (lastPart.startsWith('series-') || lastPart.startsWith('anime-')) {
-                    return lastPart;
-                }
-            } catch { }
-        }
-        return trimmed;
-    };
-
-    const getAnimerulzUrl = (): string | null => {
-        if (!isSeriesOrAnime) {
-            return movie.streaming_url_animerulz || null;
-        }
-        return activeEpisode?.streaming_url_animerulz ?? activeEpisodeStreams?.streaming_url_animerulz ?? null;
-    };
-
     const customUrl = getCustomUrl();
-    const toonplayUrl = getToonplayUrl();
-    const toonplaySeriesId = getToonplaySeriesId();
-    const animerulzUrl = getAnimerulzUrl();
 
     // Parse JSON stream urls if present
     const parseStreamingUrlJson = (urlStr: string | null | undefined): Record<string, string> => {
@@ -1992,52 +2023,40 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
 
     // Auto-select server: ALWAYS prioritize actual streaming players
     useEffect(() => {
-        if ((toonplaySeriesId || toonplayUrl) && isServerEnabled('toonplay')) {
-            setActiveServerId('toonplay');
-        } else if (animerulzUrl && isServerEnabled('animerulz')) {
-            setActiveServerId('animerulz');
+        const activeMultiKeys = Object.keys(multiStreams).filter(k => isServerEnabled(k));
+        if (activeMultiKeys.length > 0) {
+            setActiveServerId(`multi_${activeMultiKeys[0]}`);
+        } else if (customUrl && !customUrl.trim().startsWith('{') && isServerEnabled('custom')) {
+            setActiveServerId('custom');
         } else {
-            const activeMultiKeys = Object.keys(multiStreams).filter(k => isServerEnabled(k));
-            if (activeMultiKeys.length > 0) {
-                setActiveServerId(`multi_${activeMultiKeys[0]}`);
-            } else if (customUrl && !customUrl.trim().startsWith('{') && isServerEnabled('custom')) {
-                setActiveServerId('custom');
-            } else {
-                const isUpcomingOrFuture = Boolean(
-                    (movie.release_year && movie.release_year >= new Date().getFullYear() && !movie.streaming_url) ||
-                    (!movie.streaming_url && movie.trailer_url)
-                );
-                const isTrailerOnly = movie.streaming_url === 'trailer' || (isUpcomingOrFuture && Boolean(movie.trailer_url));
+            const isUpcomingOrFuture = Boolean(
+                (movie.release_year && movie.release_year >= new Date().getFullYear() && !movie.streaming_url) ||
+                (!movie.streaming_url && movie.trailer_url)
+            );
+            const isTrailerOnly = movie.streaming_url === 'trailer' || (isUpcomingOrFuture && Boolean(movie.trailer_url));
 
-                if (isTrailerOnly && movie.trailer_url && isServerEnabled('trailer')) {
-                    setActiveServerId('trailer');
+            if (isTrailerOnly && movie.trailer_url && isServerEnabled('trailer')) {
+                setActiveServerId('trailer');
+            } else {
+                const isHindiTitle = movie.language?.toLowerCase().includes('hindi');
+                const hindiServer = isHindiTitle ? availableServers.find(srv => srv.isHindi && isServerEnabled(srv.id)) : null;
+                const firstStreaming = availableServers.find(srv => srv.id !== 'trailer' && isServerEnabled(srv.id));
+                const firstEnabled = firstStreaming || hindiServer || availableServers.find(srv => isServerEnabled(srv.id));
+                if (firstEnabled) {
+                    setActiveServerId(firstEnabled.id);
                 } else {
-                    const isHindiTitle = movie.language?.toLowerCase().includes('hindi');
-                    const hindiServer = isHindiTitle ? availableServers.find(srv => srv.isHindi && isServerEnabled(srv.id)) : null;
-                    const firstStreaming = availableServers.find(srv => srv.id !== 'trailer' && isServerEnabled(srv.id));
-                    const firstEnabled = firstStreaming || hindiServer || availableServers.find(srv => isServerEnabled(srv.id));
-                    if (firstEnabled) {
-                        setActiveServerId(firstEnabled.id);
+                    const firstMulti = Object.keys(multiStreams).find(k => isServerEnabled(k));
+                    if (firstMulti) {
+                        setActiveServerId(`multi_${firstMulti}`);
+                    } else if (customUrl && !customUrl.trim().startsWith('{')) {
+                        setActiveServerId('custom');
                     } else {
-                        if (toonplaySeriesId || toonplayUrl) {
-                            setActiveServerId('toonplay');
-                        } else if (animerulzUrl) {
-                            setActiveServerId('animerulz');
-                        } else {
-                            const firstMulti = Object.keys(multiStreams).find(k => isServerEnabled(k));
-                            if (firstMulti) {
-                                setActiveServerId(`multi_${firstMulti}`);
-                            } else if (customUrl && !customUrl.trim().startsWith('{')) {
-                                setActiveServerId('custom');
-                            } else {
-                                setActiveServerId('');
-                            }
-                        }
+                        setActiveServerId('');
                     }
                 }
             }
         }
-    }, [customUrl, toonplayUrl, toonplaySeriesId, animerulzUrl, movie.id, movie.release_year, movie.language, currentEpisodeNum, currentSeasonNum, adSettings, JSON.stringify(multiStreams)]);
+    }, [customUrl, movie.id, movie.release_year, movie.language, currentEpisodeNum, currentSeasonNum, adSettings, JSON.stringify(multiStreams)]);
 
     // Build embed URL
     const getEmbedUrl = (): string => {
@@ -2055,13 +2074,6 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
         if (activeServerId === 'custom') {
             return (customUrl && !customUrl.trim().startsWith('{')) ? normalizePlayerUrl(customUrl) : '';
         }
-        if (activeServerId === 'toonplay') {
-            // Use on-demand resolved URL if available, fallback to pre-stored URL
-            return normalizePlayerUrl(toonplayResolvedUrl || toonplayUrl || '');
-        }
-        if (activeServerId === 'animerulz') {
-            return normalizePlayerUrl(animerulzUrl || '');
-        }
         const server = availableServers.find(s => s.id === activeServerId);
         if (!server) return '';
 
@@ -2074,17 +2086,14 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
 
     const embedUrl = getEmbedUrl();
 
-    // On-the-fly resolver for webpage URLs (ToonStream, AnimeWorld)
+    // On-the-fly resolver for webpage URLs (Netfilm, Moviebox, Sflix)
     useEffect(() => {
         if (!embedUrl || !isAdVerified) {
             setResolvedUrl('');
             return;
         }
 
-        const isWebPage = embedUrl.includes('toonstream') ||
-            embedUrl.includes('watchanimeworld') ||
-            embedUrl.includes('animeworld') ||
-            embedUrl.includes('netfilm') ||
+        const isWebPage = embedUrl.includes('netfilm') ||
             embedUrl.includes('moviebox') ||
             embedUrl.includes('sflix');
 
@@ -2110,59 +2119,12 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
         }
     }, [embedUrl, isAdVerified]);
 
-    // On-demand ToonPlay URL resolution
-    useEffect(() => {
-        if (activeServerId !== 'toonplay' || !isAdVerified) {
-            setToonplayResolvedUrl('');
-            setToonplayResolving(false);
-            return;
-        }
-
-        const seriesId = toonplaySeriesId;
-        if (!seriesId) return;
-
-        const cachedM3u8 = toonplayUrl || '';
-        setToonplayResolving(true);
-        setToonplayResolvedUrl('');
-
-        const params = new URLSearchParams({
-            toonplay_id: seriesId,
-            season: String(currentSeasonNum),
-            episode: String(currentEpisodeNum),
-        });
-        if (cachedM3u8) {
-            params.set('cached_url', cachedM3u8);
-        }
-
-        fetch(`/api/resolve-toonplay?${params.toString()}`)
-            .then(res => res.json())
-            .then(data => {
-                if (data.url) {
-                    setToonplayResolvedUrl(data.url);
-                    console.log(`[ToonPlay] Resolved S${currentSeasonNum}E${currentEpisodeNum} → ${data.source} URL`);
-                } else {
-                    console.warn(`[ToonPlay] Failed to resolve: ${data.error}`);
-                    // Fallback to cached URL anyway
-                    setToonplayResolvedUrl(cachedM3u8);
-                }
-            })
-            .catch(err => {
-                console.error('[ToonPlay] Resolve error:', err);
-                setToonplayResolvedUrl(cachedM3u8);
-            })
-            .finally(() => {
-                setToonplayResolving(false);
-            });
-    }, [activeServerId, isAdVerified, toonplaySeriesId, currentSeasonNum, currentEpisodeNum]);
-
     const getActiveStreamUrl = (): string => {
         if (activeServerId.startsWith('multi_')) {
             const key = activeServerId.replace('multi_', '');
             return multiStreams[key] || '';
         }
         if (activeServerId === 'custom') return (customUrl && !customUrl.trim().startsWith('{')) ? customUrl : '';
-        if (activeServerId === 'toonplay') return toonplayUrl || '';
-        if (activeServerId === 'animerulz') return animerulzUrl || '';
         return '';
     };
 
@@ -2176,12 +2138,9 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
         resolvedUrl.toLowerCase().includes('fallback.streamindia.co.in/sources') ||
         resolvedUrl.toLowerCase().includes('hakunaymatata.com')
     ) : false;
-    const isToonplayResolving = activeServerId === 'toonplay' && toonplayResolving;
     const isYouTubeActive = resolvedUrl ? !!getYouTubeVideoId(resolvedUrl) : false;
     const isNativeStreamActive = (
         activeServerId === 'custom' ||
-        activeServerId === 'toonplay' ||
-        activeServerId === 'animerulz' ||
         activeServerId.startsWith('multi_')
     ) && isM3U8Active;
 
@@ -2202,32 +2161,6 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
     const allActiveServersList = useMemo<ActiveServerItem[]>(() => {
         const list: ActiveServerItem[] = [];
 
-        if ((toonplaySeriesId || toonplayUrl) && isServerEnabled('toonplay')) {
-            list.push({
-                id: 'toonplay',
-                name: 'Nexiplay Private Server',
-                icon: 'private',
-                badge: 'HINDI DUBBED',
-                isHindi: true,
-                isFailed: failedServerIds.has('toonplay'),
-                isActive: activeServerId === 'toonplay',
-                index: list.length + 1
-            });
-        }
-
-        if (animerulzUrl && isServerEnabled('animerulz')) {
-            list.push({
-                id: 'animerulz',
-                name: 'AnimeR Server',
-                icon: 'zap',
-                badge: 'FAST ANIME',
-                isHindi: false,
-                isFailed: failedServerIds.has('animerulz'),
-                isActive: activeServerId === 'animerulz',
-                index: list.length + 1
-            });
-        }
-
         if (customUrl && !customUrl.trim().startsWith('{') && isServerEnabled('custom')) {
             list.push({
                 id: 'custom',
@@ -2245,18 +2178,27 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
             if (!streamUrl || !isServerEnabled(serverKey)) return;
             const serverNames: Record<string, string> = {
                 custom: 'Server Nexiplay',
-                animeworld: 'AnimeWorld Server',
-                animixstream: 'Nexiplay Ani Server',
-                toonstream: 'Nexiplay T Server',
-                rareanimes: 'RR Nexiplay Server'
+                rareanimes: 'RR Nexiplay Server',
+                doodstream: 'DoodStream Server',
+                streamtape: 'Streamtape Server',
+                voe: 'Voe Server',
+                abyss: 'Abyss Server'
+            };
+            const badges: Record<string, string> = {
+                doodstream: 'DOOD FAST',
+                streamtape: 'STREAMTAPE',
+                voe: 'VOE PRO',
+                abyss: 'ABYSS CDN',
+                custom: 'DIRECT CDN',
+                rareanimes: 'HINDI DUBBED'
             };
             const srvId = `multi_${serverKey}`;
-            const isHindi = ['toonstream', 'rareanimes'].includes(serverKey);
+            const isHindi = ['rareanimes'].includes(serverKey);
             list.push({
                 id: srvId,
                 name: serverNames[serverKey] || `${serverKey.toUpperCase()} Server`,
                 icon: isHindi ? 'audio' : 'server',
-                badge: isHindi ? 'HINDI DUBBED' : 'MULTI-AUDIO',
+                badge: badges[serverKey] || (isHindi ? 'HINDI DUBBED' : 'CUSTOM HD'),
                 isHindi,
                 isFailed: failedServerIds.has(srvId),
                 isActive: activeServerId === srvId,
@@ -2298,7 +2240,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
         }
 
         return list;
-    }, [toonplaySeriesId, toonplayUrl, animerulzUrl, customUrl, multiStreams, availableServers, isSeriesOrAnime, movie.id, movie.tmdb_id, movie.imdb_id, movie.mal_id, movie.trailer_url, clientTmdbId, currentSeasonNum, currentEpisodeNum, adSettings, activeServerId, failedServerIds]);
+    }, [customUrl, multiStreams, availableServers, isSeriesOrAnime, movie.id, movie.tmdb_id, movie.imdb_id, movie.mal_id, movie.trailer_url, clientTmdbId, currentSeasonNum, currentEpisodeNum, adSettings, activeServerId, failedServerIds]);
 
     const allActiveServerIds = useMemo(() => {
         return allActiveServersList.map(s => s.id);
@@ -2308,11 +2250,17 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
         if (!activeServerId) return 'Default Server';
         if (activeServerId.startsWith('multi_')) {
             const key = activeServerId.replace('multi_', '');
-            return `${key.toUpperCase()} (Multi)`;
+            const serverNames: Record<string, string> = {
+                custom: 'Server Nexiplay',
+                rareanimes: 'RR Nexiplay Server',
+                doodstream: 'DoodStream Server',
+                streamtape: 'Streamtape Server',
+                voe: 'Voe Server',
+                abyss: 'Abyss Server'
+            };
+            return serverNames[key] || `${key.toUpperCase()} (Multi)`;
         }
-        if (activeServerId === 'toonplay') return 'Nexiplay Private Server';
         if (activeServerId === 'trailer') return 'Official Trailer (HD)';
-        if (activeServerId === 'animerulz') return 'AnimeR Server';
         if (activeServerId === 'custom') return 'Server Nexiplay';
 
         const srv = availableServers.find(s => s.id === activeServerId);
@@ -2704,12 +2652,6 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                                         Unlock Stream
                                     </button>
                                 </div>
-                            ) : isToonplayResolving ? (
-                                <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 p-6 bg-dark-900/60 backdrop-blur-sm">
-                                    <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-4" />
-                                    <p className="font-bold text-sm text-white animate-pulse">Connecting to Nexiplay Private Server...</p>
-                                    <p className="text-xs text-gray-500 mt-1">Resolving fresh stream link</p>
-                                </div>
                             ) : resolvingUrl ? (
                                 <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 p-6 bg-dark-900/60 backdrop-blur-sm">
                                     <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin mb-4" />
@@ -2729,6 +2671,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                                         title="Streaming player"
                                         className="nexiplay-player-frame absolute inset-0 w-full h-full bg-black overflow-hidden"
                                         scrolling="no"
+                                        sandbox={playerAdBlocker ? AD_BLOCK_SANDBOX : undefined}
                                         {...FULLSCREEN_IFRAME_ATTRS}
                                         referrerPolicy={isYouTubeActive ? 'strict-origin-when-cross-origin' : 'no-referrer'}
                                         onError={() => handleNextServer(activeServerId)}
