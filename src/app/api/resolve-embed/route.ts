@@ -197,6 +197,41 @@ async function resolveEmbedUrl(url: string, depth: number = 0): Promise<string> 
     }
 }
 
+async function resolveStreamtape(url: string): Promise<string> {
+    try {
+        const embedUrl = url.replace('/v/', '/e/');
+        const res = await fetch(embedUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Referer': embedUrl
+            },
+            signal: AbortSignal.timeout(7000)
+        });
+        if (!res.ok) return url;
+        const html = await res.text();
+        const match = html.match(/document\.getElementById\(['"](?:robotlink|botlink)['"]\)\.innerHTML\s*=\s*['"]([^'"]+)['"]\s*\+\s*\(([^)]+)\)\.substring\((\d+)\)(?:\.substring\((\d+)\))?/);
+        if (match) {
+            const base = match[1];
+            const literalMatch = match[2].match(/['"]([^'"]+)['"]/);
+            if (literalMatch) {
+                const rawPart = literalMatch[1];
+                const sub1 = parseInt(match[3], 10);
+                let finalPart = rawPart.substring(sub1);
+                if (match[4]) {
+                    finalPart = finalPart.substring(parseInt(match[4], 10));
+                }
+                const fullUrl = 'https:' + base + finalPart + '&stream=1';
+                console.log(`[Embed Resolver] Streamtape resolved to direct MP4: ${fullUrl}`);
+                return fullUrl;
+            }
+        }
+        return url;
+    } catch (e: any) {
+        console.error('[Streamtape Resolver Error]:', e.message);
+        return url;
+    }
+}
+
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const targetUrl = searchParams.get('url');
@@ -207,9 +242,18 @@ export async function GET(request: NextRequest) {
 
     try {
         const parsed = new URL(targetUrl);
-        const isMovieBox = parsed.hostname.includes('netfilm') ||
-            parsed.hostname.includes('moviebox') ||
-            parsed.hostname.includes('sflix');
+        const host = parsed.hostname.toLowerCase();
+
+        // 1. Streamtape direct MP4 resolver
+        if (host.includes('streamtape') || host.includes('streamta.pe')) {
+            const resolvedUrl = await resolveStreamtape(targetUrl);
+            return NextResponse.json({ url: resolvedUrl });
+        }
+
+        // 2. MovieBox / Netfilm resolver
+        const isMovieBox = host.includes('netfilm') ||
+            host.includes('moviebox') ||
+            host.includes('sflix');
 
         if (isMovieBox) {
             const resolvedUrl = await resolveMovieBox(targetUrl);

@@ -412,10 +412,10 @@ const STREAM_PROXY_ENDPOINT = (process.env.NEXT_PUBLIC_STREAM_PROXY_URL || '').t
 // Scraper display metadata
 const SCRAPER_META: Record<string, { name: string; icon: string; needsResolve: boolean }> = {
     rareanimes: { name: 'RR Nexiplay Server', icon: '🎴', needsResolve: false },
-    doodstream: { name: 'DoodStream (Fast)', icon: '⚡', needsResolve: false },
-    streamtape: { name: 'Streamtape (HD)', icon: '📼', needsResolve: false },
-    voe: { name: 'Voe (Pro Stream)', icon: '🚀', needsResolve: false },
-    abyss: { name: 'Abyss (Fast CDN)', icon: '🌌', needsResolve: false },
+    doodstream: { name: 'Nexi Turbo (Fast)', icon: '⚡', needsResolve: false },
+    streamtape: { name: 'Nexi Pulse (HD)', icon: '📼', needsResolve: false },
+    voe: { name: 'Nexi Spark (Pro)', icon: '🚀', needsResolve: false },
+    abyss: { name: 'Nexi Vault (CDN)', icon: '🌌', needsResolve: false },
 };
 
 interface ScraperConfig {
@@ -532,12 +532,12 @@ function normalizePlayerUrl(url: string): string {
             }
         }
 
-        // 4. Abyss
-        if (host.includes('abyss.to') || host.includes('abyssplayer') || host.includes('abysscdn')) {
+        // 4. Abyss -> route through clean ad-free proxy player
+        if (host.includes('abyss.to') || host.includes('abyssplayer') || host.includes('abysscdn') || host.includes('short.ink')) {
             const parts = parsed.pathname.split('/').filter(Boolean);
             const id = parts[parts.length - 1];
-            if (parts.includes('watch') && id) {
-                return `https://short.ink/${id}`;
+            if (id) {
+                return `/api/player/abyss?url=${encodeURIComponent(`https://player.abyssplayer.com/${id}`)}`;
             }
         }
     } catch {

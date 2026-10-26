@@ -36,6 +36,9 @@ export async function GET(request: NextRequest) {
         } else if (targetUrl.includes('vidvault.to') || targetUrl.includes('workers.dev')) {
             headers['Referer'] = 'https://vidvault.to/';
             headers['Origin'] = 'https://vidvault.to';
+        } else if (targetUrl.includes('streamtape.com') || targetUrl.includes('streamta.pe')) {
+            headers['Referer'] = 'https://streamtape.com/';
+            headers['Origin'] = 'https://streamtape.com';
         }
 
         const res = await fetch(targetUrl, { headers });

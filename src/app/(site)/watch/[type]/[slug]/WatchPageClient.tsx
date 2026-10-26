@@ -713,12 +713,12 @@ function normalizePlayerUrl(url: string): string {
             }
         }
 
-        // 4. Abyss
-        if (host.includes('abyss.to') || host.includes('abyssplayer') || host.includes('abysscdn')) {
+        // 4. Abyss -> route through clean ad-free proxy player
+        if (host.includes('abyss.to') || host.includes('abyssplayer') || host.includes('abysscdn') || host.includes('short.ink')) {
             const parts = parsed.pathname.split('/').filter(Boolean);
             const id = parts[parts.length - 1];
-            if (parts.includes('watch') && id) {
-                return `https://short.ink/${id}`;
+            if (id) {
+                return `/api/player/abyss?url=${encodeURIComponent(`https://player.abyssplayer.com/${id}`)}`;
             }
         }
     } catch {
@@ -2095,7 +2095,9 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
 
         const isWebPage = embedUrl.includes('netfilm') ||
             embedUrl.includes('moviebox') ||
-            embedUrl.includes('sflix');
+            embedUrl.includes('sflix') ||
+            embedUrl.includes('streamtape') ||
+            embedUrl.includes('streamta.pe');
 
         if (isWebPage) {
             setResolvingUrl(true);
@@ -2133,6 +2135,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
     const isM3U8Active = resolvedUrl ? (
         /(?:\.m3u8(?:[?#]|$)|\/hls(?:\/|[?#]|$))/i.test(resolvedUrl) ||
         resolvedUrl.toLowerCase().includes('.mp4') ||
+        resolvedUrl.toLowerCase().includes('/get_video') ||
         resolvedUrl.toLowerCase().includes('google-proxy') ||
         resolvedUrl.toLowerCase().includes('streamindia') ||
         resolvedUrl.toLowerCase().includes('fallback.streamindia.co.in/sources') ||
@@ -2179,16 +2182,16 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
             const serverNames: Record<string, string> = {
                 custom: 'Server Nexiplay',
                 rareanimes: 'RR Nexiplay Server',
-                doodstream: 'DoodStream Server',
-                streamtape: 'Streamtape Server',
-                voe: 'Voe Server',
-                abyss: 'Abyss Server'
+                doodstream: 'Nexi Turbo Server',
+                streamtape: 'Nexi Pulse Server',
+                voe: 'Nexi Spark Server',
+                abyss: 'Nexi Vault Server'
             };
             const badges: Record<string, string> = {
-                doodstream: 'DOOD FAST',
-                streamtape: 'STREAMTAPE',
-                voe: 'VOE PRO',
-                abyss: 'ABYSS CDN',
+                doodstream: 'TURBO FAST',
+                streamtape: 'PULSE HD',
+                voe: 'SPARK PRO',
+                abyss: 'VAULT CDN',
                 custom: 'DIRECT CDN',
                 rareanimes: 'HINDI DUBBED'
             };
@@ -2253,10 +2256,10 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
             const serverNames: Record<string, string> = {
                 custom: 'Server Nexiplay',
                 rareanimes: 'RR Nexiplay Server',
-                doodstream: 'DoodStream Server',
-                streamtape: 'Streamtape Server',
-                voe: 'Voe Server',
-                abyss: 'Abyss Server'
+                doodstream: 'Nexi Turbo Server',
+                streamtape: 'Nexi Pulse Server',
+                voe: 'Nexi Spark Server',
+                abyss: 'Nexi Vault Server'
             };
             return serverNames[key] || `${key.toUpperCase()} (Multi)`;
         }
