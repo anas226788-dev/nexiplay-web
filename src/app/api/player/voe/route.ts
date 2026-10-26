@@ -86,26 +86,26 @@ export async function GET(request: NextRequest) {
             html = html.replace(/<head[^>]*>/i, `<head><base href="${originDomain}/">`);
         }
 
-        // Cut out all ad network scripts (Scripts between /js/loader. and bootstrap.bundle)
-        // This strips 117KB+ of adult dating ad networks, popunders, and Erika modals
-        const loaderEnd = html.indexOf('/js/loader.');
-        if (loaderEnd !== -1) {
-            const scriptAfterLoader = html.indexOf('</script>', loaderEnd) + 9;
-            const bootstrapStart = html.indexOf('bootstrap.bundle');
-            const scriptBeforeBootstrap = bootstrapStart !== -1 ? html.lastIndexOf('<script', bootstrapStart) : -1;
-
-            if (scriptAfterLoader > 0 && scriptBeforeBootstrap > scriptAfterLoader) {
-                html = html.slice(0, scriptAfterLoader) + '\n<!-- AD NETWORKS STRIPPED -->\n' + html.slice(scriptBeforeBootstrap);
+        // Total Industrial Ad Purge:
+        // JWPlayer is fully initialized by the JSON data block and /js/loader.js.
+        // All scripts located after loader.js (117KB+) are ad networks, popunders, and Erika dating modals.
+        const loaderIdx = html.indexOf('/js/loader.');
+        if (loaderIdx !== -1) {
+            const scriptAfterLoader = html.indexOf('</script>', loaderIdx) + 9;
+            const bodyCloseIdx = html.indexOf('</body>');
+            if (scriptAfterLoader > 8 && bodyCloseIdx > scriptAfterLoader) {
+                html = html.slice(0, scriptAfterLoader) + '\n<!-- AD NETWORKS COMPLETELY ELIMINATED -->\n' + html.slice(bodyCloseIdx);
             }
         }
 
-        // Remove third-party ad tags (Google IMA, Twitter Ads, Spanish-speaking, Darnobedience)
-        html = html.replace(/<script[^>]+src=["'][^"']*(?:ads-twitter|ima3\.js|darnobedience|spanish-speaking)[^"']*["'][^>]*><\/script>/gi, '');
+        // Remove any lingering third-party ad tags and tracking
+        html = html.replace(/<script[^>]+src=["'][^"']*(?:ads-twitter|ima3\.js|darnobedience|spanish-speaking|monetag|adsterra|popcash)[^"']*["'][^>]*><\/script>/gi, '');
+        html = html.replace(/openLoginTab\s*\([^)]*\)/g, 'null');
 
         // Inject high-priority styles and scripts to completely suppress adult popups, modals, and window.open
         const antiAdBlock = `
         <style>
-            .modal, .modal-backdrop, [class*="popup"], [id*="ad"], #overlay, [class*="overlay"], [class*="dialog"], .fade.show {
+            .modal, .modal-backdrop, [class*="popup"], [id*="ad"], #overlay, [class*="overlay"], [class*="dialog"], .fade.show, .guestMode, a[target="_blank"] {
                 display: none !important;
                 opacity: 0 !important;
                 pointer-events: none !important;
@@ -116,11 +116,16 @@ export async function GET(request: NextRequest) {
         </style>
         <script>
             try {
-                window.open = function() { return null; };
+                Object.defineProperty(window, 'open', {
+                    configurable: false,
+                    writable: false,
+                    value: function() { return null; }
+                });
                 window._pop = null;
                 window._pao = null;
+                window.openLoginTab = function() { return false; };
                 document.addEventListener("DOMContentLoaded", function() {
-                    var modals = document.querySelectorAll('.modal, .modal-backdrop, [class*="popup"], [id*="overlay"]');
+                    var modals = document.querySelectorAll('.modal, .modal-backdrop, [class*="popup"], [id*="overlay"], .guestMode');
                     modals.forEach(function(m) { m.remove(); });
                 });
             } catch(e) {}

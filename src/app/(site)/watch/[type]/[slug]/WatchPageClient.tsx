@@ -943,7 +943,7 @@ function HLSVideoPlayer({ src, onEnded, onErrorFallback }: { src: string; onEnde
             }
         }, 15000);
 
-        const isMp4 = src.toLowerCase().includes('.mp4') || src.includes('mp4');
+        const isMp4 = src.toLowerCase().includes('.mp4') || src.includes('mp4') || src.toLowerCase().includes('get_video');
 
         if (Hls.isSupported() && !isMp4) {
             const hls = new Hls({
@@ -1675,6 +1675,33 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
         setCanUseFullscreenAssist(canRequestPlayerFullscreen());
     }, []);
 
+    // Industrial Parent-Window AdGuard:
+    // Intercept and destroy rogue ad popups (1win, betting, casinos, adex, etc.)
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const originalOpen = window.open;
+        const AD_HOST_PATTERNS = [
+            '1win', 'bet', 'casino', 'adex', 'adsterra', 'monetag', 'propeller',
+            'popads', 'dating', 'adult', 'porn', 'decafeligibly', 'bonuscaf',
+            'clksite', 'onclickmega', 'ad-maven', 'trafficjunky'
+        ];
+
+        window.open = function(url?: string | URL, target?: string, features?: string): Window | null {
+            const urlStr = String(url || '').toLowerCase();
+            const isAd = AD_HOST_PATTERNS.some(pattern => urlStr.includes(pattern));
+            if (isAd) {
+                console.warn('[Nexiplay AdGuard] Terminated rogue ad popup attempt:', urlStr);
+                return null;
+            }
+            return originalOpen.call(window, url as any, target as any, features as any);
+        };
+
+        return () => {
+            window.open = originalOpen;
+        };
+    }, []);
+
     const handlePlayerFullscreenRequest = useCallback(() => {
         requestPlayerFullscreen(playerShellRef.current, playerIframeRef.current);
     }, []);
@@ -2123,7 +2150,9 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
 
         const isWebPage = embedUrl.includes('netfilm') ||
             embedUrl.includes('moviebox') ||
-            embedUrl.includes('sflix');
+            embedUrl.includes('sflix') ||
+            embedUrl.includes('streamtape') ||
+            embedUrl.includes('streamta.pe');
 
         if (isWebPage) {
             setResolvingUrl(true);

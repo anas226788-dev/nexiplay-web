@@ -582,7 +582,9 @@ function HLSVideoPlayer({ src }: { src: string }) {
             hlsRef.current = null;
         }
 
-        if (Hls.isSupported()) {
+        const isMp4 = src.toLowerCase().includes('.mp4') || src.includes('mp4') || src.toLowerCase().includes('get_video');
+
+        if (Hls.isSupported() && !isMp4) {
             const hls = new Hls({
                 maxMaxBufferLength: 30,
                 enableWorker: true,
@@ -630,7 +632,7 @@ function HLSVideoPlayer({ src }: { src: string }) {
                     }
                 }
             });
-        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        } else {
             video.src = src;
         }
 

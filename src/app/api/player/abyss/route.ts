@@ -44,21 +44,42 @@ export async function GET(request: NextRequest) {
             html = html.replace(/<head[^>]*>/i, '<head><base href="https://player.abyssplayer.com/">');
         }
 
+        // Neutralize anti-iframe / frame-busting redirect checks
+        html = html.replace(/top\.location\s*==\s*self\.location/g, 'false');
+        html = html.replace(/top\.location/g, 'self.location');
+        html = html.replace(/window\.top/g, 'window.self');
+
         // Neutralize transparent ad click overlay
         html = html.replace(/id=["']overlay["']/g, 'id="overlay_clean" style="display:none!important;pointer-events:none!important;visibility:hidden!important;"');
 
         // Empty popup URLs array so no popups can spawn
         html = html.replace(/var urls\s*=\s*\[[\s\S]*?\];/g, 'var urls = [];');
 
-        // Neutralize ad network domains
+        // Neutralize third-party ad network domains
         html = html.replace(/decafeligiblyhad\.com/g, '127.0.0.1');
         html = html.replace(/bonuscaf\.com/g, '127.0.0.1');
+        html = html.replace(/adsterra/gi, 'blocked_ad');
+        html = html.replace(/monetag/gi, 'blocked_ad');
 
-        // Inject script to permanently kill window.open popups and kill overlay on load
+        // Inject styles & script to permanently kill window.open popups and kill overlay on load
         const antiAdScript = `
+        <style>
+            #overlay, [id*="overlay"], [class*="overlay"], a[target="_blank"] {
+                display: none !important;
+                pointer-events: none !important;
+                visibility: hidden !important;
+                opacity: 0 !important;
+                width: 0 !important;
+                height: 0 !important;
+            }
+        </style>
         <script>
             try {
-                window.open = function() { return null; };
+                Object.defineProperty(window, 'open', {
+                    configurable: false,
+                    writable: false,
+                    value: function() { return null; }
+                });
                 window._pop = null;
                 window._pao = null;
                 document.addEventListener("DOMContentLoaded", function() {
@@ -66,6 +87,8 @@ export async function GET(request: NextRequest) {
                     if (el) el.remove();
                     var elClean = document.getElementById("overlay_clean");
                     if (elClean) elClean.remove();
+                    var overlays = document.querySelectorAll('#overlay, [id*="overlay"], [class*="overlay"]');
+                    overlays.forEach(function(o) { o.remove(); });
                 });
             } catch(e) {}
         </script>

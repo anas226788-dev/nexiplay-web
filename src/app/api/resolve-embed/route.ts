@@ -199,30 +199,46 @@ async function resolveEmbedUrl(url: string, depth: number = 0): Promise<string> 
 
 async function resolveStreamtape(url: string): Promise<string> {
     try {
-        const embedUrl = url.replace('/v/', '/e/');
-        const res = await fetch(embedUrl, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Referer': embedUrl
-            },
-            signal: AbortSignal.timeout(7000)
-        });
-        if (!res.ok) return url;
-        const html = await res.text();
-        const match = html.match(/document\.getElementById\(['"](?:robotlink|botlink)['"]\)\.innerHTML\s*=\s*['"]([^'"]+)['"]\s*\+\s*\(([^)]+)\)\.substring\((\d+)\)(?:\.substring\((\d+)\))?/);
-        if (match) {
-            const base = match[1];
-            const literalMatch = match[2].match(/['"]([^'"]+)['"]/);
-            if (literalMatch) {
-                const rawPart = literalMatch[1];
-                const sub1 = parseInt(match[3], 10);
-                let finalPart = rawPart.substring(sub1);
-                if (match[4]) {
-                    finalPart = finalPart.substring(parseInt(match[4], 10));
+        const parsed = new URL(url);
+        const parts = parsed.pathname.split('/').filter(Boolean);
+        const id = parts[parts.length - 1];
+        if (!id) return url;
+
+        const mirrors = [
+            `https://streamtape.com/e/${id}`,
+            `https://streamta.pe/e/${id}`,
+            `https://streamtape.net/e/${id}`
+        ];
+
+        for (const embedUrl of mirrors) {
+            try {
+                const res = await fetch(embedUrl, {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'Referer': embedUrl
+                    },
+                    signal: AbortSignal.timeout(6000)
+                });
+                if (!res.ok) continue;
+                const html = await res.text();
+                const match = html.match(/document\.getElementById\(['"](?:robotlink|botlink)['"]\)\.innerHTML\s*=\s*['"]([^'"]+)['"]\s*\+\s*\(([^)]+)\)\.substring\((\d+)\)(?:\.substring\((\d+)\))?/);
+                if (match) {
+                    const base = match[1];
+                    const literalMatch = match[2].match(/['"]([^'"]+)['"]/);
+                    if (literalMatch) {
+                        const rawPart = literalMatch[1];
+                        const sub1 = parseInt(match[3], 10);
+                        let finalPart = rawPart.substring(sub1);
+                        if (match[4]) {
+                            finalPart = finalPart.substring(parseInt(match[4], 10));
+                        }
+                        const fullUrl = 'https:' + base + finalPart + '&stream=1';
+                        console.log(`[Embed Resolver] Streamtape resolved to direct MP4: ${fullUrl}`);
+                        return fullUrl;
+                    }
                 }
-                const fullUrl = 'https:' + base + finalPart + '&stream=1';
-                console.log(`[Embed Resolver] Streamtape resolved to direct MP4: ${fullUrl}`);
-                return fullUrl;
+            } catch {
+                continue;
             }
         }
         return url;

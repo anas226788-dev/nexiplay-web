@@ -39,6 +39,15 @@ export async function GET(request: NextRequest) {
         } else if (targetUrl.includes('streamtape.com') || targetUrl.includes('streamta.pe')) {
             headers['Referer'] = 'https://streamtape.com/';
             headers['Origin'] = 'https://streamtape.com';
+        } else if (targetUrl.includes('dood') || targetUrl.includes('playmogo') || targetUrl.includes('ds2play')) {
+            headers['Referer'] = 'https://dood.to/';
+            headers['Origin'] = 'https://dood.to';
+        } else if (targetUrl.includes('voe.sx') || targetUrl.includes('ashleyhardat.com') || targetUrl.includes('voe-network')) {
+            headers['Referer'] = 'https://voe.sx/';
+            headers['Origin'] = 'https://voe.sx';
+        } else if (targetUrl.includes('abyss') || targetUrl.includes('short.ink')) {
+            headers['Referer'] = 'https://player.abyssplayer.com/';
+            headers['Origin'] = 'https://player.abyssplayer.com';
         }
 
         const res = await fetch(targetUrl, { headers });

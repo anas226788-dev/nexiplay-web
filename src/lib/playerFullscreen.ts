@@ -11,17 +11,12 @@ export const FULLSCREEN_IFRAME_ATTRS = {
 export const AD_BLOCK_SANDBOX =
     'allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock allow-orientation-lock allow-modals';
 
-export const ANTI_SANDBOX_HOSTS = [
-    'dood',
-    'playmogo',
-    'ds2play'
-];
+export const ANTI_SANDBOX_HOSTS: string[] = [];
 
 export function isAntiSandboxUrl(url?: string | null, serverId?: string | null): boolean {
     const lowerUrl = (url || '').toLowerCase();
-    // The same-origin Voe proxy sanitizes the provider document before it is
-    // served. Voe's player refuses to run in a sandboxed frame, so this known
-    // proxy route must be exempt from the popup-blocking sandbox.
+    // Only pre-sanitized same-origin server proxies that already have 100% of ad scripts removed
+    // may skip the popup-blocking sandbox if needed. All external servers MUST remain sandboxed.
     if (lowerUrl.startsWith('/api/player/voe?')) return true;
     if (lowerUrl.startsWith('/api/player/')) return false;
     const lowerId = (serverId || '').toLowerCase();
