@@ -2068,7 +2068,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
         if (activeServerId.startsWith('multi_')) {
             const key = activeServerId.replace('multi_', '');
             if (key === 'rareanimes') {
-                return `/embed/rr?id=${encodeURIComponent(movie.id)}&slug=${encodeURIComponent(movie.slug || '')}&season=${currentSeasonNum}&episode=${currentEpisodeNum}`;
+                return `/embed/rr?id=${encodeURIComponent(movie.id)}&slug=${encodeURIComponent(movie.slug || '')}&season=${currentSeasonNum}&episode=${currentEpisodeNum}&apiKey=nxp_live_nexiplay_official_core_prod`;
             }
             return normalizePlayerUrl(multiStreams[key] || '');
         }
@@ -2677,7 +2677,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                                         scrolling="no"
                                         sandbox={playerAdBlocker && !isAntiSandboxUrl(resolvedUrl, activeServerId) ? AD_BLOCK_SANDBOX : undefined}
                                         {...FULLSCREEN_IFRAME_ATTRS}
-                                        referrerPolicy={isYouTubeActive ? 'strict-origin-when-cross-origin' : 'no-referrer'}
+                                        referrerPolicy={isYouTubeActive || resolvedUrl.startsWith('/') || resolvedUrl.includes('/embed/') ? 'origin-when-cross-origin' : 'no-referrer'}
                                         onError={() => handleNextServer(activeServerId)}
                                     />
                                 )

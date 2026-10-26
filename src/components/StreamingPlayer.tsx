@@ -882,6 +882,10 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
 
         // Handle scraper servers
         if (activeServerId.startsWith('scraper_')) {
+            const key = activeServerId.replace('scraper_', '');
+            if (key === 'rareanimes') {
+                return `/embed/rr?id=${encodeURIComponent(movie.id)}&slug=${encodeURIComponent(movie.slug || '')}&season=${currentSeasonNum}&episode=${currentEpisodeNum}&apiKey=nxp_live_nexiplay_official_core_prod`;
+            }
             return resolvedUrl ? normalizePlayerUrl(resolvedUrl) : '';
         }
 
@@ -1036,7 +1040,7 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
                             scrolling="no"
                             sandbox={sandboxMode && !isAntiSandboxUrl(embedUrl, activeServerId) ? AD_BLOCK_SANDBOX : undefined}
                             {...FULLSCREEN_IFRAME_ATTRS}
-                            referrerPolicy={isYouTubeActive ? 'strict-origin-when-cross-origin' : 'no-referrer'}
+                            referrerPolicy={isYouTubeActive || (embedUrl && (embedUrl.startsWith('/') || embedUrl.includes('/embed/'))) ? 'origin-when-cross-origin' : 'no-referrer'}
                         />
                     )
                 ) : (

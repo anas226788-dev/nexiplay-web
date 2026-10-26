@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+const OFFICIAL_CORE_KEY = 'nxp_live_nexiplay_official_core_prod';
+
 export default function RREmbedPlayerPage() {
     const [streamData, setStreamData] = useState<{
         title: string;
@@ -29,7 +31,7 @@ export default function RREmbedPlayerPage() {
             return;
         }
 
-        const apiKey = overrideKey || params.get('apiKey') || params.get('key');
+        const apiKey = overrideKey || params.get('apiKey') || params.get('key') || OFFICIAL_CORE_KEY;
         const keyParam = apiKey ? `&apiKey=${encodeURIComponent(apiKey)}` : '';
 
         const apiUrl = id
