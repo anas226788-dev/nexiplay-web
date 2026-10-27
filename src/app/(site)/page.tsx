@@ -14,6 +14,8 @@ import { Metadata } from 'next';
 import { buildPageMetadata } from '@/lib/metadata';
 import Pagination from '@/components/Pagination';
 
+import { fetchTmdbLatestTrending, getExistingDatabaseCatalog, normalizeTitle } from '@/lib/tmdb';
+
 // Dynamic Imports for Performance
 const HeroSlider = dynamicImport(() => import('@/components/HeroSlider'), {
     ssr: true, // Keep SSR for SEO (above fold)
@@ -64,6 +66,7 @@ async function getHomeContent(page: number) {
         page === 1
             ? supabase.from('movies').select(cardFields).eq('admin_note', 'pinned').in('type', ['movie', 'series', 'anime']).order('created_at', { ascending: false })
             : Promise.resolve({ data: [] }),
+        getExistingDatabaseCatalog(),
     ]);
 
     const homeSectionsPromise = page === 1
@@ -78,7 +81,7 @@ async function getHomeContent(page: number) {
         ] as const)
         : Promise.resolve(null);
 
-    const [[categoriesRes, paginatedLatestRes, pinnedRes], homeSections] = await Promise.all([
+    const [[categoriesRes, paginatedLatestRes, pinnedRes, dbCatalog], homeSections] = await Promise.all([
         coreDataPromise,
         homeSectionsPromise,
     ]);
@@ -98,9 +101,35 @@ async function getHomeContent(page: number) {
             is_pinned: Boolean(m.admin_note === 'pinned')
         }));
 
-    const paginatedLatest: Movie[] = page === 1 
+    const combinedLatest: Movie[] = page === 1 
         ? [...pinnedMovies, ...regularLatest] 
-        : (paginatedLatestRes.data || []).map((m: any) => ({ ...m, is_pinned: Boolean(m.admin_note === 'pinned') }));
+        : [...regularLatest];
+
+    const localCount = paginatedLatestRes.count || 0;
+
+    // Dynamically fill with live TMDB latest releases if needed to ensure 24 items
+    const needed = ITEMS_PER_PAGE - combinedLatest.length;
+    if (needed > 0 || page > Math.ceil(localCount / ITEMS_PER_PAGE)) {
+        const localPages = Math.max(1, Math.ceil(localCount / ITEMS_PER_PAGE));
+        const tmdbPage = Math.max(1, page - localPages + 1);
+
+        try {
+            const { results: tmdbResults } = await fetchTmdbLatestTrending(tmdbPage);
+            const freshTmdbMovies = tmdbResults.filter(item => {
+                if (item.tmdb_id && dbCatalog.existingTmdbIds.has(item.tmdb_id)) return false;
+                if (dbCatalog.existingTitles.has(normalizeTitle(item.title))) return false;
+                if (pinnedIds.has(item.id)) return false;
+                return true;
+            });
+
+            combinedLatest.push(...freshTmdbMovies.slice(0, Math.max(needed, ITEMS_PER_PAGE)));
+        } catch (tmdbErr) {
+            console.warn('[Home Page] TMDB latest dynamic fill failed:', tmdbErr);
+        }
+    }
+
+    const paginatedLatest: Movie[] = combinedLatest.slice(0, ITEMS_PER_PAGE);
+    const totalLatestCount = localCount + 12000;
 
     let trendingMovies: Movie[] = [];
     let latestUpdates: any[] = [];
@@ -124,7 +153,7 @@ async function getHomeContent(page: number) {
 
     return {
         categories: categoriesRes.data || [],
-        totalLatestCount: paginatedLatestRes.count || 0,
+        totalLatestCount,
         paginatedLatest,
         trendingMovies,
         latestUpdates,

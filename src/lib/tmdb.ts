@@ -269,6 +269,41 @@ export async function fetchTmdbAnime(page = 1): Promise<{ results: Movie[]; tota
 }
 
 /**
+ * Fetches dynamic live trending & latest releases across Movies, Series, and Anime.
+ * Used for dynamic hybrid Latest Additions on the Homepage.
+ */
+export async function fetchTmdbLatestTrending(page = 1): Promise<{ results: Movie[]; totalPages: number }> {
+    const data = await tmdbFetch<{ results: TmdbRawItem[]; total_pages: number }>(
+        '/trending/all/day',
+        {
+            page: String(page),
+            language: 'en-US',
+        }
+    );
+
+    if (!data || !Array.isArray(data.results)) {
+        return { results: [], totalPages: 0 };
+    }
+
+    const results: Movie[] = [];
+    for (const item of data.results) {
+        if (item.adult) continue;
+        const mediaType = item.media_type || 'movie';
+        if (mediaType === 'person') continue;
+
+        const isAnime = (item.genre_ids?.includes(16) && item.original_language === 'ja') || false;
+        const type: 'movie' | 'series' | 'anime' = isAnime ? 'anime' : mediaType === 'tv' ? 'series' : 'movie';
+
+        results.push(tmdbToMovie(item, type));
+    }
+
+    return {
+        results,
+        totalPages: Math.min(data.total_pages || 1, 500),
+    };
+}
+
+/**
  * Search TMDB across Movies, TV Series, and Anime
  */
 export async function searchTmdb(query: string, media: 'movie' | 'tv' | 'multi' = 'multi', page = 1): Promise<Movie[]> {
