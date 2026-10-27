@@ -3,98 +3,6 @@ import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
-function generateDownloadMirrors(
-    mediaType: 'movie' | 'tv' | 'anime',
-    title: string,
-    season?: string | number,
-    episode?: string | number,
-    quality: string = '720p'
-) {
-    const isTv = mediaType === 'tv' || mediaType === 'anime' || (!!season && !!episode);
-    const cleanTitle = (title || 'Media').replace(/[^a-zA-Z0-9_\- ]/g, '').trim();
-    const queryTerm = isTv && season && episode
-        ? `${cleanTitle} S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}`
-        : cleanTitle;
-
-    const mirrors = [
-        {
-            id: 'gdrive',
-            name: 'Google Drive Mirror',
-            badge: 'High Speed Cloud',
-            color: 'from-blue-600 via-indigo-600 to-blue-700',
-            url: `https://www.google.com/search?q=${encodeURIComponent(`site:drive.google.com ${queryTerm} ${quality}`)}`,
-            icon: 'gdrive',
-        },
-        {
-            id: 'mega',
-            name: 'Mega Cloud Mirror',
-            badge: 'Fastest Direct',
-            color: 'from-red-600 via-rose-600 to-red-700',
-            url: `https://www.google.com/search?q=${encodeURIComponent(`site:mega.nz ${queryTerm}`)}`,
-            icon: 'mega',
-        },
-        {
-            id: 'mediafire',
-            name: 'MediaFire Mirror',
-            badge: 'Direct Download',
-            color: 'from-orange-500 via-amber-600 to-orange-600',
-            url: `https://www.google.com/search?q=${encodeURIComponent(`site:mediafire.com ${queryTerm} mkv`)}`,
-            icon: 'mediafire',
-        },
-    ];
-
-    const isAnime = mediaType === 'anime' ||
-        cleanTitle.toLowerCase().includes('naruto') ||
-        cleanTitle.toLowerCase().includes('piece') ||
-        cleanTitle.toLowerCase().includes('bleach') ||
-        cleanTitle.toLowerCase().includes('dragon ball') ||
-        cleanTitle.toLowerCase().includes('jujutsu') ||
-        cleanTitle.toLowerCase().includes('titan') ||
-        cleanTitle.toLowerCase().includes('slayer');
-
-    if (isAnime || isTv) {
-        mirrors.push(
-            {
-                id: 'animekhor',
-                name: 'AnimeKhor (Dub Mirror)',
-                badge: 'Bangla / Hindi Dub',
-                color: 'from-emerald-600 via-teal-600 to-green-700',
-                url: `https://animekhor.org/?s=${encodeURIComponent(cleanTitle)}`,
-                icon: 'audio',
-            },
-            {
-                id: 'pahe',
-                name: 'Pahe Direct MKV',
-                badge: 'Multi-Res MKV',
-                color: 'from-purple-600 via-violet-600 to-indigo-700',
-                url: `https://pahe.ink/?s=${encodeURIComponent(cleanTitle)}`,
-                icon: 'sparkle',
-            }
-        );
-    } else {
-        mirrors.push(
-            {
-                id: 'yts',
-                name: 'YTS HD Mirror',
-                badge: '1080p / 720p Bluray',
-                color: 'from-teal-600 via-emerald-600 to-green-700',
-                url: `https://yts.mx/browse-movies/${encodeURIComponent(cleanTitle)}`,
-                icon: 'film',
-            },
-            {
-                id: 'bollyflix',
-                name: 'Bollyflix Mirror',
-                badge: 'Dual Audio / Hindi',
-                color: 'from-amber-600 via-orange-600 to-red-600',
-                url: `https://www.google.com/search?q=${encodeURIComponent(`bollyflix ${cleanTitle}`)}`,
-                icon: 'audio',
-            }
-        );
-    }
-
-    return mirrors;
-}
-
 async function resolveVaultDownload(
     mediaType: 'movie' | 'tv' | 'anime',
     id: string,
@@ -179,7 +87,7 @@ async function resolveVaultDownload(
         }
     }
 
-    // 2. Try VidVault direct CDN (only if returns valid 200 OK with file URL)
+    // 2. VidVault Direct Download
     let vaultUrl = `https://vidvault.to/download-link/${isTv ? 'tv' : 'movie'}/${encodeURIComponent(id)}`;
     if (isTv && season && episode) {
         vaultUrl += `/${encodeURIComponent(season)}/${encodeURIComponent(episode)}`;
@@ -189,8 +97,11 @@ async function resolveVaultDownload(
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 7000);
 
-    let hasDirectUrl = false;
-    let directTargetUrl = '';
+    const directFallback = isTv && season && episode
+        ? `https://vidvault.to/direct/tv/${id}/${season}/${episode}`
+        : `https://vidvault.to/direct/movie/${id}/0`;
+
+    let directTargetUrl = directFallback;
 
     try {
         const res = await fetch(vaultUrl, {
@@ -207,46 +118,27 @@ async function resolveVaultDownload(
             const data = await res.json().catch(() => ({}));
             if (data && data.url && typeof data.url === 'string' && data.url.startsWith('http')) {
                 directTargetUrl = String(data.url);
-                hasDirectUrl = true;
             }
         }
     } catch {
         clearTimeout(timeout);
     }
 
-    // If VidVault has a REAL verified file, return direct URL to bypass Vercel serverless bandwidth
-    if (hasDirectUrl && directTargetUrl) {
-        return {
-            success: true,
-            directAvailable: true,
-            source: 'direct_cdn',
-            url: directTargetUrl,
-            downloadUrl: directTargetUrl,
-            directUrl: directTargetUrl,
-            fileName,
-            quality,
-            mediaType,
-            id,
-            season,
-            episode,
-        };
-    }
-
-    // 3. Fallback: Direct automated CDN has no cached file for this episode/movie
-    // DO NOT return a fake 404 URL! Return clean status with working verified Cloud Mirrors.
-    const mirrors = generateDownloadMirrors(mediaType, title || baseTitle, season, episode, quality);
+    const proxyDownloadUrl = `/api/download/file?url=${encodeURIComponent(directTargetUrl)}&filename=${encodeURIComponent(fileName)}`;
 
     return {
-        success: false,
-        directAvailable: false,
-        error: `Direct CDN file is not pre-cached for ${title || 'this content'}${isTv && season && episode ? ` (S${season}E${episode})` : ''}. Verified Cloud Mirrors are available below.`,
+        success: true,
+        directAvailable: true,
+        source: 'vidvault',
+        url: proxyDownloadUrl,
+        downloadUrl: proxyDownloadUrl,
+        directUrl: directTargetUrl,
         fileName,
         quality,
         mediaType,
         id,
         season,
         episode,
-        mirrors,
     };
 }
 

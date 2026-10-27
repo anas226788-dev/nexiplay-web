@@ -94,14 +94,7 @@ export default function EpisodeList({
     const [isMounted, setIsMounted] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const [fastLoadingKey, setFastLoadingKey] = useState<string | null>(null);
-    const [downloadModalData, setDownloadModalData] = useState<{
-        seasonNum: number;
-        episodeNum: number;
-        quality: string;
-        episodeTitle?: string;
-        mirrors: Array<{ id: string; name: string; badge: string; color: string; url: string; icon: string }>;
-        notice?: string;
-    } | null>(null);
+
     const { settings: adSettings } = useAdSettings();
     const { hasTutorial, openTutorial } = useTutorial();
     const { trackEvent } = useAuth();
@@ -163,62 +156,10 @@ export default function EpisodeList({
                 document.body.removeChild(a);
                 return;
             }
-
-            // Fallback: Direct CDN file not cached. Open verified cloud mirrors modal
-            const epObj = episodes.find(e => e.episode_number === episodeNum);
-            setDownloadModalData({
-                seasonNum,
-                episodeNum,
-                quality,
-                episodeTitle: epObj?.episode_title,
-                mirrors: data.mirrors || [],
-                notice: data.error,
-            });
+            throw new Error(data.error || 'Direct download link is temporarily unavailable.');
         } catch (err: any) {
             console.error('[Direct Episode Download Error]:', err);
-            const epObj = episodes.find(e => e.episode_number === episodeNum);
-            const cleanTitle = (contentTitle || 'Media').replace(/[^a-zA-Z0-9_\- ]/g, '').trim();
-            const queryTerm = `${cleanTitle} S${String(seasonNum).padStart(2, '0')}E${String(episodeNum).padStart(2, '0')}`;
-            setDownloadModalData({
-                seasonNum,
-                episodeNum,
-                quality,
-                episodeTitle: epObj?.episode_title,
-                mirrors: [
-                    {
-                        id: 'gdrive',
-                        name: 'Google Drive Mirror',
-                        badge: 'High Speed Cloud',
-                        color: 'from-blue-600 via-indigo-600 to-blue-700',
-                        url: `https://www.google.com/search?q=${encodeURIComponent(`site:drive.google.com ${queryTerm} ${quality}`)}`,
-                        icon: 'gdrive',
-                    },
-                    {
-                        id: 'mega',
-                        name: 'Mega Cloud Mirror',
-                        badge: 'Fastest Direct',
-                        color: 'from-red-600 via-rose-600 to-red-700',
-                        url: `https://www.google.com/search?q=${encodeURIComponent(`site:mega.nz ${queryTerm}`)}`,
-                        icon: 'mega',
-                    },
-                    {
-                        id: 'mediafire',
-                        name: 'MediaFire Mirror',
-                        badge: 'Direct Download',
-                        color: 'from-orange-500 via-amber-600 to-orange-600',
-                        url: `https://www.google.com/search?q=${encodeURIComponent(`site:mediafire.com ${queryTerm} mkv`)}`,
-                        icon: 'mediafire',
-                    },
-                    {
-                        id: 'animekhor',
-                        name: 'AnimeKhor (Dub Mirror)',
-                        badge: 'Bangla / Hindi Dub',
-                        color: 'from-emerald-600 via-teal-600 to-green-700',
-                        url: `https://animekhor.org/?s=${encodeURIComponent(cleanTitle)}`,
-                        icon: 'audio',
-                    },
-                ],
-            });
+            alert(err.message || 'Error generating download link. Please try another quality or watch online.');
         } finally {
             setFastLoadingKey(null);
         }
@@ -514,100 +455,7 @@ export default function EpisodeList({
                 document.body
             )}
 
-            {/* Episode Fast Download Mirrors Modal */}
-            {isMounted && downloadModalData && typeof document !== 'undefined' && createPortal(
-                <div
-                    className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-150"
-                    onClick={() => setDownloadModalData(null)}
-                >
-                    <div
-                        className="
-                            relative w-full max-w-lg
-                            bg-[#151221] border border-white/20
-                            rounded-3xl shadow-[0_25px_80px_rgba(0,0,0,0.95)]
-                            p-5 sm:p-6 space-y-4
-                            animate-in zoom-in-95 duration-150 text-left
-                        "
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="flex items-center justify-between pb-3 border-b border-white/10">
-                            <div className="flex items-center gap-2">
-                                <span className="text-xl">📥</span>
-                                <h3 className="font-extrabold text-white text-base sm:text-lg">
-                                    Episode {downloadModalData.episodeNum} Download
-                                </h3>
-                                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30">
-                                    {downloadModalData.quality}
-                                </span>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setDownloadModalData(null)}
-                                className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/15 text-gray-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer text-sm font-bold"
-                            >
-                                ✕
-                            </button>
-                        </div>
 
-                        <div className="text-xs text-gray-300 space-y-0.5">
-                            <div className="font-bold text-violet-400 text-sm">
-                                {contentTitle}
-                            </div>
-                            <div className="text-gray-400">
-                                Season {downloadModalData.seasonNum} • Episode {downloadModalData.episodeNum}
-                                {downloadModalData.episodeTitle && <span> — {downloadModalData.episodeTitle}</span>}
-                            </div>
-                        </div>
-
-                        <div className="p-3 bg-gradient-to-r from-violet-950/40 via-purple-950/20 to-transparent border border-violet-500/30 rounded-2xl text-xs text-violet-200 flex items-start gap-2.5">
-                            <span className="text-base shrink-0">⚡</span>
-                            <div className="leading-relaxed">
-                                <span className="font-bold text-white">Verified Cloud Mirrors: </span>
-                                <span>Direct CDN file is not cached for this specific episode. Choose any fast cloud mirror below:</span>
-                            </div>
-                        </div>
-
-                        {/* Mirrors List */}
-                        <div className="space-y-2.5 max-h-[45vh] overflow-y-auto pr-1">
-                            {downloadModalData.mirrors.map((mirror) => (
-                                <a
-                                    key={mirror.id}
-                                    href={mirror.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className={`flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r ${mirror.color} text-white font-bold shadow-lg hover:scale-[1.01] active:scale-[0.99] transition-all group`}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <span className="w-8 h-8 rounded-xl bg-black/25 flex items-center justify-center shrink-0 shadow-inner">
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                            </svg>
-                                        </span>
-                                        <div className="flex flex-col">
-                                            <span className="text-xs sm:text-sm font-extrabold">{mirror.name}</span>
-                                            <span className="text-[10px] text-white/80 font-medium">{mirror.badge}</span>
-                                        </div>
-                                    </div>
-                                    <svg className="w-4 h-4 opacity-80 group-hover:translate-x-1 group-hover:opacity-100 transition-all shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                                    </svg>
-                                </a>
-                            ))}
-                        </div>
-
-                        {/* IDM / 1DM Watch & Download Option */}
-                        <div className="pt-2 border-t border-white/10 flex flex-col gap-2">
-                            <a
-                                href={`/watch/${contentType === 'anime' ? 'anime' : 'series'}/${contentId}?s=${downloadModalData.seasonNum}&e=${downloadModalData.episodeNum}`}
-                                className="w-full py-2.5 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-center text-xs font-bold text-gray-200 hover:text-white transition-all flex items-center justify-center gap-2 cursor-pointer"
-                            >
-                                <span>📺 Watch & Download in Player (1DM / IDM full speed)</span>
-                            </a>
-                        </div>
-                    </div>
-                </div>,
-                document.body
-            )}
 
             {/* Current Season Card */}
             {currentSeason && (
