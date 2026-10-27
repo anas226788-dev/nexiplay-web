@@ -43,55 +43,71 @@ async function resolveMovieBox(targetUrl: string): Promise<string> {
         const detailPath = parts.pop();
         if (!detailPath) throw new Error('Could not extract detailPath from URL');
 
-        let subjectId = parsed.searchParams.get('id') || parsed.searchParams.get('subjectId');
+        const initialSubjectId = parsed.searchParams.get('id') || parsed.searchParams.get('subjectId');
         let se = parsed.searchParams.get('se') || parsed.searchParams.get('detailSe') || '0';
         let ep = parsed.searchParams.get('ep') || parsed.searchParams.get('detailEp') || '0';
 
         if (!se) se = '0';
         if (!ep) ep = '0';
 
-        if (!subjectId) {
-            const detailUrl = `https://h5-api.aoneroom.com/wefeed-h5api-bff/detail?detailPath=${detailPath}`;
-            const res = await fetch(detailUrl, {
-                headers: {
-                    'Accept': 'application/json',
-                    'X-Client-Info': JSON.stringify({ timezone: 'Asia/Dhaka' }),
-                    'Referer': targetUrl
+        // Multi-host fallback discovered from Ctent APK & Wefeed BFF
+        const apiHosts = ['https://h5-api.aoneroom.com', 'https://movieboxhd.net'];
+
+        for (const host of apiHosts) {
+            try {
+                let subjectId = initialSubjectId;
+                if (!subjectId) {
+                    const detailUrl = `${host}/wefeed-h5api-bff/detail?detailPath=${detailPath}`;
+                    const res = await fetch(detailUrl, {
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Client-Info': JSON.stringify({ timezone: 'Asia/Dhaka' }),
+                            'Referer': targetUrl
+                        },
+                        signal: AbortSignal.timeout(6000)
+                    });
+                    if (res.ok) {
+                        const json = await res.json();
+                        if (json.code === 0 && json.data?.subject?.subjectId) {
+                            subjectId = json.data.subject.subjectId;
+                        }
+                    }
                 }
-            });
-            if (!res.ok) throw new Error(`Detail API returned status ${res.status}`);
-            const json = await res.json();
-            if (json.code !== 0 || !json.data || !json.data.subject) {
-                throw new Error(`Invalid detail response: ${json.message}`);
+
+                if (subjectId) {
+                    const playUrl = `${host}/wefeed-h5api-bff/subject/play?subjectId=${subjectId}&se=${se}&ep=${ep}&detailPath=${detailPath}`;
+                    const playRes = await fetch(playUrl, {
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Client-Info': JSON.stringify({ timezone: 'Asia/Dhaka' }),
+                            'Referer': targetUrl
+                        },
+                        signal: AbortSignal.timeout(6000)
+                    });
+                    if (playRes.ok) {
+                        const playJson = await playRes.json();
+                        if (playJson.code === 0 && playJson.data) {
+                            const data = playJson.data;
+                            const streams = data.hls?.length ? data.hls : data.streams;
+                            if (streams?.length) {
+                                const sortedStreams = [...streams].sort((a: any, b: any) => {
+                                    const resA = parseInt(a.resolutions) || 0;
+                                    const resB = parseInt(b.resolutions) || 0;
+                                    return resB - resA;
+                                });
+                                if (sortedStreams[0]?.url) {
+                                    return sortedStreams[0].url;
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch {
+                // Try next host
             }
-            subjectId = json.data.subject.subjectId;
         }
 
-        const playUrl = `https://h5-api.aoneroom.com/wefeed-h5api-bff/subject/play?subjectId=${subjectId}&se=${se}&ep=${ep}&detailPath=${detailPath}`;
-        const playRes = await fetch(playUrl, {
-            headers: {
-                'Accept': 'application/json',
-                'X-Client-Info': JSON.stringify({ timezone: 'Asia/Dhaka' }),
-                'Referer': targetUrl
-            }
-        });
-        if (!playRes.ok) throw new Error(`Play API returned status ${playRes.status}`);
-        const playJson = await playRes.json();
-        if (playJson.code !== 0 || !playJson.data) {
-            throw new Error(`Invalid play response: ${playJson.message}`);
-        }
-
-        const data = playJson.data;
-        const streams = data.hls?.length ? data.hls : data.streams;
-        if (!streams?.length) return targetUrl;
-
-        const sortedStreams = [...streams].sort((a, b) => {
-            const resA = parseInt(a.resolutions) || 0;
-            const resB = parseInt(b.resolutions) || 0;
-            return resB - resA;
-        });
-
-        return sortedStreams[0]?.url || targetUrl;
+        return targetUrl;
     } catch (e: any) {
         console.error('[MovieBox Resolver Error]:', e.message);
         return targetUrl;

@@ -136,8 +136,38 @@ function ServerSvgIcon({ id, isHindi, className = "w-4 h-4" }: { id: string; isH
         );
     }
 
+    // CircleFTP / BDIX Speed
+    if (cleanId === 'circleftp' || cleanId === 'multi_circleftp') {
+        return (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+                <path d="M2 12h20" />
+            </svg>
+        );
+    }
+
+    // MovieBox / Cinema
+    if (cleanId === 'moviebox' || cleanId === 'multi_moviebox') {
+        return (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <rect width="20" height="15" x="2" y="5" rx="2" />
+                <polyline points="2 10 22 10" />
+            </svg>
+        );
+    }
+
+    // Miruro & Aniclover / Anime
+    if (['miruro', 'multi_miruro', 'aniclover', 'multi_aniclover'].includes(cleanId)) {
+        return (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="#ec4899" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
+        );
+    }
+
     // Hindi Dubbed / Multi-Audio / Soundwave
-    if (isHindi || ['moviesnexus', 'multiembed', 'vixsrc', 'twoembed', 'vidsrc_su', 'anyembed', 'rareanimes', 'screenscape'].includes(cleanId)) {
+    if (isHindi || ['moviesnexus', 'multiembed', 'vixsrc', 'twoembed', 'vidsrc_su', 'anyembed', 'rareanimes', 'screenscape', 'animekhor'].includes(cleanId)) {
         return (
             <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M2 10v4M6 7v10M10 4v16M14 8v8M18 11v2M22 9v6" />
@@ -2241,7 +2271,12 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                 streamtape: 'Nexi Pulse Server',
                 voe: 'Nexi Spark Server',
                 vidmoly: 'Vidmoly Server',
-                abyss: 'Nexi Vault Server'
+                abyss: 'Nexi Vault Server',
+                circleftp: 'CircleFTP (BDIX 100M)',
+                moviebox: 'MovieBox HD',
+                miruro: 'Miruro Anime',
+                aniclover: 'Aniclover (Sub/Dub)',
+                animekhor: 'AnimeKhor (Bangla/Hindi)'
             };
             const badges: Record<string, string> = {
                 doodstream: 'TURBO FAST',
@@ -2250,10 +2285,15 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                 vidmoly: 'VIDMOLY',
                 abyss: 'VAULT CDN',
                 custom: 'DIRECT CDN',
-                rareanimes: 'HINDI DUBBED'
+                rareanimes: 'HINDI DUBBED',
+                circleftp: 'BDIX 100M',
+                moviebox: 'DIRECT HLS',
+                miruro: 'ANIME HD',
+                aniclover: 'ANIME API',
+                animekhor: 'BANGLA/HINDI'
             };
             const srvId = `multi_${serverKey}`;
-            const isHindi = ['rareanimes'].includes(serverKey);
+            const isHindi = ['rareanimes', 'animekhor'].includes(serverKey);
             list.push({
                 id: srvId,
                 name: serverNames[serverKey] || `${serverKey.toUpperCase()} Server`,
@@ -2317,7 +2357,12 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                 streamtape: 'Nexi Pulse Server',
                 voe: 'Nexi Spark Server',
                 vidmoly: 'Vidmoly Server',
-                abyss: 'Nexi Vault Server'
+                abyss: 'Nexi Vault Server',
+                circleftp: 'CircleFTP (BDIX 100M)',
+                moviebox: 'MovieBox HD',
+                miruro: 'Miruro Anime',
+                aniclover: 'Aniclover (Sub/Dub)',
+                animekhor: 'AnimeKhor (Bangla/Hindi)'
             };
             return serverNames[key] || `${key.toUpperCase()} (Multi)`;
         }

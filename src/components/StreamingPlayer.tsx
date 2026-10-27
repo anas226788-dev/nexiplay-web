@@ -416,6 +416,11 @@ const SCRAPER_META: Record<string, { name: string; icon: string; needsResolve: b
     streamtape: { name: 'Nexi Pulse (HD)', icon: '📼', needsResolve: false },
     voe: { name: 'Nexi Spark (Pro)', icon: '🚀', needsResolve: false },
     abyss: { name: 'Nexi Vault (CDN)', icon: '🌌', needsResolve: false },
+    circleftp: { name: 'CircleFTP (BDIX 100M)', icon: '⚡', needsResolve: false },
+    moviebox: { name: 'MovieBox HD', icon: '🎬', needsResolve: true },
+    miruro: { name: 'Miruro Anime', icon: '🌸', needsResolve: false },
+    aniclover: { name: 'Aniclover (Sub/Dub)', icon: '🍀', needsResolve: false },
+    animekhor: { name: 'AnimeKhor (Bangla/Hindi)', icon: '🎙️', needsResolve: false },
 };
 
 interface ScraperConfig {
