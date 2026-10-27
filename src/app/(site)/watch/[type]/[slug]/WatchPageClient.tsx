@@ -2231,7 +2231,8 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
     const isYouTubeActive = resolvedUrl ? !!getYouTubeVideoId(resolvedUrl) : false;
     const isNativeStreamActive = (
         activeServerId === 'custom' ||
-        activeServerId.startsWith('multi_')
+        activeServerId.startsWith('multi_') ||
+        isM3U8Active
     ) && isM3U8Active;
 
     const isIframePlayerActive = !!resolvedUrl && !isNativeStreamActive;

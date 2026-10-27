@@ -29,6 +29,7 @@ function makeAbsoluteUrl(relativeUrl: string, baseUrl: string): string {
 }
 
 function rewriteM3U8(playlist: string, baseUrl: string, origin: string, token: string): string {
+    const streamProxyUrl = (process.env.NEXT_PUBLIC_STREAM_PROXY_URL || '').trim().replace(/\/$/, '');
     const lines = playlist.split('\n');
     const rewritten = lines.map(line => {
         const trimmed = line.trim();
@@ -38,6 +39,9 @@ function rewriteM3U8(playlist: string, baseUrl: string, origin: string, token: s
             if (trimmed.includes('URI=')) {
                 return trimmed.replace(/URI="([^"]+)"/g, (match, uri) => {
                     const absUri = makeAbsoluteUrl(uri, baseUrl);
+                    if (streamProxyUrl) {
+                        return `URI="${streamProxyUrl}/?url=${encodeURIComponent(absUri)}"`;
+                    }
                     const proxyUrl = `${origin}/api/v1/anime/playback?token=${encodeURIComponent(token)}&seg=${encodeURIComponent(absUri)}`;
                     return `URI="${proxyUrl}"`;
                 });
@@ -46,6 +50,9 @@ function rewriteM3U8(playlist: string, baseUrl: string, origin: string, token: s
         }
 
         const absUrl = makeAbsoluteUrl(trimmed, baseUrl);
+        if (streamProxyUrl) {
+            return `${streamProxyUrl}/?url=${encodeURIComponent(absUrl)}`;
+        }
         return `${origin}/api/v1/anime/playback?token=${encodeURIComponent(token)}&seg=${encodeURIComponent(absUrl)}`;
     });
 

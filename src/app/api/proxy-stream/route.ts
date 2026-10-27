@@ -11,6 +11,12 @@ export async function GET(request: NextRequest) {
         return new NextResponse('Missing url parameter', { status: 400 });
     }
 
+    // If external Cloudflare Worker proxy is configured, offload 100% traffic away from Vercel
+    const streamProxyUrl = (process.env.NEXT_PUBLIC_STREAM_PROXY_URL || '').trim().replace(/\/$/, '');
+    if (streamProxyUrl && !targetUrl.includes(streamProxyUrl)) {
+        return NextResponse.redirect(`${streamProxyUrl}/?url=${encodeURIComponent(targetUrl)}`, 307);
+    }
+
     try {
         // Construct request to origin
         const headers: Record<string, string> = {
