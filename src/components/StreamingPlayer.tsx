@@ -14,6 +14,8 @@ interface Server {
     id: string;
     name: string;
     icon: string;
+    badge?: string;
+    isHindi?: boolean;
     getUrl: (movieId: string, tmdbId?: string, imdbId?: string, malId?: string, season?: number, episode?: number) => string | null;
     animeOnly?: boolean;
     movieOnly?: boolean;
@@ -108,6 +110,8 @@ const BUILT_IN_SERVERS: Server[] = [
         id: 'atlantic',
         name: 'Nexi Wave (Multi-Audio)',
         icon: '🌊',
+        isHindi: true,
+        badge: 'MULTI-AUDIO',
         getUrl: (id, tmdb, imdb, mal, s, e) => {
             const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
             if (!targetId) return null;
@@ -276,6 +280,8 @@ const BUILT_IN_SERVERS: Server[] = [
         id: 'twoembed',
         name: '2Embed (Multi-Audio)',
         icon: '🛡️',
+        isHindi: true,
+        badge: 'MULTI-AUDIO',
         getUrl: (id, tmdb, imdb, mal, s, e) => {
             const targetId = tmdb || id;
             if (!targetId) return null;
@@ -300,6 +306,8 @@ const BUILT_IN_SERVERS: Server[] = [
         id: 'vixsrc',
         name: 'VixSrc (Multi-Lang)',
         icon: '🌐',
+        isHindi: true,
+        badge: 'MULTI-LANG',
         getUrl: (id, tmdb, imdb, mal, s, e) => {
             const targetId = tmdb || imdb || id;
             if (!targetId) return null;
@@ -324,6 +332,8 @@ const BUILT_IN_SERVERS: Server[] = [
         id: 'multiembed',
         name: 'MultiEmbed (Hindi)',
         icon: '🧩',
+        isHindi: true,
+        badge: 'HINDI AUDIO',
         getUrl: (id, tmdb, imdb, mal, s, e) => {
             const targetId = tmdb || imdb || id;
             if (!targetId) return null;
@@ -336,6 +346,8 @@ const BUILT_IN_SERVERS: Server[] = [
         id: 'screenscape',
         name: 'Nexi Hindi (Dubbed)',
         icon: '🎙️',
+        isHindi: true,
+        badge: 'HINDI DUBBED',
         getUrl: (id, tmdb, imdb, mal, s, e) => {
             const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
             if (!targetId) return null;
@@ -384,6 +396,8 @@ const BUILT_IN_SERVERS: Server[] = [
         id: 'vidsrc_su',
         name: 'VidSrc SU (Multi)',
         icon: '🛡️',
+        isHindi: true,
+        badge: 'MULTI-AUDIO',
         getUrl: (id, tmdb, imdb, mal, s, e) => {
             const targetId = tmdb || imdb || id;
             if (!targetId) return null;
@@ -396,6 +410,8 @@ const BUILT_IN_SERVERS: Server[] = [
         id: 'anyembed',
         name: 'AnyEmbed (Multi-Audio)',
         icon: '🎬',
+        isHindi: true,
+        badge: 'MULTI-AUDIO',
         getUrl: (id, tmdb, imdb, mal, s, e) => {
             const targetId = tmdb || id;
             if (!targetId) return null;
@@ -410,17 +426,17 @@ const SERVERS: Server[] = BUILT_IN_SERVERS;
 const STREAM_PROXY_ENDPOINT = (process.env.NEXT_PUBLIC_STREAM_PROXY_URL || '').trim().replace(/\/$/, '') || '/api/proxy-stream';
 
 // Scraper display metadata
-const SCRAPER_META: Record<string, { name: string; icon: string; needsResolve: boolean }> = {
-    rareanimes: { name: 'RR Nexiplay Server', icon: '🎴', needsResolve: false },
+const SCRAPER_META: Record<string, { name: string; icon: string; needsResolve: boolean; isHindi?: boolean; badge?: string }> = {
+    rareanimes: { name: 'RR Nexiplay (Hindi Dub)', icon: '🎴', needsResolve: false, isHindi: true, badge: 'HINDI DUB' },
     doodstream: { name: 'Nexi Turbo (Fast)', icon: '⚡', needsResolve: false },
     streamtape: { name: 'Nexi Pulse (HD)', icon: '📼', needsResolve: false },
     voe: { name: 'Nexi Spark (Pro)', icon: '🚀', needsResolve: false },
     abyss: { name: 'Nexi Vault (CDN)', icon: '🌌', needsResolve: false },
-    circleftp: { name: 'CircleFTP (BDIX 100M)', icon: '⚡', needsResolve: false },
-    moviebox: { name: 'MovieBox HD', icon: '🎬', needsResolve: true },
-    miruro: { name: 'Miruro Anime', icon: '🌸', needsResolve: false },
-    aniclover: { name: 'Aniclover (Sub/Dub)', icon: '🍀', needsResolve: false },
-    animekhor: { name: 'AnimeKhor (Bangla/Hindi)', icon: '🎙️', needsResolve: false },
+    circleftp: { name: 'CircleFTP (BDIX 100M)', icon: '⚡', needsResolve: false, badge: 'BDIX' },
+    moviebox: { name: 'MovieBox HD', icon: '🎬', needsResolve: true, badge: 'DIRECT' },
+    miruro: { name: 'Miruro Anime', icon: '🌸', needsResolve: false, badge: 'ANIME' },
+    aniclover: { name: 'Aniclover (Sub/Dub)', icon: '🍀', needsResolve: false, badge: 'ANIME' },
+    animekhor: { name: 'AnimeKhor (Bangla/Hindi Dub)', icon: '🎙️', needsResolve: false, isHindi: true, badge: 'BANGLA/HINDI' },
 };
 
 interface ScraperConfig {
@@ -777,6 +793,8 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
                 key,
                 name: SCRAPER_META[key].name,
                 icon: SCRAPER_META[key].icon,
+                isHindi: SCRAPER_META[key].isHindi,
+                badge: SCRAPER_META[key].badge,
                 needsResolve: SCRAPER_META[key].needsResolve,
                 config,
             }));
@@ -974,6 +992,11 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
                             >
                                 <span>{srv.icon}</span>
                                 <span>{srv.name}</span>
+                                {srv.isHindi && (
+                                    <span className="text-[9px] px-1.5 py-0.2 bg-amber-500/25 text-amber-300 rounded font-black border border-amber-500/40 uppercase">
+                                        HINDI
+                                    </span>
+                                )}
                             </button>
                         );
                     })}
@@ -994,6 +1017,11 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
                             >
                                 <span>{srv.icon}</span>
                                 <span>{srv.name}</span>
+                                {srv.isHindi && (
+                                    <span className="text-[9px] px-1.5 py-0.2 bg-amber-500/25 text-amber-300 rounded font-black border border-amber-500/40 uppercase">
+                                        HINDI
+                                    </span>
+                                )}
                             </button>
                         );
                     })}

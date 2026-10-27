@@ -167,7 +167,7 @@ function ServerSvgIcon({ id, isHindi, className = "w-4 h-4" }: { id: string; isH
     }
 
     // Hindi Dubbed / Multi-Audio / Soundwave
-    if (isHindi || ['moviesnexus', 'multiembed', 'vixsrc', 'twoembed', 'vidsrc_su', 'anyembed', 'rareanimes', 'screenscape', 'animekhor'].includes(cleanId)) {
+    if (isHindi || ['moviesnexus', 'multiembed', 'vixsrc', 'twoembed', 'vidsrc_su', 'anyembed', 'rareanimes', 'screenscape', 'animekhor', 'atlantic'].includes(cleanId)) {
         return (
             <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M2 10v4M6 7v10M10 4v16M14 8v8M18 11v2M22 9v6" />
@@ -333,8 +333,9 @@ const BUILT_IN_SERVERS: Server[] = [
     {
         id: 'atlantic',
         name: 'Nexi Wave (Multi-Audio)',
-        icon: 'sparkle',
+        icon: 'audio',
         badge: 'MULTI-AUDIO',
+        isHindi: true,
         getUrl: (id, tmdb, imdb, mal, s, e) => {
             const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
             if (!targetId) return null;
@@ -2266,7 +2267,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
             if (!streamUrl || !isServerEnabled(serverKey)) return;
             const serverNames: Record<string, string> = {
                 custom: 'Server Nexiplay',
-                rareanimes: 'RR Nexiplay Server',
+                rareanimes: 'RR Nexiplay (Hindi Dub)',
                 doodstream: 'Nexi Turbo Server',
                 streamtape: 'Nexi Pulse Server',
                 voe: 'Nexi Spark Server',
@@ -2276,7 +2277,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                 moviebox: 'MovieBox HD',
                 miruro: 'Miruro Anime',
                 aniclover: 'Aniclover (Sub/Dub)',
-                animekhor: 'AnimeKhor (Bangla/Hindi)'
+                animekhor: 'AnimeKhor (Bangla/Hindi Dub)'
             };
             const badges: Record<string, string> = {
                 doodstream: 'TURBO FAST',
@@ -2293,7 +2294,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                 animekhor: 'BANGLA/HINDI'
             };
             const srvId = `multi_${serverKey}`;
-            const isHindi = ['rareanimes', 'animekhor'].includes(serverKey);
+            const isHindi = ['rareanimes', 'animekhor', 'screenscape', 'multiembed', 'vixsrc', 'twoembed', 'anyembed', 'atlantic'].includes(serverKey.toLowerCase()) || serverKey.toLowerCase().includes('hindi');
             list.push({
                 id: srvId,
                 name: serverNames[serverKey] || `${serverKey.toUpperCase()} Server`,
@@ -2352,7 +2353,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
             const key = activeServerId.replace('multi_', '');
             const serverNames: Record<string, string> = {
                 custom: 'Server Nexiplay',
-                rareanimes: 'RR Nexiplay Server',
+                rareanimes: 'RR Nexiplay (Hindi Dub)',
                 doodstream: 'Nexi Turbo Server',
                 streamtape: 'Nexi Pulse Server',
                 voe: 'Nexi Spark Server',
@@ -2362,7 +2363,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                 moviebox: 'MovieBox HD',
                 miruro: 'Miruro Anime',
                 aniclover: 'Aniclover (Sub/Dub)',
-                animekhor: 'AnimeKhor (Bangla/Hindi)'
+                animekhor: 'AnimeKhor (Bangla/Hindi Dub)'
             };
             return serverNames[key] || `${key.toUpperCase()} (Multi)`;
         }
@@ -2959,7 +2960,13 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                                                         <span className="text-sm sm:text-base font-black text-white truncate group-hover:text-violet-200 transition-colors">
                                                             {activeServerObj.name}
                                                         </span>
-                                                        {activeServerObj.badge && (
+                                                        {activeServerObj.isHindi && (
+                                                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0 bg-amber-500/25 text-amber-300 border border-amber-500/40 flex items-center gap-1 shadow-sm">
+                                                                <span>🇮🇳</span>
+                                                                <span>HINDI</span>
+                                                            </span>
+                                                        )}
+                                                        {activeServerObj.badge && !activeServerObj.badge.includes('HINDI') && (
                                                             <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0 ${
                                                                 activeServerObj.isHindi
                                                                     ? 'bg-amber-500/25 text-amber-300 border border-amber-500/40'
@@ -3247,7 +3254,13 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                                                         </div>
 
                                                         <div className="flex items-center gap-1.5 shrink-0">
-                                                            {s.badge && (
+                                                            {s.isHindi && (
+                                                                <span className="text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider bg-amber-500/25 text-amber-300 border border-amber-500/40 flex items-center gap-1">
+                                                                    <span>🇮🇳</span>
+                                                                    <span>HINDI</span>
+                                                                </span>
+                                                            )}
+                                                            {s.badge && !s.badge.includes('HINDI') && (
                                                                 <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider ${
                                                                     s.isHindi
                                                                         ? 'bg-amber-500/25 text-amber-300 border border-amber-500/40'
