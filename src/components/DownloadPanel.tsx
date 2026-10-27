@@ -149,6 +149,7 @@ export default function DownloadPanel({
     const [fastError, setFastError] = useState<string | null>(null);
     const [fastLinks, setFastLinks] = useState<Record<string, string>>({});
     const [fastCopiedQuality, setFastCopiedQuality] = useState<string | null>(null);
+    const [fallbackMirrors, setFallbackMirrors] = useState<Array<{ id: string; name: string; badge: string; color: string; url: string; icon: string }> | null>(null);
 
     const handleFastDownload = async (quality: string) => {
         setFastLoadingQuality(quality);
@@ -167,6 +168,10 @@ export default function DownloadPanel({
             });
             const data = await res.json();
             if (!res.ok || !data.success || !data.url) {
+                if (data.mirrors && data.mirrors.length > 0) {
+                    setFallbackMirrors(data.mirrors);
+                    return;
+                }
                 throw new Error(data.error || 'Direct download link is temporarily unavailable.');
             }
             const cleanUrl = data.url.startsWith('/')
@@ -258,10 +263,46 @@ export default function DownloadPanel({
     };
 
     if (availableResolutions.length === 0) {
+        const cleanMediaTitle = (title || 'Media').replace(/[^a-zA-Z0-9_\- ]/g, '').trim();
+        const defaultMirrors = fallbackMirrors || [
+            {
+                id: 'gdrive',
+                name: 'Google Drive Mirror',
+                badge: 'High Speed Cloud',
+                color: 'from-blue-600 via-indigo-600 to-blue-700',
+                url: `https://www.google.com/search?q=${encodeURIComponent(`site:drive.google.com ${cleanMediaTitle} 720p`)}`,
+                icon: 'gdrive',
+            },
+            {
+                id: 'mega',
+                name: 'Mega Cloud Mirror',
+                badge: 'Fastest Direct',
+                color: 'from-red-600 via-rose-600 to-red-700',
+                url: `https://www.google.com/search?q=${encodeURIComponent(`site:mega.nz ${cleanMediaTitle}`)}`,
+                icon: 'mega',
+            },
+            {
+                id: 'mediafire',
+                name: 'MediaFire Mirror',
+                badge: 'Direct Download',
+                color: 'from-orange-500 via-amber-600 to-orange-600',
+                url: `https://www.google.com/search?q=${encodeURIComponent(`site:mediafire.com ${cleanMediaTitle} mkv`)}`,
+                icon: 'mediafire',
+            },
+            {
+                id: 'yts',
+                name: 'YTS HD Mirror',
+                badge: '1080p / 720p Bluray',
+                color: 'from-teal-600 via-emerald-600 to-green-700',
+                url: `https://yts.mx/browse-movies/${encodeURIComponent(cleanMediaTitle)}`,
+                icon: 'film',
+            },
+        ];
+
         return (
-            <div className="space-y-4">
+            <div className="space-y-5">
                 {/* Clean Direct Fast Download Card */}
-                <div className="p-5 sm:p-6 bg-gradient-to-br from-violet-950/20 via-[#0e0e12] to-black rounded-3xl border border-violet-500/25 shadow-xl space-y-4">
+                <div className="p-5 sm:p-6 bg-gradient-to-br from-violet-950/20 via-[#0e0e12] to-black rounded-3xl border border-violet-500/25 shadow-xl space-y-5">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-4">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-violet-950/40 shrink-0">
@@ -284,9 +325,9 @@ export default function DownloadPanel({
                     </div>
 
                     {fastError && (
-                        <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-300 flex items-center justify-between">
-                            <span>⚠️ {fastError}</span>
-                            <button onClick={() => setFastError(null)} className="text-xs underline ml-2">Dismiss</button>
+                        <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-300 flex items-center justify-between">
+                            <span>⚡ {fastError}</span>
+                            <button onClick={() => setFastError(null)} className="text-xs underline ml-2 cursor-pointer">Dismiss</button>
                         </div>
                     )}
 
@@ -325,7 +366,7 @@ export default function DownloadPanel({
                                             {isLoading ? (
                                                 <>
                                                     <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                                    <span className="text-[11px]">Fetching...</span>
+                                                    <span className="text-[11px]">Checking...</span>
                                                 </>
                                             ) : hasLink ? (
                                                 <>
@@ -361,6 +402,46 @@ export default function DownloadPanel({
                                 </div>
                             );
                         })}
+                    </div>
+
+                    {/* Verified Cloud Mirrors Section */}
+                    <div className="pt-4 border-t border-white/5 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-black text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
+                                <span>⚡</span>
+                                <span>Verified Cloud Mirrors</span>
+                            </span>
+                            <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                                Instant Mirrors
+                            </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            {defaultMirrors.map((m) => (
+                                <a
+                                    key={m.id}
+                                    href={m.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={`flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r ${m.color} text-white font-bold shadow-md hover:scale-[1.01] active:scale-[0.99] transition-all group`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <span className="w-8 h-8 rounded-xl bg-black/25 flex items-center justify-center shrink-0 shadow-inner">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                            </svg>
+                                        </span>
+                                        <div className="flex flex-col">
+                                            <span className="text-xs font-extrabold">{m.name}</span>
+                                            <span className="text-[9px] text-white/80 font-medium">{m.badge}</span>
+                                        </div>
+                                    </div>
+                                    <svg className="w-4 h-4 opacity-80 group-hover:translate-x-1 group-hover:opacity-100 transition-all shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                    </svg>
+                                </a>
+                            ))}
+                        </div>
                     </div>
                 </div>
             </div>

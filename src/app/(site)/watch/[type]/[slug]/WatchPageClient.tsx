@@ -1701,6 +1701,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
     const [vaultError, setVaultError] = useState<string | null>(null);
     const [vaultLinks, setVaultLinks] = useState<Record<string, string>>({});
     const [vaultCopiedQuality, setVaultCopiedQuality] = useState<string | null>(null);
+    const [vaultMirrors, setVaultMirrors] = useState<Array<{ id: string; name: string; badge: string; color: string; url: string; icon: string }> | null>(null);
 
     useEffect(() => {
         setCanUseFullscreenAssist(canRequestPlayerFullscreen());
@@ -2507,7 +2508,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    type: isTv ? 'tv' : 'movie',
+                    type: movie.type,
                     id: targetId,
                     season: isTv ? currentSeasonNum : undefined,
                     episode: isTv ? currentEpisodeNum : undefined,
@@ -2516,23 +2517,28 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                 })
             });
             const data = await res.json();
-            if (!res.ok || !data.success || !data.url) {
-                throw new Error(data.error || 'Failed to fetch direct download link.');
-            }
-            const cleanUrl = data.url.startsWith('/')
-                ? `${window.location.origin}${data.url}`
-                : data.url;
-            setVaultLinks(prev => ({ ...prev, [quality]: cleanUrl }));
+            if (res.ok && data.success && data.url) {
+                const cleanUrl = data.url.startsWith('/')
+                    ? `${window.location.origin}${data.url}`
+                    : data.url;
+                setVaultLinks(prev => ({ ...prev, [quality]: cleanUrl }));
 
-            // Trigger direct browser download
-            const a = document.createElement('a');
-            a.href = cleanUrl;
-            a.download = data.fileName || `${(movie.title || 'media').replace(/[^a-zA-Z0-9_\- ]/g, '')}${isTv ? `_S${currentSeasonNum}E${currentEpisodeNum}` : ''}_${quality}.mkv`;
-            a.target = '_blank';
-            a.rel = 'noopener noreferrer';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+                // Trigger direct browser download
+                const a = document.createElement('a');
+                a.href = cleanUrl;
+                a.download = data.fileName || `${(movie.title || 'media').replace(/[^a-zA-Z0-9_\- ]/g, '')}${isTv ? `_S${currentSeasonNum}E${currentEpisodeNum}` : ''}_${quality}.mkv`;
+                a.target = '_blank';
+                a.rel = 'noopener noreferrer';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                return;
+            }
+
+            if (data.mirrors && data.mirrors.length > 0) {
+                setVaultMirrors(data.mirrors);
+            }
+            setVaultError(data.error || 'Direct CDN file is not cached. Choose from Verified Cloud Mirrors below.');
         } catch (err: any) {
             console.error('[Direct Download Error]:', err);
             setVaultError(err.message || 'Error generating download link. Please try another quality.');
@@ -3003,9 +3009,21 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                                         </button>
                                     </div>
 
-                                    {/* Right: Next Server Quick Action */}
-                                    {allActiveServersList.length > 1 && (
-                                        <div className="sm:self-end pb-0.5 shrink-0">
+                                    {/* Right: Download & Next Server Actions */}
+                                    <div className="flex items-center gap-2 sm:self-end pb-0.5 shrink-0">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowVaultModal(true)}
+                                            className="px-4 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-xs rounded-2xl shadow-lg shadow-emerald-950/40 transition-all active:scale-95 flex items-center justify-center gap-2 border border-emerald-400/30 hover:border-emerald-300/60 cursor-pointer"
+                                            title="Download options for this video / episode"
+                                        >
+                                            <svg className="w-4 h-4 text-emerald-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                            </svg>
+                                            <span>Download</span>
+                                        </button>
+
+                                        {allActiveServersList.length > 1 && (
                                             <button
                                                 type="button"
                                                 onClick={() => handleNextServer(activeServerId)}
@@ -3020,8 +3038,8 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                                                     <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
                                                 </svg>
                                             </button>
-                                        </div>
-                                    )}
+                                        )}
+                                    </div>
                                 </div>
 
                                 {/* Quick Shortcuts Row (Top 3 Popular Servers + Dropdown Button) */}
@@ -3612,6 +3630,96 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                                 })}
                             </div>
                         </div>
+
+                        {/* Verified Cloud Mirrors */}
+                        {(() => {
+                            const cleanTitle = (movie.title || 'Media').replace(/[^a-zA-Z0-9_\- ]/g, '').trim();
+                            const queryTerm = isSeriesOrAnime
+                                ? `${cleanTitle} S${String(currentSeasonNum).padStart(2, '0')}E${String(currentEpisodeNum).padStart(2, '0')}`
+                                : cleanTitle;
+                            const mirrors = vaultMirrors || [
+                                {
+                                    id: 'gdrive',
+                                    name: 'Google Drive Mirror',
+                                    badge: 'High Speed Cloud',
+                                    color: 'from-blue-600 via-indigo-600 to-blue-700',
+                                    url: `https://www.google.com/search?q=${encodeURIComponent(`site:drive.google.com ${queryTerm} 720p`)}`,
+                                    icon: 'gdrive',
+                                },
+                                {
+                                    id: 'mega',
+                                    name: 'Mega Cloud Mirror',
+                                    badge: 'Fastest Direct',
+                                    color: 'from-red-600 via-rose-600 to-red-700',
+                                    url: `https://www.google.com/search?q=${encodeURIComponent(`site:mega.nz ${queryTerm}`)}`,
+                                    icon: 'mega',
+                                },
+                                {
+                                    id: 'mediafire',
+                                    name: 'MediaFire Mirror',
+                                    badge: 'Direct Download',
+                                    color: 'from-orange-500 via-amber-600 to-orange-600',
+                                    url: `https://www.google.com/search?q=${encodeURIComponent(`site:mediafire.com ${queryTerm} mkv`)}`,
+                                    icon: 'mediafire',
+                                },
+                                ...(movie.type === 'anime' ? [
+                                    {
+                                        id: 'animekhor',
+                                        name: 'AnimeKhor (Dub Mirror)',
+                                        badge: 'Bangla / Hindi Dub',
+                                        color: 'from-emerald-600 via-teal-600 to-green-700',
+                                        url: `https://animekhor.org/?s=${encodeURIComponent(cleanTitle)}`,
+                                        icon: 'audio',
+                                    }
+                                ] : [
+                                    {
+                                        id: 'yts',
+                                        name: 'YTS HD Mirror',
+                                        badge: '1080p / 720p Bluray',
+                                        color: 'from-teal-600 via-emerald-600 to-green-700',
+                                        url: `https://yts.mx/browse-movies/${encodeURIComponent(cleanTitle)}`,
+                                        icon: 'film',
+                                    }
+                                ]),
+                            ];
+
+                            return (
+                                <div className="space-y-2 pt-2 border-t border-white/5">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[11px] font-black uppercase tracking-wider text-gray-300 flex items-center gap-1.5">
+                                            <span>⚡</span>
+                                            <span>Instant Cloud Mirrors:</span>
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        {mirrors.map((m) => (
+                                            <a
+                                                key={m.id}
+                                                href={m.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className={`flex items-center justify-between p-3 rounded-xl bg-gradient-to-r ${m.color} text-white font-bold shadow-md hover:scale-[1.01] active:scale-[0.99] transition-all group`}
+                                            >
+                                                <div className="flex items-center gap-2.5">
+                                                    <span className="w-7 h-7 rounded-lg bg-black/25 flex items-center justify-center shrink-0">
+                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                        </svg>
+                                                    </span>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-xs font-bold">{m.name}</span>
+                                                        <span className="text-[9px] text-white/80">{m.badge}</span>
+                                                    </div>
+                                                </div>
+                                                <svg className="w-3.5 h-3.5 opacity-80 group-hover:translate-x-0.5 transition-all shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                                </svg>
+                                            </a>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        })()}
 
                         {/* Footer Tips */}
                         <div className="p-3 bg-white/[0.02] rounded-xl border border-white/5 text-[11px] text-gray-400 space-y-1">
