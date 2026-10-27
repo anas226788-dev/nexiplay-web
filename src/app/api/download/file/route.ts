@@ -57,59 +57,14 @@ function getUpstreamHeaders(targetUrl: string, clientRequest: NextRequest): Reco
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const targetUrl = searchParams.get('url');
-    const filename = searchParams.get('filename') || searchParams.get('title');
 
     if (!targetUrl || !targetUrl.startsWith('http')) {
         return new NextResponse('Invalid or missing target URL parameter', { status: 400 });
     }
 
-    try {
-        const upstreamHeaders = getUpstreamHeaders(targetUrl, request);
-        const { response: upstreamRes } = await fetchWithRedirects(targetUrl, upstreamHeaders, 'GET');
-
-        if (!upstreamRes.ok && upstreamRes.status !== 206) {
-            console.error(`[Download File Proxy] Origin error: status ${upstreamRes.status} for URL ${targetUrl}`);
-            return new NextResponse(`Download file error: origin returned HTTP ${upstreamRes.status}`, {
-                status: upstreamRes.status,
-            });
-        }
-
-        const fallbackName = targetUrl.split('/').pop()?.split('?')[0] || 'media_download.mkv';
-        let cleanName = (filename || fallbackName).replace(/["\r\n\\]/g, '');
-        if (!cleanName.endsWith('.mkv') && !cleanName.endsWith('.mp4')) {
-            cleanName += '.mkv';
-        }
-
-        const clientHeaders = new Headers();
-        clientHeaders.set('Content-Disposition', `attachment; filename="${cleanName}"`);
-        clientHeaders.set('Access-Control-Allow-Origin', '*');
-        clientHeaders.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-        clientHeaders.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges, Content-Disposition');
-
-        const contentType = upstreamRes.headers.get('content-type') || 'application/octet-stream';
-        clientHeaders.set('Content-Type', contentType);
-
-        const contentLength = upstreamRes.headers.get('content-length');
-        if (contentLength) {
-            clientHeaders.set('Content-Length', contentLength);
-        }
-
-        const contentRange = upstreamRes.headers.get('content-range');
-        if (contentRange) {
-            clientHeaders.set('Content-Range', contentRange);
-        }
-
-        const acceptRanges = upstreamRes.headers.get('accept-ranges') || 'bytes';
-        clientHeaders.set('Accept-Ranges', acceptRanges);
-
-        return new NextResponse(upstreamRes.body, {
-            status: upstreamRes.status,
-            headers: clientHeaders,
-        });
-    } catch (e: any) {
-        console.error('[Download Proxy Exception]:', e.message);
-        return new NextResponse(`Proxy error: ${e.message}`, { status: 500 });
-    }
+    // Immediately 302 redirect directly to the origin URL.
+    // This protects Vercel's 10 GB Fast Origin Transfer quota (transfers 0 bytes through Vercel functions).
+    return NextResponse.redirect(targetUrl, 302);
 }
 
 export async function HEAD(request: NextRequest) {

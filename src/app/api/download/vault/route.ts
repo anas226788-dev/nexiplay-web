@@ -214,15 +214,14 @@ async function resolveVaultDownload(
         clearTimeout(timeout);
     }
 
-    // If VidVault has a REAL verified file, return it through proxy
+    // If VidVault has a REAL verified file, return direct URL to bypass Vercel serverless bandwidth
     if (hasDirectUrl && directTargetUrl) {
-        const proxyDownloadUrl = `/api/download/file?url=${encodeURIComponent(directTargetUrl)}&filename=${encodeURIComponent(fileName)}`;
         return {
             success: true,
             directAvailable: true,
             source: 'direct_cdn',
-            url: proxyDownloadUrl,
-            downloadUrl: proxyDownloadUrl,
+            url: directTargetUrl,
+            downloadUrl: directTargetUrl,
             directUrl: directTargetUrl,
             fileName,
             quality,
