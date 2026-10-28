@@ -92,8 +92,9 @@ async function getHomeContent(page: number) {
         is_pinned: true
     }));
     const pinnedIds = new Set(pinnedMovies.map(m => m.id));
+    const localCount = paginatedLatestRes.count || 0;
 
-    // Combine pinned movies at the top of page 1, filtering duplicates
+    // Regular database movies (excluding pinned)
     const regularLatest: Movie[] = (paginatedLatestRes.data || [])
         .filter((m: any) => !pinnedIds.has(m.id))
         .map((m: any) => ({
@@ -101,34 +102,64 @@ async function getHomeContent(page: number) {
             is_pinned: Boolean(m.admin_note === 'pinned')
         }));
 
-    const combinedLatest: Movie[] = page === 1 
-        ? [...pinnedMovies, ...regularLatest] 
-        : [...regularLatest];
+    let paginatedLatest: Movie[] = [];
+    let page1TmdbMovies: Movie[] = [];
 
-    const localCount = paginatedLatestRes.count || 0;
-
-    // Dynamically fill with live TMDB latest releases if needed to ensure 24 items
-    const needed = ITEMS_PER_PAGE - combinedLatest.length;
-    if (needed > 0 || page > Math.ceil(localCount / ITEMS_PER_PAGE)) {
-        const localPages = Math.max(1, Math.ceil(localCount / ITEMS_PER_PAGE));
-        const tmdbPage = Math.max(1, page - localPages + 1);
-
+    if (page === 1) {
+        // Always fetch live fresh TMDB trending & latest releases for Page 1
         try {
-            const { results: tmdbResults } = await fetchTmdbLatestTrending(tmdbPage);
-            const freshTmdbMovies = tmdbResults.filter(item => {
+            const { results: tmdbResults } = await fetchTmdbLatestTrending(1);
+            page1TmdbMovies = tmdbResults.filter(item => {
                 if (item.tmdb_id && dbCatalog.existingTmdbIds.has(item.tmdb_id)) return false;
                 if (dbCatalog.existingTitles.has(normalizeTitle(item.title))) return false;
                 if (pinnedIds.has(item.id)) return false;
                 return true;
             });
-
-            combinedLatest.push(...freshTmdbMovies.slice(0, Math.max(needed, ITEMS_PER_PAGE)));
         } catch (tmdbErr) {
             console.warn('[Home Page] TMDB latest dynamic fill failed:', tmdbErr);
         }
+
+        // Hybrid Page 1 Assembly:
+        // 1. Pinned picks from Admin (always prominent at top)
+        // 2. Fresh live trending & latest releases from TMDB (auto content)
+        // 3. Recent uploads from local database
+        const tmdbTargetCount = Math.max(8, ITEMS_PER_PAGE - pinnedMovies.length - Math.min(8, regularLatest.length));
+        const selectedTmdb = page1TmdbMovies.slice(0, tmdbTargetCount);
+        const selectedTmdbIds = new Set(selectedTmdb.map(t => t.id));
+
+        const localSlots = ITEMS_PER_PAGE - pinnedMovies.length - selectedTmdb.length;
+        const selectedLocal = regularLatest.slice(0, Math.max(localSlots, 0));
+
+        paginatedLatest = [...pinnedMovies, ...selectedTmdb, ...selectedLocal].slice(0, ITEMS_PER_PAGE);
+
+        // Fallback: If TMDB was empty or offline, fill to 24 with remaining regular local items
+        if (paginatedLatest.length < ITEMS_PER_PAGE) {
+            const currentIds = new Set(paginatedLatest.map(p => p.id));
+            const remainingLocal = regularLatest.filter(m => !currentIds.has(m.id));
+            paginatedLatest.push(...remainingLocal.slice(0, ITEMS_PER_PAGE - paginatedLatest.length));
+        }
+    } else {
+        // Page 2+: Local database pages first, then continuous TMDB
+        const localPages = Math.max(1, Math.ceil(localCount / ITEMS_PER_PAGE));
+        const combined = [...regularLatest];
+
+        if (combined.length < ITEMS_PER_PAGE || page > localPages) {
+            const tmdbPage = Math.max(1, page - localPages + 1);
+            try {
+                const { results: tmdbResults } = await fetchTmdbLatestTrending(tmdbPage);
+                const freshTmdbMovies = tmdbResults.filter(item => {
+                    if (item.tmdb_id && dbCatalog.existingTmdbIds.has(item.tmdb_id)) return false;
+                    if (dbCatalog.existingTitles.has(normalizeTitle(item.title))) return false;
+                    return true;
+                });
+                combined.push(...freshTmdbMovies.slice(0, ITEMS_PER_PAGE - combined.length));
+            } catch (tmdbErr) {
+                console.warn('[Home Page] TMDB pagination fill failed:', tmdbErr);
+            }
+        }
+        paginatedLatest = combined.slice(0, ITEMS_PER_PAGE);
     }
 
-    const paginatedLatest: Movie[] = combinedLatest.slice(0, ITEMS_PER_PAGE);
     const totalLatestCount = localCount + 12000;
 
     let trendingMovies: Movie[] = [];
@@ -143,7 +174,38 @@ async function getHomeContent(page: number) {
     if (homeSections) {
         const [trendingRes, updatesRes, settingsRes, upcomingRes, movList, serList, aniList] = homeSections;
         trendingMovies = (trendingRes.data as Movie[]) || [];
+        if (trendingMovies.length < 5 && page1TmdbMovies.length > 0) {
+            const existingTrendingIds = new Set(trendingMovies.map(m => m.id));
+            const extraTrending = page1TmdbMovies
+                .filter(m => !existingTrendingIds.has(m.id) && m.banner_url_desktop)
+                .slice(0, 5 - trendingMovies.length);
+            trendingMovies = [...trendingMovies, ...extraTrending];
+        }
+
         latestUpdates = updatesRes.data || [];
+        // If updates table has few items, supplement with recent database releases
+        if (latestUpdates.length < 6 && regularLatest.length > 0) {
+            const existingUpdateIds = new Set(latestUpdates.map(u => u.content_id));
+            const extraUpdates = regularLatest
+                .filter(m => !existingUpdateIds.has(m.id))
+                .slice(0, 8 - latestUpdates.length)
+                .map(m => ({
+                    id: m.id,
+                    content_id: m.id,
+                    title: m.title,
+                    poster_url: m.poster_url,
+                    slug: `/${m.type}/${m.slug}`,
+                    content_type: m.type,
+                    update_type: 'movie' as const,
+                    season_number: null,
+                    episode_number: null,
+                    created_at: m.created_at,
+                    updated_at: m.created_at,
+                    is_active: true
+                }));
+            latestUpdates = [...latestUpdates, ...extraUpdates];
+        }
+
         latestUpdateAdLink = settingsRes.data?.latest_update_click_ad_link || '';
         upcomingReleases = upcomingRes.data || [];
         latestMovies = movList;
