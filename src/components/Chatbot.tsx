@@ -20,12 +20,28 @@ interface ContentResult {
     poster_url: string | null;
 }
 
+export interface VisualOption {
+    id: string;
+    title: string;
+    type: 'movie' | 'series' | 'anime' | 'novel';
+    release_year: number | string | null;
+    poster_url: string | null;
+    overview?: string | null;
+    slug: string;
+    available: boolean;
+    watch_url: string;
+    tmdb_id?: number | string | null;
+    source: 'local' | 'tmdb' | 'novel';
+}
+
 interface ChatMessage {
     text: string | React.ReactNode;
     isBot: boolean;
     role?: 'user' | 'assistant';
     plainText?: string;
     agent?: string;
+    visual_options?: VisualOption[];
+    search_title?: string;
 }
 
 interface StreamStatus {
@@ -43,6 +59,8 @@ export default function Chatbot() {
     const [isTyping, setIsTyping] = useState(false);
     const [currentSteps, setCurrentSteps] = useState<StreamStatus[]>([]);
     const [headerText, setHeaderText] = useState('Ask me anything ✨');
+    const [requestingIds, setRequestingIds] = useState<Record<string, boolean>>({});
+    const [requestedIds, setRequestedIds] = useState<Record<string, boolean>>({});
 
     const headerTexts = ["Ask me anything ✨", "Powered by AI 🧠", "Any language 🌍", "Download help 📥", "Movies & Anime 🎬"];
     const [textIndex, setTextIndex] = useState(0);
@@ -92,7 +110,220 @@ export default function Chatbot() {
         return messages.filter(m => m.role && m.plainText).map(m => ({ role: m.role!, content: m.plainText! }));
     }, [messages]);
 
-    // --- Render Content Result Cards ---
+    // --- 1-Click Request to Admin Handler ---
+    const handleRequestContent = async (option: {
+        title: string;
+        type?: string;
+        tmdb_id?: number | string | null;
+        release_year?: number | string | null;
+        poster_url?: string | null;
+        id?: string;
+    }) => {
+        const cardKey = option.id || option.title;
+        if (requestedIds[cardKey] || requestingIds[cardKey]) return;
+
+        setRequestingIds(prev => ({ ...prev, [cardKey]: true }));
+
+        try {
+            const authUserId = user?.id || null;
+            const authUserEmail = user?.email || null;
+            const authUserName = user?.user_metadata?.display_name || user?.user_metadata?.full_name || (user?.email ? user.email.split('@')[0] : null);
+
+            const res = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'request_content',
+                    content_name: option.title,
+                    content_type: option.type || 'movie',
+                    tmdb_id: option.tmdb_id || null,
+                    release_year: option.release_year || null,
+                    poster_url: option.poster_url || null,
+                    user_id: authUserId,
+                    user_email: authUserEmail,
+                    user_name: authUserName
+                })
+            });
+
+            if (res.ok) {
+                setRequestedIds(prev => ({ ...prev, [cardKey]: true }));
+            } else {
+                console.warn('Failed to submit content request');
+            }
+        } catch (err) {
+            console.error('Request submission error:', err);
+        } finally {
+            setRequestingIds(prev => ({ ...prev, [cardKey]: false }));
+        }
+    };
+
+    // --- Render Interactive Visual Options Cards ---
+    const renderVisualCards = (options: VisualOption[]) => {
+        if (!options || options.length === 0) return null;
+
+        return (
+            <div className="flex flex-col gap-2 mt-3 w-full">
+                <div className="flex items-center justify-between text-[11px] font-semibold text-[#ADA6B9] px-0.5">
+                    <span>{options.length > 1 ? `Found ${options.length} options — Tap one:` : 'Matching Content:'}</span>
+                    <span className="text-[10px] text-[#9273F5] bg-[#9273F5]/10 px-1.5 py-0.5 rounded font-mono">NEXIPLAY</span>
+                </div>
+
+                <div className="flex flex-col gap-2 max-h-[360px] overflow-y-auto pr-0.5 scrollbar-thin scrollbar-thumb-white/10">
+                    {options.map((opt) => {
+                        const isReq = requestedIds[opt.id] || requestedIds[opt.title];
+                        const isReqing = requestingIds[opt.id] || requestingIds[opt.title];
+
+                        const badgeColor =
+                            opt.type === 'anime' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' :
+                            opt.type === 'series' ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' :
+                            opt.type === 'novel' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
+                            'bg-purple-500/20 text-purple-300 border-purple-500/30';
+
+                        return (
+                            <div
+                                key={opt.id}
+                                className={`p-2.5 rounded-xl border transition-all duration-200 flex gap-3 items-center ${
+                                    opt.available
+                                        ? 'bg-[#1D1829]/95 border-emerald-500/30 hover:border-emerald-500/60 shadow-[0_4px_16px_rgba(16,185,129,0.08)]'
+                                        : 'bg-[#17141F]/95 border-white/10 hover:border-white/20'
+                                }`}
+                            >
+                                {/* Poster Image */}
+                                <div className="w-12 h-16 relative rounded-lg overflow-hidden bg-black/40 flex-shrink-0 border border-white/10 shadow-sm">
+                                    {opt.poster_url ? (
+                                        <Image
+                                            src={opt.poster_url}
+                                            alt={opt.title}
+                                            fill
+                                            unoptimized
+                                            className="object-cover"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-lg text-gray-500">
+                                            🎬
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Content Info */}
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider border ${badgeColor}`}>
+                                            {opt.type}
+                                        </span>
+
+                                        {opt.release_year && (
+                                            <span className="text-[10px] text-gray-400 font-medium">
+                                                {opt.release_year}
+                                            </span>
+                                        )}
+
+                                        {opt.available ? (
+                                            <span className="text-[9px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded font-semibold ml-auto flex items-center gap-0.5">
+                                                ✓ Ready
+                                            </span>
+                                        ) : (
+                                            <span className="text-[9px] bg-yellow-500/10 text-yellow-400/90 border border-yellow-500/20 px-1.5 py-0.5 rounded font-medium ml-auto">
+                                                Not on site
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    <h4 className="text-xs font-bold text-white truncate mt-1 leading-snug" title={opt.title}>
+                                        {opt.title}
+                                    </h4>
+
+                                    {opt.overview && (
+                                        <p className="text-[10px] text-gray-400 line-clamp-1 mt-0.5">
+                                            {opt.overview}
+                                        </p>
+                                    )}
+
+                                    {/* Action Buttons */}
+                                    <div className="mt-2 flex items-center gap-2">
+                                        {opt.available ? (
+                                            <Link
+                                                href={opt.watch_url}
+                                                onClick={() => setIsOpen(false)}
+                                                className="inline-flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-[11px] font-bold rounded-lg shadow-[0_2px_10px_rgba(16,185,129,0.3)] transition-all active:scale-95"
+                                            >
+                                                <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                                Watch Now
+                                            </Link>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                disabled={isReq || isReqing}
+                                                onClick={() => handleRequestContent(opt)}
+                                                className={`inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-semibold rounded-lg transition-all ${
+                                                    isReq
+                                                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 cursor-default'
+                                                        : isReqing
+                                                        ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 opacity-70 cursor-wait'
+                                                        : 'bg-white/10 hover:bg-white/15 text-white border border-white/15 active:scale-95'
+                                                }`}
+                                            >
+                                                {isReq ? (
+                                                    <>
+                                                        <span>✅</span>
+                                                        <span>Requested to Admin</span>
+                                                    </>
+                                                ) : isReqing ? (
+                                                    <>
+                                                        <span className="animate-spin text-xs">⏳</span>
+                                                        <span>Submitting...</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <span>📥</span>
+                                                        <span>Request to Admin</span>
+                                                    </>
+                                                )}
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    };
+
+    // --- Fallback Request Card when title not in catalog ---
+    const renderFallbackRequestCard = (title: string) => {
+        const isReq = requestedIds[title];
+        const isReqing = requestingIds[title];
+
+        return (
+            <div className="mt-3 p-3 bg-white/5 border border-white/10 rounded-xl flex flex-col gap-2">
+                <div className="flex items-center gap-2 text-xs text-yellow-400">
+                    <span>🔍</span>
+                    <span className="font-medium truncate">Can&apos;t find &ldquo;{title}&rdquo;?</span>
+                </div>
+                <p className="text-[11px] text-gray-400">
+                    You can request this title directly to our admin team. Once added, it will be uploaded!
+                </p>
+                <button
+                    type="button"
+                    disabled={isReq || isReqing}
+                    onClick={() => handleRequestContent({ title, type: 'movie' })}
+                    className={`mt-1 inline-flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-bold rounded-lg transition-all ${
+                        isReq
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                            : isReqing
+                            ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 opacity-70'
+                            : 'bg-gradient-to-r from-[#9273F5] to-[#5C46B2] text-white hover:opacity-95 active:scale-98 shadow-md'
+                    }`}
+                >
+                    {isReq ? '✅ Requested to Admin' : isReqing ? '⏳ Submitting Request...' : `📥 Request "${title}" to Admin`}
+                </button>
+            </div>
+        );
+    };
+
+    // --- Render Content Result Cards (Backward compatibility) ---
     const renderResultCards = (results: ContentResult[]) => (
         <div className="flex flex-col gap-3">
             <span className="font-medium text-green-400">✅ Found on Nexiplay:</span>
@@ -133,32 +364,13 @@ export default function Chatbot() {
 
     // --- Contact Page Fallback Link ---
     const renderContactFallback = () => (
-        <div className="p-2.5 bg-blue-500/5 border border-blue-500/10 rounded-lg">
+        <div className="p-2.5 bg-blue-500/5 border border-blue-500/10 rounded-lg mt-2">
             <p className="text-[11px] text-gray-400 leading-relaxed">
                 <span className="text-blue-400">🔹</span> AI আপনার কথা সঠিকভাবে না বুঝলে, <Link href="/contact" onClick={() => setIsOpen(false)} className="text-blue-400 underline hover:text-blue-300">Contact পেজে</Link> গিয়ে সঠিক নাম দিয়ে request করুন।
             </p>
             <p className="text-[10px] text-gray-500 mt-1">
                 <span className="text-blue-400">🔹</span> If AI didn&apos;t understand you correctly, <Link href="/contact" onClick={() => setIsOpen(false)} className="text-blue-400 underline hover:text-blue-300">visit Contact page</Link> to submit your request with the correct name.
             </p>
-        </div>
-    );
-
-    // --- Render TMDB Verified Badge ---
-    const renderTMDBBadge = (info: { title?: string; type?: string; year?: string; poster?: string }) => (
-        <div className="flex items-center gap-3 mt-2 p-2.5 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-            {info.poster && (
-                <div className="w-8 h-12 relative rounded overflow-hidden flex-shrink-0">
-                    <Image src={info.poster} alt={info.title || ''} fill className="object-cover" />
-                </div>
-            )}
-            <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] bg-blue-500/30 text-blue-300 px-1.5 py-0.5 rounded font-bold">✓ VERIFIED</span>
-                </div>
-                <p className="text-[11px] text-blue-300/80 mt-0.5 truncate">
-                    {info.title} {info.type && `• ${info.type}`} {info.year && `• ${info.year}`}
-                </p>
-            </div>
         </div>
     );
 
@@ -211,7 +423,7 @@ export default function Chatbot() {
         );
     };
 
-    // --- Main Send Handler (Frontend-animated steps) ---
+    // --- Main Send Handler (Intelligent, No Unconditional DB Search) ---
     const handleSend = async () => {
         if (!inputText.trim() || isTyping) return;
 
@@ -225,25 +437,24 @@ export default function Chatbot() {
         setIsTyping(true);
         setCurrentSteps([]);
 
-        // Helper: add a step with delay
+        // Helper: add a step with brief delay
         const addStep = (step: string, message: string) => {
             return new Promise<void>(resolve => {
                 setCurrentSteps(prev => [...prev, { step, message }]);
-                setTimeout(resolve, 900);
+                setTimeout(resolve, 500);
             });
         };
 
         try {
-            // Step 1: Show "Thinking" immediately
-            await addStep('thinking', '🧠 Analyzing your message...');
+            // Step 1: AI analyzes user message and intent
+            await addStep('thinking', '🧠 Understanding your message...');
 
-            // Start the API call (non-streaming for reliability)
             const history = getAIHistory();
             const authUserId = user?.id || null;
             const authUserEmail = user?.email || null;
             const authUserName = user?.user_metadata?.display_name || user?.user_metadata?.full_name || (user?.email ? user.email.split('@')[0] : null);
 
-            const fetchPromise = fetch('/api/chat', {
+            const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -256,31 +467,16 @@ export default function Chatbot() {
                 })
             });
 
-            // Step 2: Show "Searching" while waiting
-            await addStep('searching_local', '🔍 Searching Nexiplay database...');
-
-            // Wait for API response
-            const response = await fetchPromise;
             if (!response.ok) throw new Error(`API error: ${response.status}`);
             const data = await response.json();
 
-            // Step 3: Show additional steps based on what happened
-            if (data.intent === 'search' && !data.found) {
-                if (data.tmdbVerified !== undefined) {
-                    await addStep('verifying_online', '🌐 Verifying online...');
-                }
-                if (data.requestSubmitted) {
-                    await addStep('submitting', '📥 Submitting request to admin...');
-                }
-                if (data.tmdbVerified === false) {
-                    await addStep('not_verified', '❌ Could not verify this title');
-                }
+            // Step 2: ONLY if intent is search, show the database/catalog search step
+            if (data.intent === 'search') {
+                await addStep('searching_local', '🔍 Searching Nexiplay database & online catalog...');
+                await new Promise(r => setTimeout(r, 350));
             }
 
-            // Small delay before showing result
-            await new Promise(r => setTimeout(r, 500));
-
-            // Show the result
+            // Step 3: Render results
             handleStreamResult(data);
 
         } catch (error) {
@@ -296,11 +492,15 @@ export default function Chatbot() {
         }
     };
 
-    // --- Handle final result from stream ---
+    // --- Handle Final Result from AI/API ---
     const handleStreamResult = (data: {
-        reply?: string; intent?: string; found?: boolean;
-        results?: ContentResult[]; requestSubmitted?: boolean;
-        tmdbVerified?: boolean; tmdbInfo?: { title?: string; type?: string; year?: string; poster?: string };
+        reply?: string;
+        intent?: string;
+        found?: boolean;
+        search_title?: string;
+        visual_options?: VisualOption[];
+        results?: ContentResult[];
+        requestSubmitted?: boolean;
         error?: string;
         agent?: string;
     }) => {
@@ -311,50 +511,59 @@ export default function Chatbot() {
             return;
         }
 
-        // Search with results found
-        if (data.intent === 'search' && data.found && data.results && data.results.length > 0) {
+        const options = data.visual_options || [];
+
+        // 1. Search intent with visual option cards found
+        if (data.intent === 'search' && options.length > 0) {
+            setMessages(prev => [...prev, {
+                text: (
+                    <div>
+                        {data.reply && <p className="whitespace-pre-line mb-1">{data.reply}</p>}
+                        {renderVisualCards(options)}
+                    </div>
+                ),
+                isBot: true,
+                role: 'assistant',
+                plainText: data.reply || `Found ${options.length} options.`,
+                agent: data.agent,
+                visual_options: options
+            }]);
+        }
+        // 2. Search intent with 0 visual options found
+        else if (data.intent === 'search' && options.length === 0) {
+            const searchTitle = data.search_title || 'this content';
+            setMessages(prev => [...prev, {
+                text: (
+                    <div>
+                        {data.reply && <p className="whitespace-pre-line">{data.reply}</p>}
+                        {renderFallbackRequestCard(searchTitle)}
+                        {renderContactFallback()}
+                    </div>
+                ),
+                isBot: true,
+                role: 'assistant',
+                plainText: data.reply || `Could not find ${searchTitle}.`,
+                agent: data.agent,
+                search_title: searchTitle
+            }]);
+        }
+        // 3. Fallback legacy search results array
+        else if (data.results && data.results.length > 0) {
             setMessages(prev => [...prev, {
                 text: renderResultCards(data.results!),
-                isBot: true, role: 'assistant',
+                isBot: true,
+                role: 'assistant',
                 plainText: `Found on Nexiplay: ${data.results!.map(r => r.title).join(', ')}`,
                 agent: data.agent
             }]);
-            if (data.reply) {
-                setMessages(prev => [...prev, {
-                    text: <span className="whitespace-pre-line">{data.reply}</span>,
-                    isBot: true, role: 'assistant', plainText: data.reply,
-                    agent: data.agent
-                }]);
-            }
         }
-        // Search not found
-        else if (data.intent === 'search' && !data.found) {
-            const replyContent = (
-                <div>
-                    <span className="whitespace-pre-line">{data.reply}</span>
-                    {data.tmdbVerified && data.tmdbInfo && renderTMDBBadge(data.tmdbInfo)}
-                    {data.requestSubmitted && renderRequestBadge()}
-                    {data.tmdbVerified === false && (
-                        <div className="flex flex-col gap-2 mt-2">
-                            <div className="flex items-center gap-2 p-2 bg-red-500/10 border border-red-500/20 rounded-lg">
-                                <span className="text-[11px] text-violet-300/90">⚠️ Could not verify as a real movie/anime/series</span>
-                            </div>
-                            {renderContactFallback()}
-                        </div>
-                    )}
-                </div>
-            );
-            setMessages(prev => [...prev, {
-                text: replyContent, isBot: true, role: 'assistant',
-                plainText: data.reply || "Content not found.",
-                agent: data.agent
-            }]);
-        }
-        // General chat
+        // 4. Natural Conversational Chat
         else {
             setMessages(prev => [...prev, {
                 text: <span className="whitespace-pre-line">{data.reply}</span>,
-                isBot: true, role: 'assistant', plainText: data.reply,
+                isBot: true,
+                role: 'assistant',
+                plainText: data.reply,
                 agent: data.agent
             }]);
         }
