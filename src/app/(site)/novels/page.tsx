@@ -9,8 +9,8 @@ export const metadata: Metadata = buildPageMetadata({
     path: '/novels',
 });
 
-// ISR: Cache for 5 minutes on Edge CDN
-export const revalidate = 300;
+// ISR: Cache for 60 seconds on Edge CDN
+export const revalidate = 60;
 
 interface PageProps {
     searchParams: Promise<{
@@ -34,7 +34,7 @@ export default async function NovelsIndexPage({ searchParams }: PageProps) {
     // Build optimized lightweight query fetching ONLY the required page
     let query = supabaseNovels
         .from('novels')
-        .select('id, title, slug, author, genre, cover_url, description, status, created_at', { count: 'exact' });
+        .select('id, title, slug, author, genre, cover_url, description, status, created_at, updated_at', { count: 'exact' });
 
     if (statusFilter && statusFilter !== 'all') {
         query = query.eq('status', statusFilter);
@@ -45,7 +45,7 @@ export default async function NovelsIndexPage({ searchParams }: PageProps) {
     }
 
     const { data: novels, count, error } = await query
-        .order('created_at', { ascending: false })
+        .order('updated_at', { ascending: false })
         .range(from, to);
 
     if (error) {
