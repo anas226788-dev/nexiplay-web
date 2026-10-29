@@ -5,6 +5,7 @@ import { buildPageMetadata } from '@/lib/metadata';
 import { supabase } from '@/lib/supabase';
 import { Movie } from '@/lib/types';
 import { fetchTmdbAnime, getExistingDatabaseCatalog, normalizeTitle } from '@/lib/tmdb';
+import { interleaveLatestContent } from '@/lib/contentMixer';
 
 const ITEMS_PER_PAGE = 24;
 
@@ -48,7 +49,11 @@ async function getAnime(page: number): Promise<{ anime: Movie[]; totalCount: num
         const pinned: Movie[] = (pinnedRes.data || []).map((m: any) => ({ ...m, is_pinned: true }));
         const pinnedIds = new Set(pinned.map(m => m.id));
         const regular = localData.filter(m => !pinnedIds.has(m.id)).map(m => ({ ...m, is_pinned: m.admin_note === 'pinned' }));
-        localPageAnime = [...pinned, ...regular];
+        localPageAnime = interleaveLatestContent({
+            pinned,
+            regular,
+            limit: ITEMS_PER_PAGE
+        });
     } else {
         localPageAnime = localData.map(m => ({ ...m, is_pinned: m.admin_note === 'pinned' }));
     }

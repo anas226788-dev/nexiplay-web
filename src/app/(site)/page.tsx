@@ -13,6 +13,8 @@ import MovieCard from '@/components/MovieCard';
 import { Metadata } from 'next';
 import { buildPageMetadata } from '@/lib/metadata';
 import Pagination from '@/components/Pagination';
+import LatestGrid from '@/components/LatestGrid';
+import { interleaveLatestContent, interleaveCategoryRow } from '@/lib/contentMixer';
 
 import { fetchTmdbLatestTrending, getExistingDatabaseCatalog, normalizeTitle } from '@/lib/tmdb';
 
@@ -26,9 +28,9 @@ const MovieGrid = dynamicImport(() => import('@/components/MovieGrid'), {
     loading: () => <div className="h-96 bg-dark-800 animate-pulse rounded-xl my-8" />,
 });
 
-// ISR: Cache on Vercel Global Edge CDN for 3 minutes (180s).
-// Even under massive traffic spikes (10,000 requests in 3 min), Vercel only executes 1 serverless function!
-export const revalidate = 180;
+// ISR: Cache on Vercel Global Edge CDN for 60 seconds.
+// Fresh uploads appear almost immediately while maintaining serverless efficiency!
+export const revalidate = 60;
 
 export const metadata: Metadata = buildPageMetadata({
     title: 'Download Movies, Series & Anime',
@@ -43,7 +45,8 @@ async function getHomeContent(page: number) {
     const sliderFields = 'id, title, slug, type, poster_url, release_year, banner_url_desktop, banner_url_mobile, description, ad_link, is_adult';
     
     const from = (page - 1) * ITEMS_PER_PAGE;
-    const to = from + ITEMS_PER_PAGE - 1;
+    // On page 1, fetch 36 items so we have a full queue of regular items even after extracting pinned items
+    const to = from + (page === 1 ? 35 : ITEMS_PER_PAGE - 1);
 
     const getCategoryWithPinned = async (type: string) => {
         const [catPinnedRes, catRegularRes] = await Promise.all([
@@ -55,7 +58,7 @@ async function getHomeContent(page: number) {
         const catRegular = (catRegularRes.data || [])
             .filter((m: any) => !catPinnedIds.has(m.id))
             .map((m: any) => ({ ...m, is_pinned: false }));
-        return [...catPinned, ...catRegular].slice(0, 6);
+        return interleaveCategoryRow(catPinned, catRegular, 6);
     };
 
     // Run every independent home query together, rather than waiting for a
@@ -119,25 +122,18 @@ async function getHomeContent(page: number) {
             console.warn('[Home Page] TMDB latest dynamic fill failed:', tmdbErr);
         }
 
-        // Hybrid Page 1 Assembly:
-        // 1. Pinned picks from Admin (always prominent at top)
-        // 2. Fresh live trending & latest releases from TMDB (auto content)
-        // 3. Recent uploads from local database
-        const tmdbTargetCount = Math.max(8, ITEMS_PER_PAGE - pinnedMovies.length - Math.min(8, regularLatest.length));
-        const selectedTmdb = page1TmdbMovies.slice(0, tmdbTargetCount);
-        const selectedTmdbIds = new Set(selectedTmdb.map(t => t.id));
-
-        const localSlots = ITEMS_PER_PAGE - pinnedMovies.length - selectedTmdb.length;
-        const selectedLocal = regularLatest.slice(0, Math.max(localSlots, 0));
-
-        paginatedLatest = [...pinnedMovies, ...selectedTmdb, ...selectedLocal].slice(0, ITEMS_PER_PAGE);
-
-        // Fallback: If TMDB was empty or offline, fill to 24 with remaining regular local items
-        if (paginatedLatest.length < ITEMS_PER_PAGE) {
-            const currentIds = new Set(paginatedLatest.map(p => p.id));
-            const remainingLocal = regularLatest.filter(m => !currentIds.has(m.id));
-            paginatedLatest.push(...remainingLocal.slice(0, ITEMS_PER_PAGE - paginatedLatest.length));
-        }
+        // Assemble Page 1 with intelligent interleaving & dynamic rotation:
+        // 1. Newly uploaded local database content appears right in the top row (slots 1, 2, 4, 5...)
+        //    without needing to be manually pinned!
+        // 2. Pinned content is prominently highlighted with Gorgeous badges at designated spots (0, 3, 7...)
+        //    and rotated dynamically so the same cards don't stay in the exact same positions.
+        // 3. TMDB trending items seamlessly supplement any empty slots when local uploads are exhausted.
+        paginatedLatest = interleaveLatestContent({
+            pinned: pinnedMovies,
+            regular: regularLatest,
+            fallback: page1TmdbMovies,
+            limit: ITEMS_PER_PAGE,
+        });
     } else {
         // Page 2+: Local database pages first, then continuous TMDB
         const localPages = Math.max(1, Math.ceil(localCount / ITEMS_PER_PAGE));
@@ -331,19 +327,14 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                     <UpcomingSection items={upcomingReleases} />
                 )}
 
-                {/* Paginated Latest Additions - Combined Grid */}
+                {/* Paginated Latest Additions - Combined Grid with Shuffle */}
                 {paginatedLatest.length > 0 && (
-                    <section className="mb-12">
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="section-title">
-                                {currentPage === 1 ? 'Latest Additions' : `All Content - Page ${currentPage}`}
-                            </h2>
-                        </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
-                            {paginatedLatest.map((movie) => (
-                                <MovieCard key={movie.id} movie={movie} />
-                            ))}
-                        </div>
+                    <div className="mb-12">
+                        <LatestGrid
+                            movies={paginatedLatest}
+                            title={currentPage === 1 ? 'Latest Additions' : `All Content - Page ${currentPage}`}
+                            isPageOne={currentPage === 1}
+                        />
                         
                         <div className="mt-8">
                             <Pagination
@@ -353,7 +344,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                                 itemsPerPage={ITEMS_PER_PAGE}
                             />
                         </div>
-                    </section>
+                    </div>
                 )}
 
                 {/* Movies Section - Only on Page 1 */}
