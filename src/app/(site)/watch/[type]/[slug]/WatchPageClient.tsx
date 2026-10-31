@@ -527,6 +527,19 @@ const BUILT_IN_SERVERS: Server[] = [
         }
     },
     {
+        id: 'vidstuck',
+        name: 'VidStuck (Freekz)',
+        icon: 'server',
+        badge: '1080P PRO',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://vidstuck.cc/embed/tv/${targetId}/${s}/${e}?autoplay=true&nextEpisode=true&autoplayNextEpisode=true&loading=2&back=false`
+                : `https://vidstuck.cc/embed/movie/${targetId}?autoplay=true&loading=2&back=false`;
+        }
+    },
+    {
         id: 'cinemaos',
         name: 'CinemaOS (NetPrime)',
         icon: 'zap',
@@ -2861,7 +2874,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                                         scrolling="no"
                                         sandbox={playerAdBlocker && !isAntiSandboxUrl(resolvedUrl, activeServerId) ? AD_BLOCK_SANDBOX : undefined}
                                         {...FULLSCREEN_IFRAME_ATTRS}
-                                        referrerPolicy={isYouTubeActive || resolvedUrl.startsWith('/') || resolvedUrl.includes('/embed/') || resolvedUrl.includes('vixsrc.to') || resolvedUrl.includes('cinemaos.tech') ? 'origin-when-cross-origin' : 'no-referrer'}
+                                        referrerPolicy={isYouTubeActive || resolvedUrl.startsWith('/') || resolvedUrl.includes('/embed/') || resolvedUrl.includes('vixsrc.to') || resolvedUrl.includes('cinemaos.tech') || resolvedUrl.includes('vidstuck.cc') ? 'origin-when-cross-origin' : 'no-referrer'}
                                         onError={() => handleNextServer(activeServerId)}
                                     />
                                 )
