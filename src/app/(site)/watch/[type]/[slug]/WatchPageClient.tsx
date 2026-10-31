@@ -527,6 +527,19 @@ const BUILT_IN_SERVERS: Server[] = [
         }
     },
     {
+        id: 'vidcore',
+        name: 'VidCore (Ultra)',
+        icon: 'zap',
+        badge: '1080P DIRECT',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://vidcore.io/tv/${targetId}/${s}/${e}`
+                : `https://vidcore.io/movie/${targetId}`;
+        }
+    },
+    {
         id: 'vidnest',
         name: 'VidNest (Ad-Free)',
         icon: 'zap',
