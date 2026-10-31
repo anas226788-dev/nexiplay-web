@@ -279,3 +279,23 @@ export interface DMCARequest {
     created_at: string;
     updated_at: string;
 }
+
+
+export interface AppConfig {
+    id: string;
+    latest_version_code: number;
+    latest_version_name: string;
+    apk_url: string;
+    release_notes: string;
+    force_update: boolean;
+    min_version_code: number;
+    updated_at: string;
+}
+
+export interface WebLaunchModalConfig {
+    title: string;
+    subtitle: string;
+    features: string[];
+    download_btn_text: string;
+    dismiss_btn_text: string;
+}

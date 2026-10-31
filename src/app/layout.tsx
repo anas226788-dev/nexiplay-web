@@ -3,6 +3,7 @@ import Script from 'next/script';
 import './globals.css';
 
 import NoticeSystem from '@/components/NoticeSystem';
+import AppLaunchModal from '@/components/AppLaunchModal';
 import AntiAdBlockGate from '@/components/AntiAdBlockGate';
 import SecurityShield from '@/components/SecurityShield';
 import CookieConsent from '@/components/CookieConsent';
@@ -43,6 +44,7 @@ export default function RootLayout({
                         <AuthProvider>
                             <ActiveMovieProvider>
                                 <NoticeSystem />
+                                <AppLaunchModal />
                                 <PopunderAd />
                                 <SocialBarAd />
                                 <AntiAdBlockGate />

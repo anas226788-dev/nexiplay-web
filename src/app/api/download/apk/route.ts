@@ -6,15 +6,29 @@ export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
     try {
-
+        // Try to get from app_update, fallback to web_launch_modal
         const { data: config } = await supabase
             .from('app_config')
-            .select('apk_url, version_name')
+            .select('apk_url, latest_version_name')
+            .eq('id', 'app_update')
             .limit(1)
             .single();
 
-        const apkUrl = config?.apk_url || '';
-        const versionName = config?.version_name || 'latest';
+        let apkUrl = config?.apk_url || '';
+        let versionName = config?.latest_version_name || '1.0.0';
+
+        if (!apkUrl) {
+            const { data: webConfig } = await supabase
+                .from('app_config')
+                .select('apk_url, latest_version_name')
+                .eq('id', 'web_launch_modal')
+                .limit(1)
+                .single();
+            if (webConfig?.apk_url) {
+                apkUrl = webConfig.apk_url;
+                versionName = webConfig.latest_version_name || versionName;
+            }
+        }
 
         if (!apkUrl) {
             return NextResponse.json({ error: 'No APK configured in app_config' }, { status: 404 });
