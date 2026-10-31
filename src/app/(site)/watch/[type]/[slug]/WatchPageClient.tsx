@@ -203,7 +203,7 @@ function ServerSvgIcon({ id, isHindi, className = "w-4 h-4" }: { id: string; isH
     }
 
     // Cloud Stream / Direct CDN / Server Stack
-    if (['vidvault_stream', 'custom'].includes(cleanId) || cleanId.startsWith('multi_')) {
+    if (['upcloud', 'vidvault_stream', 'custom'].includes(cleanId) || cleanId.startsWith('multi_')) {
         return (
             <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <rect width="20" height="7" x="2" y="3" rx="2" />
@@ -524,6 +524,19 @@ const BUILT_IN_SERVERS: Server[] = [
             return s !== undefined && e !== undefined
                 ? `https://vidsrc.pm/embed/tv/${targetId}/${s}/${e}`
                 : `https://vidsrc.pm/embed/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'upcloud',
+        name: 'UpCloud (1080p Fast)',
+        icon: 'server',
+        badge: '1080P FAST',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://vidup.to/tv/${targetId}/${s}/${e}`
+                : `https://vidup.to/movie/${targetId}`;
         }
     },
     {
