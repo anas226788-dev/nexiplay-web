@@ -527,6 +527,19 @@ const BUILT_IN_SERVERS: Server[] = [
         }
     },
     {
+        id: 'vixsrc',
+        name: 'VixSrc (FlixBay)',
+        icon: 'server',
+        badge: '1080P FHD',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://vixsrc.to/tv/${targetId}/${s}/${e}`
+                : `https://vixsrc.to/movie/${targetId}`;
+        }
+    },
+    {
         id: 'vidplay',
         name: 'VidPlay (YTHD)',
         icon: 'server',
@@ -2835,7 +2848,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                                         scrolling="no"
                                         sandbox={playerAdBlocker && !isAntiSandboxUrl(resolvedUrl, activeServerId) ? AD_BLOCK_SANDBOX : undefined}
                                         {...FULLSCREEN_IFRAME_ATTRS}
-                                        referrerPolicy={isYouTubeActive || resolvedUrl.startsWith('/') || resolvedUrl.includes('/embed/') ? 'origin-when-cross-origin' : 'no-referrer'}
+                                        referrerPolicy={isYouTubeActive || resolvedUrl.startsWith('/') || resolvedUrl.includes('/embed/') || resolvedUrl.includes('vixsrc.to') ? 'origin-when-cross-origin' : 'no-referrer'}
                                         onError={() => handleNextServer(activeServerId)}
                                     />
                                 )
