@@ -504,23 +504,23 @@ export default function AccountPage() {
 
         setUploadingAvatar(true);
         try {
-            const apiKey = process.env.NEXT_PUBLIC_IMGBB_API_KEY;
-            if (!apiKey) {
-                throw new Error('Image upload API key is not configured.');
-            }
-            const formData = new FormData();
-            formData.append('image', file);
+            // Upload directly to Supabase Storage ('posters' bucket) — zero bans, unblocked in BD, instant CDN
+            const fileExt = file.name.split('.').pop() || 'jpg';
+            const fileName = `avatars/${user.id}_${Date.now()}.${fileExt}`;
 
-            const res = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
-                method: 'POST',
-                body: formData,
-            });
-            const data = await res.json();
-            if (!res.ok || !data.data?.url) {
-                throw new Error(data.error?.message || 'Failed to upload photo to ImgBB.');
+            const { error: uploadErr } = await supabase.storage
+                .from('posters')
+                .upload(fileName, file, { upsert: true });
+
+            if (uploadErr) {
+                throw new Error(uploadErr.message || 'Failed to upload photo to storage.');
             }
 
-            const uploadedUrl = data.data.url;
+            const { data: publicData } = supabase.storage
+                .from('posters')
+                .getPublicUrl(fileName);
+
+            const uploadedUrl = publicData.publicUrl;
             await supabase.auth.updateUser({ data: { avatar_url: uploadedUrl } });
             await supabase
                 .from('profiles')
