@@ -527,6 +527,32 @@ const BUILT_IN_SERVERS: Server[] = [
         }
     },
     {
+        id: 'primesrc',
+        name: 'PrimeSrc (MyFlixer)',
+        icon: 'zap',
+        badge: '1080P FAST',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://primesrc.me/embed/tv?tmdb=${targetId}&season=${s}&episode=${e}`
+                : `https://primesrc.me/embed/movie?tmdb=${targetId}`;
+        }
+    },
+    {
+        id: 'vidspark',
+        name: 'VidSpark (MegaCloud)',
+        icon: 'server',
+        badge: 'MEGA 1080P',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://vidspark.to/tv/${targetId}/${s}/${e}`
+                : `https://vidspark.to/movie/${targetId}`;
+        }
+    },
+    {
         id: 'vidstuck',
         name: 'VidStuck (Freekz)',
         icon: 'server',
