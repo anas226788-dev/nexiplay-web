@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { searchTmdb, normalizeTitle, getExistingDatabaseCatalog } from '@/lib/tmdb';
+import { searchTmdb, normalizeTitle, getExistingDatabaseCatalog, fetchTmdbByImdbId, fetchTmdbDetails, tmdbDetailToMovie } from '@/lib/tmdb';
 import { Movie } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -15,6 +15,29 @@ export async function GET(request: NextRequest) {
     }
 
     try {
+        // Direct IMDB ID lookup
+        let imdbMatch: any = null;
+        if (/^tt\d+$/i.test(query)) {
+            try {
+                const resolved = await fetchTmdbByImdbId(query);
+                if (resolved) {
+                    const details = await fetchTmdbDetails(resolved.tmdbId, resolved.media);
+                    if (details) {
+                        const m = tmdbDetailToMovie(details, resolved.media).movie;
+                        imdbMatch = {
+                            id: m.id,
+                            title: m.title,
+                            slug: m.slug,
+                            type: m.type,
+                            poster_url: m.poster_url,
+                            release_year: m.release_year,
+                            is_adult: m.is_adult || false
+                        };
+                    }
+                }
+            } catch {}
+        }
+
         // Run Local DB search and TMDB live 10M+ search concurrently
         const [localRes, dbCatalog, tmdbResults] = await Promise.all([
             supabase
@@ -51,8 +74,9 @@ export async function GET(request: NextRequest) {
             return true;
         });
 
-        // Combine: local DB movies first, followed by TMDB live universe results (top 8 total)
+        // Combine: IMDB direct match + local DB movies first, followed by TMDB live universe results (top 8 total)
         const combined = [
+            ...(imdbMatch ? [imdbMatch] : []),
             ...localMatches,
             ...freshTmdbResults.map(m => ({
                 id: m.id,

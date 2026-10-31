@@ -5,7 +5,7 @@ import SearchBar from '@/components/SearchBar';
 import MovieCard from '@/components/MovieCard';
 import Link from 'next/link';
 import { buildPageMetadata } from '@/lib/metadata';
-import { searchTmdb, normalizeTitle, getExistingDatabaseCatalog } from '@/lib/tmdb';
+import { searchTmdb, normalizeTitle, getExistingDatabaseCatalog, fetchTmdbByImdbId, fetchTmdbDetails, tmdbDetailToMovie } from '@/lib/tmdb';
 
 interface SearchPageProps {
     searchParams: Promise<{ q?: string }>;
@@ -16,6 +16,18 @@ async function hybridSearch(query: string): Promise<Movie[]> {
     if (!cleanQuery || cleanQuery.length < 2) return [];
 
     try {
+        // Direct IMDB ID lookup (e.g. tt45368240)
+        let imdbMatch: Movie | null = null;
+        if (/^tt\d+$/i.test(cleanQuery)) {
+            const resolved = await fetchTmdbByImdbId(cleanQuery);
+            if (resolved) {
+                const details = await fetchTmdbDetails(resolved.tmdbId, resolved.media);
+                if (details) {
+                    imdbMatch = tmdbDetailToMovie(details, resolved.media).movie;
+                }
+            }
+        }
+
         // 1. Search local Supabase database first and fetch catalog index for deduplication
         const [localRes, dbCatalog, tmdbResults] = await Promise.all([
             supabase
@@ -56,8 +68,11 @@ async function hybridSearch(query: string): Promise<Movie[]> {
             return true;
         });
 
-        // 3. Combine: Local DB custom movies first, followed by TMDB on-demand results
-        return [...localMatches, ...freshTmdbResults];
+        const initialList: Movie[] = [];
+        if (imdbMatch) initialList.push(imdbMatch);
+
+        // 3. Combine: IMDB match + Local DB custom movies first, followed by TMDB on-demand results
+        return [...initialList, ...localMatches, ...freshTmdbResults];
     } catch (err) {
         console.error('[Search Page] Hybrid search error:', err);
         return [];

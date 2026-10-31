@@ -527,6 +527,19 @@ const BUILT_IN_SERVERS: Server[] = [
         }
     },
     {
+        id: 'vidplay',
+        name: 'VidPlay (YTHD)',
+        icon: 'server',
+        badge: '1080P STABLE',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = imdb || tmdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://ythd.org/embed/${targetId}/${s}-${e}/color-000000`
+                : `https://ythd.org/embed/${targetId}`;
+        }
+    },
+    {
         id: 'vidfast',
         name: 'VidFast',
         icon: 'zap',
