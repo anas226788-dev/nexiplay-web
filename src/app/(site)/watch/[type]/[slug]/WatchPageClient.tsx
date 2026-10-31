@@ -240,6 +240,45 @@ function ServerSvgIcon({ id, isHindi, className = "w-4 h-4" }: { id: string; isH
 
 const BUILT_IN_SERVERS: Server[] = [
     {
+        id: 'onlyflix_fast',
+        name: 'Nexi Flix (Fast HD)',
+        icon: 'sparkle',
+        badge: 'FLIX FAST',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = imdb || tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://vidfast.vc/tv/${targetId}/${s}/${e}`
+                : `https://vidfast.vc/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'onlyflix_soap',
+        name: 'Nexi Soap (Global)',
+        icon: 'film',
+        badge: 'SOAP HD',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = imdb || tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://sv2.nontongo.stream/soap/tv/${targetId}/${s}/${e}`
+                : `https://sv2.nontongo.stream/soap/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'onlyflix_balance',
+        name: 'Nexi Prime (Balance)',
+        icon: 'sparkle',
+        badge: 'PRIME 1080P',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || (!id?.startsWith('tt') ? id : null);
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://balance.medmedia03.wiki/embed/tv/${targetId}/${s}/${e}`
+                : `https://balance.medmedia03.wiki/embed/movie/${targetId}`;
+        }
+    },
+    {
         id: 'ultra_4k',
         name: 'Nexi 4K (Ultra)',
         icon: 'sparkle',
