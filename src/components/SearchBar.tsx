@@ -45,16 +45,17 @@ export default function SearchBar({ className = '' }: SearchBarProps) {
             }
 
             setIsLoading(true);
-            const { data, error } = await supabase
-                .from('movies')
-                .select('id, title, slug, type, poster_url, release_year, is_adult')
-                .ilike('title', `%${query}%`)
-                .limit(8);
-
-            if (!error && data) {
-                setResults(data);
+            try {
+                const res = await fetch(`/api/search?q=${encodeURIComponent(query.trim())}`);
+                if (res.ok) {
+                    const json = await res.json();
+                    setResults(json.results || []);
+                }
+            } catch (err) {
+                console.warn('Search autocomplete error:', err);
+            } finally {
+                setIsLoading(false);
             }
-            setIsLoading(false);
         }, 300);
 
         return () => clearTimeout(timer);
