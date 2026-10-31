@@ -292,33 +292,44 @@ export default function Chatbot() {
     };
 
     // --- Fallback Request Card when title not in catalog ---
-    const renderFallbackRequestCard = (title: string) => {
-        const isReq = requestedIds[title];
+    const renderFallbackRequestCard = (title: string, autoRequested = false) => {
+        const isReq = requestedIds[title] || autoRequested;
         const isReqing = requestingIds[title];
 
         return (
-            <div className="mt-3 p-3 bg-white/5 border border-white/10 rounded-xl flex flex-col gap-2">
-                <div className="flex items-center gap-2 text-xs text-yellow-400">
-                    <span>🔍</span>
-                    <span className="font-medium truncate">Can&apos;t find &ldquo;{title}&rdquo;?</span>
+            <div className={`mt-3 p-3 rounded-xl border flex flex-col gap-2 ${isReq ? 'bg-emerald-500/10 border-emerald-500/30 shadow-[0_4px_16px_rgba(16,185,129,0.08)]' : 'bg-white/5 border-white/10'}`}>
+                <div className="flex items-center gap-2 text-xs font-bold">
+                    <span>{isReq ? '🚀' : '🔍'}</span>
+                    <span className={isReq ? 'text-emerald-400 truncate' : 'text-yellow-400 truncate'}>
+                        {isReq ? `Auto-Requested to Admin: "${title}"` : `Can't find "${title}"?`}
+                    </span>
+                    {isReq && (
+                        <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded font-mono ml-auto">
+                            ✓ IN QUEUE
+                        </span>
+                    )}
                 </div>
-                <p className="text-[11px] text-gray-400">
-                    You can request this title directly to our admin team. Once added, it will be uploaded!
+                <p className="text-[11px] text-gray-300">
+                    {isReq
+                        ? 'আপনার রিকোয়েস্টটি অ্যাডমিন সিস্টেমে স্বয়ংক্রিয়ভাবে জমা (Auto-Submit) করা হয়েছে। আমাদের পাইপলাইন এটি খুব শীঘ্রই সাইটে যুক্ত করে দেবে!'
+                        : 'You can request this title directly to our admin team. Once added, it will be uploaded!'}
                 </p>
-                <button
-                    type="button"
-                    disabled={isReq || isReqing}
-                    onClick={() => handleRequestContent({ title, type: 'movie' })}
-                    className={`mt-1 inline-flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-bold rounded-lg transition-all ${
-                        isReq
-                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                            : isReqing
-                            ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 opacity-70'
-                            : 'bg-gradient-to-r from-[#9273F5] to-[#5C46B2] text-white hover:opacity-95 active:scale-98 shadow-md'
-                    }`}
-                >
-                    {isReq ? '✅ Requested to Admin' : isReqing ? '⏳ Submitting Request...' : `📥 Request "${title}" to Admin`}
-                </button>
+                {!isReq && (
+                    <button
+                        type="button"
+                        disabled={isReq || isReqing}
+                        onClick={() => handleRequestContent({ title, type: 'movie' })}
+                        className={`mt-1 inline-flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-bold rounded-lg transition-all ${
+                            isReq
+                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                : isReqing
+                                ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 opacity-70'
+                                : 'bg-gradient-to-r from-[#9273F5] to-[#5C46B2] text-white hover:opacity-95 active:scale-98 shadow-md'
+                        }`}
+                    >
+                        {isReq ? '✅ Requested to Admin' : isReqing ? '⏳ Submitting Request...' : `📥 Request "${title}" to Admin`}
+                    </button>
+                )}
             </div>
         );
     };
@@ -498,12 +509,20 @@ export default function Chatbot() {
         intent?: string;
         found?: boolean;
         search_title?: string;
+        auto_requested?: boolean;
+        requested_title?: string;
         visual_options?: VisualOption[];
         results?: ContentResult[];
         requestSubmitted?: boolean;
         error?: string;
         agent?: string;
     }) => {
+        if (data.auto_requested) {
+            const reqKey = data.requested_title || data.search_title;
+            if (reqKey) {
+                setRequestedIds(prev => ({ ...prev, [reqKey]: true }));
+            }
+        }
         if (data.error) {
             setMessages(prev => [...prev, {
                 text: data.error, isBot: true, role: 'assistant', plainText: data.error
@@ -536,7 +555,7 @@ export default function Chatbot() {
                 text: (
                     <div>
                         {data.reply && <p className="whitespace-pre-line">{data.reply}</p>}
-                        {renderFallbackRequestCard(searchTitle)}
+                        {renderFallbackRequestCard(searchTitle, Boolean(data.auto_requested))}
                         {renderContactFallback()}
                     </div>
                 ),

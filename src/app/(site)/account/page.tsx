@@ -504,23 +504,22 @@ export default function AccountPage() {
 
         setUploadingAvatar(true);
         try {
-            // Upload directly to Supabase Storage ('posters' bucket) — zero bans, unblocked in BD, instant CDN
-            const fileExt = file.name.split('.').pop() || 'jpg';
-            const fileName = `avatars/${user.id}_${Date.now()}.${fileExt}`;
+            // Upload to completely free third-party image host (Catbox / Freeimage)
+            // Preserves 100% of Supabase free tier storage quota (0 KB used in Supabase Storage)
+            const formData = new FormData();
+            formData.append('file', file);
 
-            const { error: uploadErr } = await supabase.storage
-                .from('posters')
-                .upload(fileName, file, { upsert: true });
+            const uploadRes = await fetch('/api/upload-avatar', {
+                method: 'POST',
+                body: formData
+            });
 
-            if (uploadErr) {
-                throw new Error(uploadErr.message || 'Failed to upload photo to storage.');
+            const uploadJson = await uploadRes.json();
+            if (!uploadRes.ok || !uploadJson.url) {
+                throw new Error(uploadJson.error || 'Failed to upload photo to image hosting.');
             }
 
-            const { data: publicData } = supabase.storage
-                .from('posters')
-                .getPublicUrl(fileName);
-
-            const uploadedUrl = publicData.publicUrl;
+            const uploadedUrl = uploadJson.url;
             await supabase.auth.updateUser({ data: { avatar_url: uploadedUrl } });
             await supabase
                 .from('profiles')

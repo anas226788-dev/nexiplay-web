@@ -691,33 +691,56 @@ export async function POST(request: NextRequest) {
         const isBangla = /[\u0980-\u09FF]/.test(userMessage) || /\b(kemon|acho|ki|khobor|ase|naki|kivabe|korbo|bhai|apu|valo|chai|dekhte|hobe|dorkar|daw|dekhbo)\b/i.test(userMessage);
 
         let reply = '';
+        let autoRequested = false;
+        let requestedTitle = '';
+
         const availableOptions = visualOptions.filter(o => o.available);
 
-        if (visualOptions.length > 1) {
-            reply = isBangla
-                ? `আমি "${searchTitle}" সম্পর্কিত নিচের কনটেন্টগুলো খুঁজে পেয়েছি। আপনি ঠিক কোনটি দেখতে বা ডাউনলোড করতে চান? বেছে নিন:`
-                : `I found multiple matching titles for "${searchTitle}"! Which one are you looking for? Tap on your pick below:`;
-        } else if (visualOptions.length === 1) {
-            const single = visualOptions[0];
-            if (single.available) {
+        if (availableOptions.length > 0) {
+            if (visualOptions.length > 1) {
+                reply = isBangla
+                    ? `আমি "${searchTitle}" সম্পর্কিত নিচের কনটেন্টগুলো খুঁজে পেয়েছি। আপনি ঠিক কোনটি দেখতে বা ডাউনলোড করতে চান? বেছে নিন:`
+                    : `I found multiple matching titles for "${searchTitle}"! Which one are you looking for? Tap on your pick below:`;
+            } else {
+                const single = visualOptions[0];
                 reply = isBangla
                     ? `হ্যাঁ! "${single.title}" আমাদের Nexiplay-তে দেখার ও ডাউনলোড করার জন্য প্রস্তুত আছে! নিচের কার্ডে ক্লিক করে সরাসরি উপভোগ করুন:`
                     : `Yes! "${single.title}" is available to watch and download on Nexiplay! Click below to start:`;
-            } else {
-                reply = isBangla
-                    ? `"${single.title}" এখনো আমাদের সাইটে যুক্ত করা হয়নি। আপনি চাইলে নিচের বাটনে ক্লিক করে অ্যাডমিনকে রিকোয়েস্ট পাঠাতে পারেন!`
-                    : `"${single.title}" is not available on Nexiplay yet. You can click the request button below to notify our admin team!`;
             }
         } else {
-            reply = isBangla
-                ? `দুঃখিত, "${searchTitle}" এই মুহূর্তে খুঁজে পাওয়া যায়নি। আপনি কি নামের বানানটি সঠিক লিখেছেন? চাইলে নিচের বাটনে ক্লিক করে অ্যাডমিনকে নতুন রিকোয়েস্ট পাঠাতে পারেন!`
-                : `Sorry, I couldn't find "${searchTitle}" in our current catalog. Please check the spelling, or submit a request to our admin team below!`;
+            // Content is not available locally -> AUTOMATICALLY SUBMIT REQUEST to admin!
+            autoRequested = true;
+            requestedTitle = visualOptions.length > 0 ? visualOptions[0].title : searchTitle;
+
+            const opt = visualOptions.length > 0 ? visualOptions[0] : null;
+            await submitContentRequest({
+                title: requestedTitle,
+                type: opt?.type || 'movie',
+                release_year: opt?.release_year || null,
+                tmdb_id: opt?.tmdb_id || null,
+                poster_url: opt?.poster_url || null,
+                user_id,
+                user_name,
+                user_email
+            });
+
+            if (visualOptions.length > 0) {
+                reply = isBangla
+                    ? `"${requestedTitle}" এখনো আমাদের সাইটে আপলোড করা হয়নি, তবে আমি সরাসরি অ্যাডমিন সিস্টেমে আপনার রিকোয়েস্টটি স্বয়ংক্রিয়ভাবে জমা (Auto-Submit) করে দিয়েছি 🚀! আমাদের অটোমেটেড স্ক্র্যাপার পাইপলাইন এটি খুব দ্রুত যুক্ত করে দেবে।`
+                    : `"${requestedTitle}" is not uploaded yet, but I have automatically submitted your request to the admin queue 🚀! Our automated pipeline will add it shortly.`;
+            } else {
+                reply = isBangla
+                    ? `দুঃখিত, "${searchTitle}" এই মুহূর্তে খুঁজে পাওয়া যায়নি, তাই আমি সরাসরি আপনার রিকোয়েস্টটি অ্যাডমিন সিস্টেমে স্বয়ংক্রিয়ভাবে পাঠিয়ে দিয়েছি 🚀! আমাদের অটোমেটেড সিস্টেম এটি খুব দ্রুত যুক্ত করে দেবে।`
+                    : `Sorry, I couldn't find "${searchTitle}" in our current catalog, so I have automatically submitted your request to our admin queue 🚀! We'll have it added shortly.`;
+            }
         }
 
         return new Response(JSON.stringify({
             reply,
             intent: 'search',
             search_title: searchTitle,
+            auto_requested: autoRequested,
+            requested_title: requestedTitle,
             found: visualOptions.length > 0,
             visual_options: visualOptions,
             agent: 'nexi-finder'

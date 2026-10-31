@@ -7,10 +7,11 @@ import { Movie } from './types';
  * 1. Newly uploaded content from the database appears right at the top (row 1)
  *    even if it's not pinned by the admin.
  * 2. Pinned content is prominently highlighted with Gorgeous badges,
- *    but never chokes/monopolizes all 6 slots of the first row.
- * 3. Pinned and regular items are shuffled / rotated dynamically so every
- *    visit feels fresh and alive rather than frozen in a static order.
- * 4. TMDB items are only used as supplemental filler when local DB content is exhausted.
+ *    cycling dynamically so the same cards don't stay in the exact same positions.
+ * 3. Daily fresh TMDB / IMDb releases are interleaved directly into designated slots
+ *    (e.g., slots 2, 7, 13, 19) so the website automatically features today's newest
+ *    global releases with instant embed streaming.
+ * 4. Local DB content and TMDB content coexist seamlessly.
  */
 
 interface InterleaveOptions {
@@ -19,6 +20,7 @@ interface InterleaveOptions {
     fallback?: Movie[];
     limit?: number;
     pinnedSlots?: number[];
+    freshSlots?: number[];
 }
 
 /**
@@ -34,28 +36,16 @@ export function shuffleArray<T>(array: T[]): T[] {
 }
 
 /**
- * Interleaves pinned and newest regular database content for grid display.
- * 
- * Pinned slots: 0, 3, 7, 10, 13, 16...
- * Regular slots: 1, 2, 4, 5, 6, 8, 9, 11, 12, 14, 15...
- * 
- * Notice:
- * Row 1 (indices 0..5) gets:
- * - Slot 0: Pinned #1 (Featured/Gorgeous)
- * - Slot 1: Newest DB Upload #1 (Fresh from DB - New/Trending)
- * - Slot 2: Newest DB Upload #2 (Fresh from DB - New/Trending)
- * - Slot 3: Pinned #2 (Featured/Gorgeous)
- * - Slot 4: Newest DB Upload #3 (Fresh from DB - New/Trending)
- * - Slot 5: Newest DB Upload #4 (Fresh from DB - New/Trending)
+ * Interleaves pinned, newest regular database content, and daily TMDB trending releases.
  */
 export function interleaveLatestContent({
     pinned,
     regular,
     fallback = [],
     limit = 24,
-    pinnedSlots = [0, 3, 7, 10, 13, 16]
+    pinnedSlots = [0, 4, 10, 16],
+    freshSlots = [2, 7, 13, 19]
 }: InterleaveOptions): Movie[] {
-    // 1. Shuffle pinned items so different items cycle into the featured spots
     const shuffledPinned = shuffleArray(pinned);
     
     const result: Movie[] = [];
@@ -66,9 +56,10 @@ export function interleaveLatestContent({
     let fallbackIdx = 0;
 
     const pinnedSlotSet = new Set(pinnedSlots);
+    const freshSlotSet = new Set(freshSlots);
 
     for (let slot = 0; slot < limit; slot++) {
-        // Check if this slot should showcase a pinned/featured item
+        // 1. Featured / Pinned Slot
         if (pinnedSlotSet.has(slot) && pinIdx < shuffledPinned.length) {
             const item = shuffledPinned[pinIdx++];
             if (!usedIds.has(item.id)) {
@@ -78,7 +69,20 @@ export function interleaveLatestContent({
             }
         }
 
-        // Fill with next newest regular local upload
+        // 2. Fresh Daily TMDB / IMDb Trending Slot (Live streamable via embeds!)
+        if (freshSlotSet.has(slot) && fallbackIdx < fallback.length) {
+            const item = fallback[fallbackIdx++];
+            if (!usedIds.has(item.id)) {
+                usedIds.add(item.id);
+                result.push({
+                    ...item,
+                    trending_badge: true
+                });
+                continue;
+            }
+        }
+
+        // 3. Next newest regular local upload
         if (regIdx < regular.length) {
             const item = regular[regIdx++];
             if (!usedIds.has(item.id)) {
@@ -88,7 +92,7 @@ export function interleaveLatestContent({
             }
         }
 
-        // If pinned items remain and regular items ran out, use remaining pinned
+        // 4. If pinned items remain and regular items ran out, use remaining pinned
         if (pinIdx < shuffledPinned.length) {
             const item = shuffledPinned[pinIdx++];
             if (!usedIds.has(item.id)) {
@@ -98,7 +102,7 @@ export function interleaveLatestContent({
             }
         }
 
-        // Fill remaining slots with fallback items (e.g. TMDB trending)
+        // 5. Fill remaining slots with fallback items (e.g. TMDB trending)
         if (fallbackIdx < fallback.length) {
             const item = fallback[fallbackIdx++];
             if (!usedIds.has(item.id)) {
