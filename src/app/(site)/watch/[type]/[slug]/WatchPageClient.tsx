@@ -527,6 +527,19 @@ const BUILT_IN_SERVERS: Server[] = [
         }
     },
     {
+        id: 'vidnest',
+        name: 'VidNest (Ad-Free)',
+        icon: 'zap',
+        badge: 'AD-FREE 1080P',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://vidnest.fun/tv/${targetId}/${s}/${e}`
+                : `https://vidnest.fun/movie/${targetId}`;
+        }
+    },
+    {
         id: 'primesrc',
         name: 'PrimeSrc (MyFlixer)',
         icon: 'zap',
