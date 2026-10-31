@@ -95,3 +95,4 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: err.message || 'Server error uploading avatar.' }, { status: 500 });
     }
 }
+
