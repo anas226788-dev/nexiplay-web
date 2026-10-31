@@ -217,7 +217,7 @@ function ServerSvgIcon({ id, isHindi, className = "w-4 h-4" }: { id: string; isH
     }
 
     // 4K Ultra HD Sparkle
-    if (cleanId === 'vidrock' || cleanId === 'ultra_4k' || cleanId === 'cinebros' || cleanId === 'nexi_frame' || cleanId === 'nexi_joy' || cleanId === 'cinesrc' || cleanId === 'cineruv' || cleanId === 'vexo' || cleanId === 'atlantic' || cleanId === 'vidbolt' || cleanId === 'nexi_velvet' || cleanId === 'nexi_flow' || cleanId === 'nexi_core' || cleanId === 'nexi_nerds') {
+    if (cleanId === 'flixer' || cleanId === 'vidrock' || cleanId === 'ultra_4k' || cleanId === 'cinebros' || cleanId === 'nexi_frame' || cleanId === 'nexi_joy' || cleanId === 'cinesrc' || cleanId === 'cineruv' || cleanId === 'vexo' || cleanId === 'atlantic' || cleanId === 'vidbolt' || cleanId === 'nexi_velvet' || cleanId === 'nexi_flow' || cleanId === 'nexi_core' || cleanId === 'nexi_nerds') {
         return (
             <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M4.93 19.07l14.14-14.14" />
@@ -524,6 +524,19 @@ const BUILT_IN_SERVERS: Server[] = [
             return s !== undefined && e !== undefined
                 ? `https://vidsrc.pm/embed/tv/${targetId}/${s}/${e}`
                 : `https://vidsrc.pm/embed/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'flixer',
+        name: 'Flixer (Mythology HLS)',
+        icon: 'sparkle',
+        badge: '1080P HLS',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || (!id?.startsWith('tt') ? id : null) || imdb;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://flixer.gd/watch/tv/${targetId}/${s}/${e}?embed=1`
+                : `https://flixer.gd/watch/movie/${targetId}?embed=1`;
         }
     },
     {
