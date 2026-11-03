@@ -1,6 +1,9 @@
 -- =================================================================
--- DEVELOPMENT MODE: Allow public write access for Admin testing
--- Run this to fix "violates row-level security policy" errors
+-- DEPRECATED / INSECURE DEVELOPMENT ONLY SCRIPT
+-- WARNING: NEVER RUN THIS SCRIPT IN A PRODUCTION ENVIRONMENT!
+-- Running this script grants complete public write/delete permissions
+-- to anyone holding the client-side anonymous key.
+-- For production security, use: 20261103_production_security_lockdown.sql
 -- =================================================================
 
 -- 1. Movies Policies

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { isAllowedStreamingUrl } from '@/lib/ssrfValidator';
 
 export const runtime = 'edge';
 
@@ -9,6 +10,10 @@ export async function GET(request: NextRequest) {
 
     if (!targetUrl) {
         return new NextResponse('Missing url parameter', { status: 400 });
+    }
+
+    if (!isAllowedStreamingUrl(targetUrl)) {
+        return new NextResponse('Forbidden: Invalid or unauthorized streaming URL', { status: 403 });
     }
 
     // If external Cloudflare Worker proxy is configured, offload 100% traffic away from Vercel

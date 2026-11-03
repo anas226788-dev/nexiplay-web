@@ -7,3 +7,6 @@ node_modules
 *.log
 .DS_Store
 tsconfig.tsbuildinfo
+data/stream_api_control.json
+data/*.json
+

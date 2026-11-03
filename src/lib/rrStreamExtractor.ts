@@ -27,9 +27,69 @@ async function getPlayerJs(): Promise<string> {
     return cachedPlayerJs || '';
 }
 
+function pickBestZipperFromHtml(chunk: string): string | null {
+    const linkRegex = /<a\b[^>]*href=["'](https?:\/\/[^"']*zipper\/[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi;
+    const links: { href: string; label: string }[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = linkRegex.exec(chunk)) !== null) {
+        const href = m[1].replace(/&amp;/g, '&').replace(/&#038;/g, '&').trim();
+        const label = m[2].replace(/<[^>]+>/g, '').trim().toLowerCase();
+        if (href) links.push({ href, label });
+    }
+    if (links.length === 0) return null;
+    return (
+        links.find(l => l.label.includes('watchmultiquality'))?.href ||
+        links.find(l => l.label.includes('watchnow') || l.label.includes('watch') || l.label.includes('stream') || l.label.includes('player') || l.label.includes('online'))?.href ||
+        links.find(l => !/hubcloud|mega|dlbeta|gdrive|drive|japanese|hepburn/.test(l.label))?.href ||
+        null
+    );
+}
+
+function decodeJuicyCodesConfig(embedHtml: string): string | null {
+    try {
+        const jcMatch = embedHtml.match(/_juicycodes\(([\s\S]*?)\)/);
+        if (!jcMatch) return null;
+        const rawArg = jcMatch[1].replace(/["'\s+]/g, '');
+        if (rawArg.length <= 3) return null;
+
+        const bodyPart = rawArg.slice(0, -3);
+        const saltPart = rawArg.slice(-3);
+        let saltStr = '';
+        for (const ch of saltPart) {
+            saltStr += (ch.charCodeAt(0) - 100).toString();
+        }
+        const salt = parseInt(saltStr, 10);
+        if (Number.isNaN(salt)) return null;
+
+        const b64 = bodyPart.replace(/_/g, '+').replace(/-/g, '/');
+        const decodedB64 = Buffer.from(b64, 'base64').toString('binary');
+        const rot13 = decodedB64.replace(/[a-zA-Z]/g, (c) => {
+            const base = c <= 'Z' ? 65 : 97;
+            return String.fromCharCode(((c.charCodeAt(0) - base + 13) % 26) + base);
+        });
+
+        const symbols = ['`', '%', '-', '+', '*', '$', '!', '_', '^', '='];
+        let digits = '';
+        for (const ch of rot13) {
+            const idx = symbols.indexOf(ch);
+            if (idx >= 0) digits += idx.toString();
+        }
+
+        let out = '';
+        for (let i = 0; i + 4 <= digits.length; i += 4) {
+            const chunk = parseInt(digits.slice(i, i + 4), 10);
+            out += String.fromCharCode((chunk % 1000) - salt);
+        }
+        return out || null;
+    } catch {
+        return null;
+    }
+}
+
 export interface ExtractedRRStream {
     success: boolean;
     m3u8Url?: string;
+    embedUrl?: string;
     cookies?: string;
     title?: string;
 }
@@ -41,7 +101,7 @@ export interface ExtractedRRStream {
  * 3. An argon razorshell embed URL (e.g. https://argon.razorshell.space/embed/...)
  * 4. A direct .m3u8 playlist URL
  */
-export async function extractRRStream(rawUrl: string, epNum: number = 1): Promise<ExtractedRRStream> {
+export async function extractRRStream(rawUrl: string, epNum: number = 1, seasonNum: number = 1): Promise<ExtractedRRStream> {
     if (!rawUrl) {
         return { success: false };
     }
@@ -50,18 +110,18 @@ export async function extractRRStream(rawUrl: string, epNum: number = 1): Promis
 
     // 0. If it's already an m3u8 or mp4
     if (cleanUrl.includes('.m3u8') || cleanUrl.includes('.mp4')) {
-        return { success: true, m3u8Url: cleanUrl };
+        return { success: true, m3u8Url: cleanUrl, embedUrl: cleanUrl };
     }
 
     try {
         let currentTarget = cleanUrl;
 
         // 1. If it's a rareanimes blog post, find the episode zipper link
-        if (currentTarget.includes('rareanimes.') || (!currentTarget.includes('codedew.com/zipper') && !currentTarget.includes('razorshell.space'))) {
+        if (currentTarget.includes('rareanimes.') || currentTarget.includes('raretoons.') || (!currentTarget.includes('codedew.com/zipper') && !currentTarget.includes('razorshell.space'))) {
             try {
                 const postRes = await fetch(currentTarget, {
                     headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
                         'Referer': 'https://rareanimes.net/'
                     }
                 });
@@ -70,24 +130,31 @@ export async function extractRRStream(rawUrl: string, epNum: number = 1): Promis
                     const postHtml = await postRes.text();
                     const epNumStr = String(epNum);
                     const padded = epNumStr.padStart(2, '0');
-                    const epRegex = new RegExp(`(?:Episode|Ep\\.?)\\s*(?:0*${epNumStr}|${padded})\\b`, 'i');
-                    const epMatch = epRegex.exec(postHtml);
+                    const epHeaderRegex = new RegExp(`(?:Episode|Ep\\.?)\\s*(?:0*${epNumStr}|${padded})\\b`, 'gi');
+                    let matchedZipper: string | null = null;
+                    let em: RegExpExecArray | null;
+                    while ((em = epHeaderRegex.exec(postHtml)) !== null) {
+                        const subHtml = postHtml.substring(em.index, Math.min(postHtml.length, em.index + 3000));
+                        const picked = pickBestZipperFromHtml(subHtml);
+                        if (picked) {
+                            matchedZipper = picked;
+                            break;
+                        }
+                    }
 
-                    if (epMatch) {
-                        const subHtml = postHtml.substring(epMatch.index, epMatch.index + 3500);
-                        const zipMatch = subHtml.match(/href=["'](https?:\/\/[^"']*codedew\.com\/zipper\/[^"']*)["']/i)
-                                      || subHtml.match(/href=["'](https?:\/\/[^"']*zipper\/[^"']*)["']/i);
-                        if (zipMatch) {
-                            currentTarget = zipMatch[1].replace(/&amp;/g, '&');
+                    if (!matchedZipper) {
+                        matchedZipper = pickBestZipperFromHtml(postHtml);
+                    }
+
+                    if (!matchedZipper) {
+                        const firstZip = postHtml.match(/href=["'](https?:\/\/[^"']*codedew\.com\/zipper\/[^"']*)["']/i);
+                        if (firstZip) {
+                            matchedZipper = firstZip[1].replace(/&amp;/g, '&');
                         }
-                    } else {
-                        // Fallback: look for first zipper link on page if ep 1
-                        if (epNum === 1) {
-                            const firstZip = postHtml.match(/href=["'](https?:\/\/[^"']*codedew\.com\/zipper\/[^"']*)["']/i);
-                            if (firstZip) {
-                                currentTarget = firstZip[1].replace(/&amp;/g, '&');
-                            }
-                        }
+                    }
+
+                    if (matchedZipper) {
+                        currentTarget = matchedZipper;
                     }
                 }
             } catch (err: any) {
@@ -100,7 +167,7 @@ export async function extractRRStream(rawUrl: string, epNum: number = 1): Promis
         if (currentTarget.includes('codedew.com/zipper') || currentTarget.includes('/zipper/')) {
             const zipperRes = await fetch(currentTarget, {
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
                     'Referer': 'https://rareanimes.net/'
                 }
             });
@@ -108,8 +175,37 @@ export async function extractRRStream(rawUrl: string, epNum: number = 1): Promis
             if (zipperRes.ok) {
                 const zipperHtml = await zipperRes.text();
                 const iframeMatch = zipperHtml.match(/<iframe[^>]+src=["']([^"']+)["']/i);
-                if (iframeMatch && iframeMatch[1]) {
-                    playerEmbedUrl = iframeMatch[1];
+                const firstIframe = iframeMatch?.[1] || '';
+                let baseEmbedHost = 'argon.razorshell.space';
+                if (firstIframe) {
+                    try { baseEmbedHost = new URL(firstIframe).host; } catch {}
+                }
+
+                // Match (season, episode) in Codedew's relatedData JSON array
+                const objRegex = /\{[^{}]+\}/g;
+                const epObjects: { id: string; s: number | null; e: number }[] = [];
+                let om: RegExpExecArray | null;
+                while ((om = objRegex.exec(zipperHtml)) !== null) {
+                    const block = om[0];
+                    const idM = block.match(/"(?:id|fid)"\s*:\s*"([A-Za-z0-9_-]+)"/);
+                    const sM = block.match(/"(?:s|season_num)"\s*:\s*(\d+)/);
+                    const eM = block.match(/"(?:e|episode_num)"\s*:\s*(\d+)/);
+                    if (idM && eM && !idM[1].startsWith('sb_')) {
+                        epObjects.push({
+                            id: idM[1],
+                            s: sM ? parseInt(sM[1], 10) : null,
+                            e: parseInt(eM[1], 10)
+                        });
+                    }
+                }
+
+                const exactMatch = epObjects.find(o => o.s === seasonNum && o.e === epNum)
+                    || epObjects.find(o => o.e === epNum);
+
+                if (exactMatch) {
+                    playerEmbedUrl = `https://${baseEmbedHost}/embed/${exactMatch.id}`;
+                } else if (firstIframe) {
+                    playerEmbedUrl = firstIframe;
                 }
             }
         }
@@ -122,13 +218,13 @@ export async function extractRRStream(rawUrl: string, epNum: number = 1): Promis
         // 3. Fetch the player embed HTML
         const embedRes = await fetch(playerEmbedUrl, {
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
                 'Referer': 'https://codedew.com/'
             }
         });
 
         if (!embedRes.ok) {
-            return { success: false };
+            return { success: false, embedUrl: playerEmbedUrl };
         }
 
         const rawCookies = embedRes.headers.get('set-cookie') || '';
@@ -138,10 +234,28 @@ export async function extractRRStream(rawUrl: string, epNum: number = 1): Promis
             .join('; ');
 
         const html = await embedRes.text();
+
+        // 4. Fast pure-JS JuicyCodes decoding (no external player.js fetch required)
+        const decodedConfig = decodeJuicyCodesConfig(html);
+        if (decodedConfig) {
+            const cleanConfig = decodedConfig.replace(/\\\//g, '/');
+            const directMatch = cleanConfig.match(/https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*/);
+            const titleMatch = decodedConfig.match(/"title":"([^"]+)"/);
+            if (directMatch) {
+                return {
+                    success: true,
+                    m3u8Url: directMatch[0],
+                    embedUrl: playerEmbedUrl,
+                    cookies,
+                    title: titleMatch?.[1] || ''
+                };
+            }
+        }
+
         const jcMatch = html.match(/_juicycodes\([\s\S]*?\)/);
 
         if (!jcMatch) {
-            return { success: false };
+            return { success: false, embedUrl: playerEmbedUrl };
         }
 
         // 4. Deobfuscate using VM to obtain direct m3u8 source URL

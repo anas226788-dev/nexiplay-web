@@ -135,14 +135,21 @@ function PopunderAdInner() {
                     .maybeSingle();
 
                 if (isMounted && data?.script_code) {
-                    const srcMatch = data.script_code.match(/src=["']([^"']+)["']/);
-                    if (srcMatch) {
-                        setScriptUrl(srcMatch[1]);
+                    const srcMatch = data.script_code.match(/src=["']([^"']+)["']/i);
+                    if (srcMatch && srcMatch[1]) {
+                        let src = srcMatch[1].trim();
+                        if (src.startsWith('//')) src = 'https:' + src;
+                        if (src.startsWith('https://')) {
+                            setScriptUrl(src);
+                        }
                     } else {
-                        // Extract inline script if no src attribute exists
+                        // Extract inline script if safe and does not access sensitive client state
                         const contentMatch = data.script_code.match(/<script[^>]*>([\s\S]*?)<\/script>/i);
-                        if (contentMatch && contentMatch[1].trim()) {
-                            setRawScriptCode(contentMatch[1].trim());
+                        const code = (contentMatch ? contentMatch[1] : data.script_code).trim();
+                        if (code && !/(?:document\.cookie|sessionStorage|localStorage|indexedDB|\.password|eval\s*\(|new\s+Function)/i.test(code)) {
+                            setRawScriptCode(code);
+                        } else {
+                            console.warn('[PopunderAd] Blocked untrusted inline ad script containing restricted tokens.');
                         }
                     }
                 }

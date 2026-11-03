@@ -2,18 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-const ALLOWED_VOE_HOSTS = ['voe.sx', 'voe-network.net', 'ashleyhardat.com'];
+const ALLOWED_VOE_HOSTS = [
+    'voe.sx', 'voe-network.net', 'ashleyhardat.com', 'shannoncoldalready.com',
+    'voe-unblock.com', 'voe-hub.com', 'voe-stream.com'
+];
 
 function isAllowedVoeHost(hostname: string) {
     const host = hostname.toLowerCase().replace(/^www\./, '');
     return ALLOWED_VOE_HOSTS.some(domain => host === domain || host.endsWith(`.${domain}`));
 }
 
-async function fetchVoePage(url: string, referer: string) {
+async function fetchVoePage(url: string, referer: string, allowAnyHttpsRedirect: boolean = false) {
     let currentUrl = new URL(url);
     for (let hop = 0; hop < 4; hop++) {
-        if (currentUrl.protocol !== 'https:' || !isAllowedVoeHost(currentUrl.hostname)) {
-            throw new Error('Unsupported Voe delivery host');
+        if (currentUrl.protocol !== 'https:' || (!allowAnyHttpsRedirect && !isAllowedVoeHost(currentUrl.hostname))) {
+            throw new Error('Unsupported Voe delivery host: ' + currentUrl.hostname);
         }
         const response = await fetch(currentUrl, {
             headers: {
@@ -63,12 +66,13 @@ export async function GET(request: NextRequest) {
 
         let html = await res.text();
 
-        // Follow JS redirect from voe.sx to actual delivery mirror (e.g. ashleyhardat.com)
+        // Follow JS redirect from voe.sx to actual delivery mirror (e.g. shannoncoldalready.com / ashleyhardat.com)
         if (html.length < 2500 && html.includes('window.location.href')) {
             const redirectMatch = html.match(/window\.location\.href\s*=\s*['"]([^'"]+)['"]/);
             if (redirectMatch && redirectMatch[1]) {
-                const redirectUrl = new URL(redirectMatch[1], res.url);
-                res = await fetchVoePage(redirectUrl.toString(), 'https://voe.sx/');
+                const baseOrigin = playerUrl ? new URL(playerUrl) : new URL('https://voe.sx');
+                const redirectUrl = new URL(redirectMatch[1], baseOrigin);
+                res = await fetchVoePage(redirectUrl.toString(), 'https://voe.sx/', true);
                 if (res.ok) {
                     html = await res.text();
                 }

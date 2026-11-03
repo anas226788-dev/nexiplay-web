@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { usePathname } from 'next/navigation';
 import { Notice } from '@/lib/types';
 import { useActiveMovie } from '@/context/ActiveMovieContext';
+import { sanitizeHtml } from '@/lib/sanitize';
 
 const NOTICE_CACHE_KEY = 'nexiplay_notices';
 const NOTICE_TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -343,7 +344,7 @@ export default function NoticeSystem() {
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-widest bg-violet-600/20 text-red-400 border border-red-500/30 shadow-[0_0_12px_rgba(239,68,68,0.25)] animate-pulse shrink-0">
                                 📢 Notice
                             </span>
-                            <span className="leading-relaxed text-left" dangerouslySetInnerHTML={{ __html: notice.content }} />
+                            <span className="leading-relaxed text-left" dangerouslySetInnerHTML={{ __html: sanitizeHtml(notice.content) }} />
                             {notice.video_url && (
                                 <button
                                     onClick={() => setSelectedVideoUrl(notice.video_url || null)}
@@ -378,7 +379,7 @@ export default function NoticeSystem() {
                             {[...Array(4)].map((_, i) => (
                                 <span key={i} className="inline-flex items-center gap-6 mx-8">
                                     <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase tracking-widest bg-red-500/20 text-red-400 border border-red-500/20">🔴 LIVE</span>
-                                    <span className="text-sm font-semibold" dangerouslySetInnerHTML={{ __html: notice.content }} />
+                                    <span className="text-sm font-semibold" dangerouslySetInnerHTML={{ __html: sanitizeHtml(notice.content) }} />
                                     <span className="text-white/20">●</span>
                                 </span>
                             ))}
@@ -387,7 +388,7 @@ export default function NoticeSystem() {
                             {[...Array(4)].map((_, i) => (
                                 <span key={i} className="inline-flex items-center gap-6 mx-8">
                                     <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase tracking-widest bg-red-500/20 text-red-400 border border-red-500/20">🔴 LIVE</span>
-                                    <span className="text-sm font-semibold" dangerouslySetInnerHTML={{ __html: notice.content }} />
+                                    <span className="text-sm font-semibold" dangerouslySetInnerHTML={{ __html: sanitizeHtml(notice.content) }} />
                                     <span className="text-white/20">●</span>
                                 </span>
                             ))}
@@ -445,7 +446,7 @@ export default function NoticeSystem() {
                                             />
                                         )}
                                         <div className="flex-1 text-sm md:text-base leading-relaxed font-semibold">
-                                            <div dangerouslySetInnerHTML={{ __html: notice.content }} />
+                                            <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(notice.content) }} />
                                         </div>
                                     </div>
 
@@ -571,7 +572,7 @@ export default function NoticeSystem() {
                                             isTailwind(notice.text_color) ? notice.text_color : ''
                                         }`}
                                         style={{ color: !isTailwind(notice.text_color) ? notice.text_color : undefined }}
-                                        dangerouslySetInnerHTML={{ __html: notice.content }}
+                                        dangerouslySetInnerHTML={{ __html: sanitizeHtml(notice.content) }}
                                     />
 
                                     {/* Feature Pills Grid (Manus.im Style) */}
@@ -662,7 +663,7 @@ export default function NoticeSystem() {
                                             isTailwind(notice.text_color) ? notice.text_color : 'text-gray-100'
                                         }`}
                                         style={{ color: !isTailwind(notice.text_color) ? notice.text_color : undefined }}
-                                        dangerouslySetInnerHTML={{ __html: notice.content }}
+                                        dangerouslySetInnerHTML={{ __html: sanitizeHtml(notice.content) }}
                                     />
                                 </div>
                             )}
@@ -725,7 +726,7 @@ export default function NoticeSystem() {
                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-widest bg-white/10 border border-white/10 shrink-0">
                                     📣 Update
                                 </span>
-                                <span className="leading-relaxed" dangerouslySetInnerHTML={{ __html: notice.content }} />
+                                <span className="leading-relaxed" dangerouslySetInnerHTML={{ __html: sanitizeHtml(notice.content) }} />
                                 {notice.video_url && (
                                     <button
                                         onClick={() => setSelectedVideoUrl(notice.video_url || null)}
@@ -783,7 +784,7 @@ export default function NoticeSystem() {
                         <div
                             className={`text-2xl md:text-4xl font-black leading-tight max-w-2xl mx-auto ${isTailwind(fullscreenNotices[0].text_color) ? fullscreenNotices[0].text_color : 'text-white'}`}
                             style={{ color: !isTailwind(fullscreenNotices[0].text_color) ? fullscreenNotices[0].text_color : undefined }}
-                            dangerouslySetInnerHTML={{ __html: fullscreenNotices[0].content }}
+                            dangerouslySetInnerHTML={{ __html: sanitizeHtml(fullscreenNotices[0].content) }}
                         />
 
                         <button
@@ -813,7 +814,7 @@ export default function NoticeSystem() {
                                 {[...Array(4)].map((_, i) => (
                                     <span key={i} className="inline-flex items-center gap-6 mx-8">
                                         <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase tracking-widest bg-red-500/20 text-red-400 border border-red-500/20">🔴 LIVE</span>
-                                        <span className="text-sm font-semibold" dangerouslySetInnerHTML={{ __html: notice.content }} />
+                                        <span className="text-sm font-semibold" dangerouslySetInnerHTML={{ __html: sanitizeHtml(notice.content) }} />
                                         <span className="text-white/20">●</span>
                                     </span>
                                 ))}
@@ -822,7 +823,7 @@ export default function NoticeSystem() {
                                 {[...Array(4)].map((_, i) => (
                                     <span key={i} className="inline-flex items-center gap-6 mx-8">
                                         <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase tracking-widest bg-red-500/20 text-red-400 border border-red-500/20">🔴 LIVE</span>
-                                        <span className="text-sm font-semibold" dangerouslySetInnerHTML={{ __html: notice.content }} />
+                                        <span className="text-sm font-semibold" dangerouslySetInnerHTML={{ __html: sanitizeHtml(notice.content) }} />
                                         <span className="text-white/20">●</span>
                                     </span>
                                 ))}
@@ -972,7 +973,7 @@ function ToastNotice({ notice, index, onClose, isTailwind, setSelectedVideoUrl }
                             <span>📺</span> Watch Video
                         </button>
                     )}
-                    <div className="text-sm leading-relaxed font-medium" dangerouslySetInnerHTML={{ __html: notice.content }} />
+                    <div className="text-sm leading-relaxed font-medium" dangerouslySetInnerHTML={{ __html: sanitizeHtml(notice.content) }} />
                 </div>
                 <button
                     onClick={() => onClose(notice.id)}

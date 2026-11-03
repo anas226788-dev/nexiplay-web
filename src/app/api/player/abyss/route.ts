@@ -16,8 +16,8 @@ export async function GET(request: NextRequest) {
         const host = parsed.hostname.toLowerCase();
 
         // Convert short.ink or abyss.to watch links to player.abyssplayer.com embed
-        if (host.includes('short.ink') || host.includes('abyss.to') || host.includes('abysscdn')) {
-            const parts = parsed.pathname.split('/').filter(Boolean);
+        if (host.includes('short.ink') || host.includes('abyss.to') || host.includes('abysscdn') || host.includes('abyssplayer')) {
+            const parts = parsed.pathname.split('/').filter(p => Boolean(p) && p !== 'abyss' && p !== 'player' && p !== 'api');
             const id = parts[parts.length - 1];
             if (id) {
                 playerUrl = `https://player.abyssplayer.com/${id}`;

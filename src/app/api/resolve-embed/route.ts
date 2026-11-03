@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { validateUrlSafety } from '@/lib/ssrfValidator';
 
 export const dynamic = 'force-dynamic';
 
@@ -213,25 +214,32 @@ async function resolveEmbedUrl(url: string, depth: number = 0): Promise<string> 
     }
 }
 
-async function resolveStreamtape(url: string): Promise<string> {
+async function resolveStreamtape(url: string, direct: boolean = false): Promise<string> {
     try {
         const parsed = new URL(url);
         const parts = parsed.pathname.split('/').filter(Boolean);
         const id = parts[parts.length - 1];
         if (!id) return url;
 
+        const embedUrl = `https://streamtape.com/e/${id}`;
+        if (!direct) {
+            // Streamtape direct MP4 tokens are locked to the resolving IP.
+            // Returning the canonical embed URL ensures cross-IP iframe compatibility.
+            return embedUrl;
+        }
+
         const mirrors = [
-            `https://streamtape.com/e/${id}`,
+            embedUrl,
             `https://streamta.pe/e/${id}`,
             `https://streamtape.net/e/${id}`
         ];
 
-        for (const embedUrl of mirrors) {
+        for (const mirror of mirrors) {
             try {
-                const res = await fetch(embedUrl, {
+                const res = await fetch(mirror, {
                     headers: {
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                        'Referer': embedUrl
+                        'Referer': mirror
                     },
                     signal: AbortSignal.timeout(6000)
                 });
@@ -257,7 +265,7 @@ async function resolveStreamtape(url: string): Promise<string> {
                 continue;
             }
         }
-        return url;
+        return embedUrl;
     } catch (e: any) {
         console.error('[Streamtape Resolver Error]:', e.message);
         return url;
@@ -272,13 +280,19 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Missing url parameter' }, { status: 400 });
     }
 
+    const safety = validateUrlSafety(targetUrl);
+    if (!safety.safe) {
+        return NextResponse.json({ error: 'Forbidden: Invalid or unsafe target URL' }, { status: 403 });
+    }
+
     try {
         const parsed = new URL(targetUrl);
         const host = parsed.hostname.toLowerCase();
 
-        // 1. Streamtape direct MP4 resolver
+        // 1. Streamtape resolver
         if (host.includes('streamtape') || host.includes('streamta.pe')) {
-            const resolvedUrl = await resolveStreamtape(targetUrl);
+            const isDirect = searchParams.get('direct') === '1' || searchParams.get('direct') === 'true';
+            const resolvedUrl = await resolveStreamtape(targetUrl, isDirect);
             return NextResponse.json({ url: resolvedUrl });
         }
 

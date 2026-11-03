@@ -169,10 +169,13 @@ export async function GET(request: NextRequest) {
                     if (rrConfig) {
                         const epKey = `${seasonNum}_${epNum}`;
                         const seasonKey = String(seasonNum);
+                        const firstAvailableSeasonUrl = rrConfig.urls && typeof rrConfig.urls === 'object'
+                            ? (Object.values(rrConfig.urls).find((u: any) => typeof u === 'string' && u.trim().length > 0) as string | undefined)
+                            : undefined;
                         rrStreamUrl = rrConfig.mode === 'episode'
                             ? rrConfig.episodeUrls?.[epKey]
                             : rrConfig.mode === 'separate'
-                                ? rrConfig.urls?.[seasonKey]
+                                ? (rrConfig.urls?.[seasonKey] || rrConfig.url || firstAvailableSeasonUrl || '')
                                 : rrConfig.url;
                     }
                 }
@@ -222,9 +225,9 @@ export async function GET(request: NextRequest) {
         }
 
         // 3. Resolve direct HLS stream (extract from rareanimes post, zipper, or embed)
-        let extracted = await extractRRStream(rrStreamUrl, resolvedEpNum);
+        let extracted = await extractRRStream(rrStreamUrl, resolvedEpNum, seasonNum);
         if (!extracted.success && resolvedEpNum !== epNum) {
-            extracted = await extractRRStream(rrStreamUrl, epNum);
+            extracted = await extractRRStream(rrStreamUrl, epNum, seasonNum);
         }
 
         if (!extracted.success || !extracted.m3u8Url) {

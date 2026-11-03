@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { validateUrlSafety } from '@/lib/ssrfValidator';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +11,11 @@ async function fetchWithRedirects(
 ) {
     let currentUrl = url;
     for (let i = 0; i < maxRedirects; i++) {
+        const safety = validateUrlSafety(currentUrl);
+        if (!safety.safe) {
+            throw new Error('Disallowed target URL: ' + (safety.error || 'Blocked by SSRF protection'));
+        }
+
         const res = await fetch(currentUrl, {
             method,
             headers,
@@ -58,8 +64,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const targetUrl = searchParams.get('url');
 
-    if (!targetUrl || !targetUrl.startsWith('http')) {
-        return new NextResponse('Invalid or missing target URL parameter', { status: 400 });
+    if (!targetUrl || !validateUrlSafety(targetUrl).safe) {
+        return new NextResponse('Invalid or forbidden target URL parameter', { status: 400 });
     }
 
     // Immediately 302 redirect directly to the origin URL.
@@ -72,7 +78,7 @@ export async function HEAD(request: NextRequest) {
     const targetUrl = searchParams.get('url');
     const filename = searchParams.get('filename') || searchParams.get('title');
 
-    if (!targetUrl || !targetUrl.startsWith('http')) {
+    if (!targetUrl || !validateUrlSafety(targetUrl).safe) {
         return new NextResponse(null, { status: 400 });
     }
 

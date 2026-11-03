@@ -157,7 +157,7 @@ export async function updateStreamApiSettings(updates: Partial<StreamApiSettings
     return updated;
 }
 
-export const OFFICIAL_CORE_KEY = 'nxp_live_nexiplay_official_core_prod';
+export const OFFICIAL_CORE_KEY = process.env.OFFICIAL_STREAM_CORE_KEY || 'nxp_live_nexiplay_official_core_prod';
 
 /**
  * 3. Get all API Keys
@@ -343,29 +343,7 @@ export async function validateApiKeyAccess(
 
     const cleanProvidedKey = providedKey?.trim();
 
-    // 3. Official Built-in Core Key (Always valid for NexiPlay Web & Official Apps)
-    if (cleanProvidedKey === OFFICIAL_CORE_KEY) {
-        return {
-            allowed: true,
-            keyRecord: {
-                id: 'demo-production-key-1',
-                name: 'NexiPlay Web & Official Apps',
-                key: OFFICIAL_CORE_KEY,
-                type: 'production',
-                isActive: true,
-                allowedOrigins: ['*'],
-                rateLimitPerDay: 0,
-                totalRequests: 0,
-                lastUsedAt: null,
-                lastUsedIp: null,
-                expiresAt: null,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            }
-        };
-    }
-
-    // 4. Check for Internal / Same-Origin NexiPlay requests
+    // 3. Resolve Client Origin & Internal Host state
     const isSecSameSite = context?.secFetchSite === 'same-origin' || context?.secFetchSite === 'same-site';
 
     let clientOrigin = originHeader || '';
@@ -382,6 +360,36 @@ export async function validateApiKeyAccess(
     const isOriginInternal = clientOrigin.includes('localhost') || clientOrigin.includes('127.0.0.1') || clientOrigin.includes('nexiplay') || clientOrigin.includes('vercel.app');
 
     const isLocalOrInternal = isSecSameSite || isOriginInternal || (isHostInternal && (!originHeader || originHeader === 'null'));
+
+    // 4. Official Built-in Core Key (Valid for NexiPlay Web & Official Mobile Apps)
+    if (cleanProvidedKey === OFFICIAL_CORE_KEY) {
+        // Prevent third-party websites from embedding streams with the official key
+        if (clientOrigin && !isOriginInternal) {
+            return {
+                allowed: false,
+                statusCode: 403,
+                reason: 'Access denied: Core API key is not authorized for external origin ' + clientOrigin
+            };
+        }
+        return {
+            allowed: true,
+            keyRecord: {
+                id: 'demo-production-key-1',
+                name: 'NexiPlay Web & Official Apps',
+                key: OFFICIAL_CORE_KEY,
+                type: 'production',
+                isActive: true,
+                allowedOrigins: ['https://nexiplay.vercel.app', 'https://nexiplay-admin.vercel.app'],
+                rateLimitPerDay: 5000,
+                totalRequests: 0,
+                lastUsedAt: null,
+                lastUsedIp: null,
+                expiresAt: null,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            }
+        };
+    }
 
     // First-party internal users browsing Nexiplay should never be blocked by an API key prompt
     if (isLocalOrInternal) {
