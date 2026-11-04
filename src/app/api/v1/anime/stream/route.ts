@@ -103,16 +103,21 @@ export async function GET(request: NextRequest) {
 
     try {
         // 1. Fetch movie/anime metadata
-        let query = supabase.from('movies').select('*');
+        let movie: any = null;
         if (id) {
-            query = query.eq('id', id);
+            const { data } = await supabase.from('movies').select('*').eq('id', id).maybeSingle();
+            movie = data;
         } else if (slug) {
-            query = query.eq('slug', slug);
+            const { data } = await supabase.from('movies').select('*').eq('slug', slug).maybeSingle();
+            movie = data;
+            if (!movie) {
+                const cleanSlug = slug.replace(/-\d{4}$/, '');
+                const { data: fuzzy } = await supabase.from('movies').select('*').ilike('slug', `${cleanSlug}%`).maybeSingle();
+                movie = fuzzy;
+            }
         }
 
-        const { data: movie, error: movieError } = await query.maybeSingle();
-
-        if (movieError || !movie) {
+        if (!movie) {
             return NextResponse.json(
                 { success: false, error: 'Anime not found.' },
                 { status: 404, headers: { 'Access-Control-Allow-Origin': '*' } }

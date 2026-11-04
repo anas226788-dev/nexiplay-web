@@ -39,8 +39,9 @@ function pickBestZipperFromHtml(chunk: string): string | null {
     }
     if (links.length === 0) return null;
     return (
+        links.find(l => l.label.includes('watchnow'))?.href ||
         links.find(l => l.label.includes('watchmultiquality') || l.label.includes('watchmulti'))?.href ||
-        links.find(l => l.label.includes('watchnow') || l.label.includes('watch') || l.label.includes('stream') || l.label.includes('player') || l.label.includes('online'))?.href ||
+        links.find(l => l.label.includes('watch') || l.label.includes('stream') || l.label.includes('player') || l.label.includes('online'))?.href ||
         links.find(l => !/hubcloud|mega|dlbeta|gdrive|drive|japanese|hepburn/.test(l.label))?.href ||
         links[0].href
     );
@@ -320,7 +321,20 @@ export async function extractRRStream(
 
         const html = await embedRes.text();
 
-        // 4. Fast pure-JS JuicyCodes decoding (no external player.js fetch required)
+        // 4a. Check for direct Vidstack / streambeta playerSources
+        const streamUrlMatch = html.match(/"stream_url"\s*:\s*"([^"]+)"/);
+        if (streamUrlMatch) {
+            const rawStreamUrl = streamUrlMatch[1].replace(/\\\//g, '/');
+            return {
+                success: true,
+                m3u8Url: rawStreamUrl,
+                embedUrl: embedRes.url || playerEmbedUrl,
+                cookies,
+                title: ''
+            };
+        }
+
+        // 4b. Fast pure-JS JuicyCodes decoding (no external player.js fetch required)
         const decodedConfig = decodeJuicyCodesConfig(html);
         if (decodedConfig) {
             const cleanConfig = decodedConfig.replace(/\\\//g, '/');
