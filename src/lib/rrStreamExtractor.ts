@@ -249,6 +249,19 @@ export async function extractRRStream(
 
                 if (zipperRes.ok) {
                     const zipperHtml = await zipperRes.text();
+
+                    // Check if zipper resolved to a direct stream player (e.g. streambeta / Cloudflare worker stream)
+                    const directStreamMatch = zipperHtml.match(/"stream_url"\s*:\s*"([^"]+)"/);
+                    if (directStreamMatch) {
+                        return {
+                            success: true,
+                            m3u8Url: directStreamMatch[1].replace(/\\\//g, '/'),
+                            embedUrl: zipperRes.url || currentTarget,
+                            cookies: '',
+                            title: ''
+                        };
+                    }
+
                     const iframeMatch = zipperHtml.match(/<iframe[^>]+src=["']([^"']+)["']/i);
                     const firstIframe = iframeMatch?.[1] || '';
                     let baseEmbedHost = 'argon.razorshell.space';
