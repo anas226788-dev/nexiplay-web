@@ -14,7 +14,8 @@ async function getPlayerJs(): Promise<string> {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Referer': 'https://argon.razorshell.space/'
-            }
+            },
+            signal: AbortSignal.timeout(7000)
         });
         if (res.ok) {
             cachedPlayerJs = await res.text();
@@ -38,10 +39,10 @@ function pickBestZipperFromHtml(chunk: string): string | null {
     }
     if (links.length === 0) return null;
     return (
-        links.find(l => l.label.includes('watchmultiquality'))?.href ||
+        links.find(l => l.label.includes('watchmultiquality') || l.label.includes('watchmulti'))?.href ||
         links.find(l => l.label.includes('watchnow') || l.label.includes('watch') || l.label.includes('stream') || l.label.includes('player') || l.label.includes('online'))?.href ||
         links.find(l => !/hubcloud|mega|dlbeta|gdrive|drive|japanese|hepburn/.test(l.label))?.href ||
-        null
+        links[0].href
     );
 }
 
@@ -86,6 +87,62 @@ function decodeJuicyCodesConfig(embedHtml: string): string | null {
     }
 }
 
+/**
+ * Live searches RareAnimes for the anime title and season, returning the post URL.
+ */
+export async function liveSearchRareAnimesPost(title: string, seasonNum: number = 1): Promise<string | null> {
+    try {
+        const cleanTitle = title
+            .replace(/\([^)]*\)/g, '')
+            .replace(/Season\s*\d+(?:-\d+)?/gi, '')
+            .trim();
+        const query = `${cleanTitle} Season ${seasonNum}`;
+        const searchUrl = `https://www.rareanimes.mov/?s=${encodeURIComponent(query)}`;
+        
+        const res = await fetch(searchUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                'Referer': 'https://rareanimes.net/'
+            },
+            signal: AbortSignal.timeout(8000)
+        });
+
+        if (!res.ok) return null;
+        const html = await res.text();
+
+        const articleRegex = /<a\b[^>]*href=["'](https?:\/\/(?:www\.)?(?:rareanimes|raretoons)\.[a-z]+\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+        let m: RegExpExecArray | null;
+        const candidates: { url: string; title: string; score: number }[] = [];
+
+        while ((m = articleRegex.exec(html)) !== null) {
+            const href = m[1].trim();
+            const linkText = m[2].replace(/<[^>]+>/g, '').trim().toLowerCase();
+            if (href.includes('/category/') || href.includes('/tag/') || href.includes('/page/') || href === 'https://www.rareanimes.fans/') {
+                continue;
+            }
+
+            let score = 0;
+            const seasonRegex = new RegExp(`season\\s*0*${seasonNum}\\b`, 'i');
+            if (seasonRegex.test(linkText) || seasonRegex.test(href)) {
+                score += 10;
+            }
+            if (linkText.includes('hindi') || href.includes('hindi')) {
+                score += 5;
+            }
+            if (linkText.includes('dub') || href.includes('dub')) {
+                score += 3;
+            }
+            candidates.push({ url: href, title: linkText, score });
+        }
+
+        candidates.sort((a, b) => b.score - a.score);
+        return candidates[0]?.url || null;
+    } catch (e: any) {
+        console.warn('[RR Extractor Live Search Warning]:', e.message);
+        return null;
+    }
+}
+
 export interface ExtractedRRStream {
     success: boolean;
     m3u8Url?: string;
@@ -100,17 +157,31 @@ export interface ExtractedRRStream {
  * 2. A codedew zipper link (e.g. https://codedew.com/zipper/?url=...)
  * 3. An argon razorshell embed URL (e.g. https://argon.razorshell.space/embed/...)
  * 4. A direct .m3u8 playlist URL
+ * 5. Live RareAnimes search fallback when rawUrl is invalid/empty.
  */
-export async function extractRRStream(rawUrl: string, epNum: number = 1, seasonNum: number = 1): Promise<ExtractedRRStream> {
-    if (!rawUrl) {
-        return { success: false };
-    }
-
-    const cleanUrl = rawUrl.trim();
+export async function extractRRStream(
+    rawUrl?: string | null,
+    epNum: number = 1,
+    seasonNum: number = 1,
+    animeTitle?: string
+): Promise<ExtractedRRStream> {
+    let cleanUrl = (rawUrl || '').trim();
 
     // 0. If it's already an m3u8 or mp4
     if (cleanUrl.includes('.m3u8') || cleanUrl.includes('.mp4')) {
         return { success: true, m3u8Url: cleanUrl, embedUrl: cleanUrl };
+    }
+
+    // If cleanUrl is empty but animeTitle is provided, try live search
+    if (!cleanUrl && animeTitle) {
+        const foundUrl = await liveSearchRareAnimesPost(animeTitle, seasonNum);
+        if (foundUrl) {
+            cleanUrl = foundUrl;
+        }
+    }
+
+    if (!cleanUrl) {
+        return { success: false };
     }
 
     try {
@@ -123,7 +194,8 @@ export async function extractRRStream(rawUrl: string, epNum: number = 1, seasonN
                     headers: {
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
                         'Referer': 'https://rareanimes.net/'
-                    }
+                    },
+                    signal: AbortSignal.timeout(8000)
                 });
 
                 if (postRes.ok) {
@@ -134,7 +206,7 @@ export async function extractRRStream(rawUrl: string, epNum: number = 1, seasonN
                     let matchedZipper: string | null = null;
                     let em: RegExpExecArray | null;
                     while ((em = epHeaderRegex.exec(postHtml)) !== null) {
-                        const subHtml = postHtml.substring(em.index, Math.min(postHtml.length, em.index + 3000));
+                        const subHtml = postHtml.substring(em.index, Math.min(postHtml.length, em.index + 3500));
                         const picked = pickBestZipperFromHtml(subHtml);
                         if (picked) {
                             matchedZipper = picked;
@@ -165,53 +237,65 @@ export async function extractRRStream(rawUrl: string, epNum: number = 1, seasonN
         // 2. Unwrap codedew zipper if present
         let playerEmbedUrl = currentTarget;
         if (currentTarget.includes('codedew.com/zipper') || currentTarget.includes('/zipper/')) {
-            const zipperRes = await fetch(currentTarget, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                    'Referer': 'https://rareanimes.net/'
-                }
-            });
+            try {
+                const zipperRes = await fetch(currentTarget, {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                        'Referer': 'https://rareanimes.net/'
+                    },
+                    signal: AbortSignal.timeout(8000)
+                });
 
-            if (zipperRes.ok) {
-                const zipperHtml = await zipperRes.text();
-                const iframeMatch = zipperHtml.match(/<iframe[^>]+src=["']([^"']+)["']/i);
-                const firstIframe = iframeMatch?.[1] || '';
-                let baseEmbedHost = 'argon.razorshell.space';
-                if (firstIframe) {
-                    try { baseEmbedHost = new URL(firstIframe).host; } catch {}
-                }
+                if (zipperRes.ok) {
+                    const zipperHtml = await zipperRes.text();
+                    const iframeMatch = zipperHtml.match(/<iframe[^>]+src=["']([^"']+)["']/i);
+                    const firstIframe = iframeMatch?.[1] || '';
+                    let baseEmbedHost = 'argon.razorshell.space';
+                    if (firstIframe) {
+                        try { baseEmbedHost = new URL(firstIframe).host; } catch {}
+                    }
 
-                // Match (season, episode) in Codedew's relatedData JSON array
-                const objRegex = /\{[^{}]+\}/g;
-                const epObjects: { id: string; s: number | null; e: number }[] = [];
-                let om: RegExpExecArray | null;
-                while ((om = objRegex.exec(zipperHtml)) !== null) {
-                    const block = om[0];
-                    const idM = block.match(/"(?:id|fid)"\s*:\s*"([A-Za-z0-9_-]+)"/);
-                    const sM = block.match(/"(?:s|season_num)"\s*:\s*(\d+)/);
-                    const eM = block.match(/"(?:e|episode_num)"\s*:\s*(\d+)/);
-                    if (idM && eM && !idM[1].startsWith('sb_')) {
-                        epObjects.push({
-                            id: idM[1],
-                            s: sM ? parseInt(sM[1], 10) : null,
-                            e: parseInt(eM[1], 10)
-                        });
+                    // Match (season, episode) in Codedew's relatedData JSON array
+                    const objRegex = /\{[^{}]+\}/g;
+                    const epObjects: { id: string; s: number | null; e: number }[] = [];
+                    let om: RegExpExecArray | null;
+                    while ((om = objRegex.exec(zipperHtml)) !== null) {
+                        const block = om[0];
+                        const idM = block.match(/"(?:id|fid)"\s*:\s*"([A-Za-z0-9_-]+)"/);
+                        const sM = block.match(/"(?:s|season_num)"\s*:\s*(\d+)/);
+                        const eM = block.match(/"(?:e|episode_num)"\s*:\s*(\d+)/);
+                        if (idM && eM && !idM[1].startsWith('sb_')) {
+                            epObjects.push({
+                                id: idM[1],
+                                s: sM ? parseInt(sM[1], 10) : null,
+                                e: parseInt(eM[1], 10)
+                            });
+                        }
+                    }
+
+                    const exactMatch = epObjects.find(o => o.s === seasonNum && o.e === epNum)
+                        || epObjects.find(o => o.e === epNum);
+
+                    if (exactMatch) {
+                        playerEmbedUrl = `https://${baseEmbedHost}/embed/${exactMatch.id}`;
+                    } else if (firstIframe) {
+                        playerEmbedUrl = firstIframe;
                     }
                 }
-
-                const exactMatch = epObjects.find(o => o.s === seasonNum && o.e === epNum)
-                    || epObjects.find(o => o.e === epNum);
-
-                if (exactMatch) {
-                    playerEmbedUrl = `https://${baseEmbedHost}/embed/${exactMatch.id}`;
-                } else if (firstIframe) {
-                    playerEmbedUrl = firstIframe;
-                }
+            } catch (err: any) {
+                console.warn('[RR Extractor Zipper Resolve Warning]:', err.message);
             }
         }
 
         // Must be an embed URL to extract juicycodes from
         if (!playerEmbedUrl.includes('razorshell.space') && !playerEmbedUrl.includes('embed')) {
+            // If direct embed wasn't reached but we have an anime title, try live search
+            if (animeTitle && cleanUrl !== currentTarget) {
+                const postUrl = await liveSearchRareAnimesPost(animeTitle, seasonNum);
+                if (postUrl && postUrl !== cleanUrl) {
+                    return extractRRStream(postUrl, epNum, seasonNum);
+                }
+            }
             return { success: false };
         }
 
@@ -220,7 +304,8 @@ export async function extractRRStream(rawUrl: string, epNum: number = 1, seasonN
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
                 'Referer': 'https://codedew.com/'
-            }
+            },
+            signal: AbortSignal.timeout(8000)
         });
 
         if (!embedRes.ok) {
@@ -239,7 +324,8 @@ export async function extractRRStream(rawUrl: string, epNum: number = 1, seasonN
         const decodedConfig = decodeJuicyCodesConfig(html);
         if (decodedConfig) {
             const cleanConfig = decodedConfig.replace(/\\\//g, '/');
-            const directMatch = cleanConfig.match(/https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*/);
+            const directMatch = cleanConfig.match(/https?:\/\/[^\s"'<>]+\.(?:m3u8|mp4)[^\s"'<>]*/)
+                || cleanConfig.match(/https?:\/\/[^\s"'<>]+\/stream\/[^\s"'<>]*/);
             const titleMatch = decodedConfig.match(/"title":"([^"]+)"/);
             if (directMatch) {
                 return {
@@ -253,15 +339,14 @@ export async function extractRRStream(rawUrl: string, epNum: number = 1, seasonN
         }
 
         const jcMatch = html.match(/_juicycodes\([\s\S]*?\)/);
-
         if (!jcMatch) {
             return { success: false, embedUrl: playerEmbedUrl };
         }
 
-        // 4. Deobfuscate using VM to obtain direct m3u8 source URL
+        // 5. Fallback deobfuscate using VM to obtain direct source URL
         const playerJs = await getPlayerJs();
         if (!playerJs) {
-            return { success: false };
+            return { success: false, embedUrl: playerEmbedUrl };
         }
 
         let m3u8Url = '';
@@ -277,7 +362,7 @@ export async function extractRRStream(rawUrl: string, epNum: number = 1, seasonN
             location: { href: playerEmbedUrl },
             navigator: { userAgent: 'Mozilla/5.0' },
             eval: (code: string) => {
-                const match = code.match(/https:\\\/\\\/[^"]+\.m3u8/);
+                const match = code.match(/https:\\\/\\\/[^"]+\.m3u8/) || code.match(/https:\\\/\\\/[^"]+\/stream\/[^"]+/);
                 if (match) {
                     m3u8Url = match[0].replace(/\\\//g, '/');
                 }
@@ -302,12 +387,13 @@ export async function extractRRStream(rawUrl: string, epNum: number = 1, seasonN
             return {
                 success: true,
                 m3u8Url,
+                embedUrl: playerEmbedUrl,
                 cookies,
                 title: streamTitle
             };
         }
 
-        return { success: false };
+        return { success: false, embedUrl: playerEmbedUrl };
     } catch (err: any) {
         console.error('[RR Stream Extractor Error]:', err.message);
         return { success: false };

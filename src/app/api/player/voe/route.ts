@@ -142,7 +142,8 @@ export async function GET(request: NextRequest) {
             headers: {
                 'Content-Type': 'text/html; charset=utf-8',
                 'Cache-Control': 'private, no-store',
-                'X-Frame-Options': 'SAMEORIGIN'
+                'Content-Security-Policy': 'frame-ancestors *',
+                'Access-Control-Allow-Origin': '*'
             }
         });
     } catch (e: any) {

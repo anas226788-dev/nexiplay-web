@@ -131,6 +131,7 @@ export async function GET(request: NextRequest) {
             .maybeSingle();
 
         // 2. If Series/Anime, fetch corresponding episode
+        let episode: any = null;
         if (isSeriesOrAnime) {
             // Try fetching with season
             const { data: season } = await supabase
@@ -141,14 +142,33 @@ export async function GET(request: NextRequest) {
                 .maybeSingle();
             targetSeasonId = season?.id || null;
 
-            let episodeQuery = supabase.from('episodes').select('*');
             if (targetSeasonId) {
-                episodeQuery = episodeQuery.eq('season_id', targetSeasonId).eq('episode_number', epNum);
+                const { data: ep } = await supabase
+                    .from('episodes')
+                    .select('*')
+                    .eq('season_id', targetSeasonId)
+                    .eq('episode_number', epNum)
+                    .maybeSingle();
+                episode = ep;
             } else {
-                episodeQuery = episodeQuery.eq('movie_id', movie.id).eq('episode_number', epNum);
+                const { data: allSeasons } = await supabase
+                    .from('seasons')
+                    .select('id')
+                    .eq('movie_id', movie.id);
+                if (allSeasons && allSeasons.length > 0) {
+                    const sIds = allSeasons.map(s => s.id);
+                    const { data: ep } = await supabase
+                        .from('episodes')
+                        .select('*')
+                        .in('season_id', sIds)
+                        .eq('episode_number', epNum)
+                        .maybeSingle();
+                    episode = ep;
+                    if (ep?.season_id) {
+                        targetSeasonId = ep.season_id;
+                    }
+                }
             }
-
-            const { data: episode } = await episodeQuery.maybeSingle();
 
             if (episode?.streaming_url) {
                 const epStreams = parseJsonStreams(episode.streaming_url);
@@ -197,21 +217,8 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        if (!rrStreamUrl) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: 'RR Nexiplay Server stream not available for this episode.',
-                    title: movie.title,
-                    season: seasonNum,
-                    episode: epNum
-                },
-                { status: 404, headers: { 'Access-Control-Allow-Origin': '*' } }
-            );
-        }
-
-        // If rrStreamUrl is a page URL and epNum is an absolute continuous number (e.g. 349),
-        // determine the relative episode index within the season (e.g. 1)
+        // If rrStreamUrl is a page URL and epNum is an absolute continuous number (e.g. 372),
+        // determine the relative episode index within the season (e.g. 11)
         let resolvedEpNum = epNum;
         if (targetSeasonId && (!rrStreamUrl.includes('/embed/') && !rrStreamUrl.includes('.m3u8'))) {
             const { count } = await supabase
@@ -224,17 +231,44 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        // 3. Resolve direct HLS stream (extract from rareanimes post, zipper, or embed)
-        let extracted = await extractRRStream(rrStreamUrl, resolvedEpNum, seasonNum);
-        if (!extracted.success && resolvedEpNum !== epNum) {
-            extracted = await extractRRStream(rrStreamUrl, epNum, seasonNum);
+        // 3. Resolve direct HLS stream (extract from rareanimes post, zipper, embed, or live search)
+        let extracted = await extractRRStream(rrStreamUrl || null, resolvedEpNum, seasonNum, movie.title);
+        if ((!extracted.success || !extracted.m3u8Url) && resolvedEpNum !== epNum) {
+            extracted = await extractRRStream(rrStreamUrl || null, epNum, seasonNum, movie.title);
         }
 
-        if (!extracted.success || !extracted.m3u8Url) {
+        // Seamless fallback check: if RR direct m3u8 could not be resolved,
+        // use embedUrl or fallback sources so playback never fails
+        let resolvedTargetUrl = extracted.m3u8Url || '';
+        let resolvedFormat = 'hls_stream';
+        let streamCookies = extracted.cookies || '';
+        let resolvedEmbedUrl = extracted.embedUrl || '';
+
+        if (!resolvedTargetUrl) {
+            if (extracted.embedUrl) {
+                resolvedTargetUrl = extracted.embedUrl;
+                resolvedFormat = 'embed';
+            } else if (episode?.streaming_url_toonplay) {
+                resolvedTargetUrl = episode.streaming_url_toonplay;
+                resolvedFormat = 'toonplay';
+            } else if (episode?.streaming_url_animerulz) {
+                resolvedTargetUrl = episode.streaming_url_animerulz;
+                resolvedFormat = 'animerulz';
+            } else if (episode?.streaming_url) {
+                const epStreams = parseJsonStreams(episode.streaming_url);
+                const firstAvailable = epStreams.voe || epStreams.abyss || epStreams.streamtape || epStreams.doodstream || Object.values(epStreams)[0];
+                if (firstAvailable) {
+                    resolvedTargetUrl = firstAvailable;
+                    resolvedFormat = 'embed';
+                }
+            }
+        }
+
+        if (!resolvedTargetUrl) {
             return NextResponse.json(
                 {
                     success: false,
-                    error: 'RR Nexiplay Server direct video stream could not be extracted for this episode.',
+                    error: 'Stream could not be loaded for this episode. Please try another server.',
                     title: movie.title,
                     season: seasonNum,
                     episode: epNum
@@ -243,18 +277,16 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        const resolvedTargetUrl = extracted.m3u8Url;
-        const streamCookies = extracted.cookies || '';
-
         // 4. Encrypt the direct stream URL with expiration (2 hours)
         const now = Date.now();
         const expiresAt = now + 2 * 60 * 60 * 1000;
 
+        const cryptoFormat: 'hls_stream' | 'embed_stream' = resolvedFormat === 'embed' ? 'embed_stream' : 'hls_stream';
         const token = encryptStream({
             url: resolvedTargetUrl,
             server: 'rareanimes',
             cookies: streamCookies,
-            format: 'hls_stream',
+            format: cryptoFormat,
             contentId: movie.id,
             slug: movie.slug,
             season: seasonNum,
@@ -264,9 +296,11 @@ export async function GET(request: NextRequest) {
         });
 
         const origin = getLiveOrigin(request);
-        const playbackUrl = `${origin}/api/v1/anime/playback?token=${encodeURIComponent(token)}`;
+        const playbackUrl = resolvedFormat === 'embed'
+            ? resolvedTargetUrl
+            : `${origin}/api/v1/anime/playback?token=${encodeURIComponent(token)}`;
         const embedKeyParam = apiKey ? `&apiKey=${encodeURIComponent(apiKey)}` : '';
-        const embedUrl = `${origin}/embed/rr?slug=${encodeURIComponent(movie.slug)}&season=${seasonNum}&episode=${epNum}${embedKeyParam}`;
+        const embedUrl = resolvedEmbedUrl || `${origin}/embed/rr?slug=${encodeURIComponent(movie.slug)}&season=${seasonNum}&episode=${epNum}${embedKeyParam}`;
 
         return NextResponse.json(
             {
@@ -277,12 +311,13 @@ export async function GET(request: NextRequest) {
                 season: seasonNum,
                 episode: epNum,
                 server: 'RR Nexiplay Server',
-                format: 'hls_stream',
+                format: resolvedFormat,
                 keyType: accessCheck.keyRecord?.type || (apiKey ? 'custom' : 'demo'),
                 expiresInSeconds: 7200,
                 token,
                 playbackUrl,
                 embedUrl,
+                directStreamUrl: resolvedTargetUrl,
                 iframeCode: `<iframe src="${embedUrl}" width="100%" height="100%" frameborder="0" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>`
             },
             {
