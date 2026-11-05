@@ -156,6 +156,10 @@ export async function GET(req: Request) {
             success: true,
             total: channels.length,
             channels,
+        }, {
+            headers: {
+                'Cache-Control': 'public, s-maxage=1800, stale-while-revalidate=3600'
+            }
         });
     } catch (err: any) {
         console.error('[Live TV API Error]', err);

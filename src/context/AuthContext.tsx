@@ -188,9 +188,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             heartbeat(user);
         };
 
-        heartbeatRef.current = setInterval(guardedHeartbeat, 120000);
+        heartbeatRef.current = setInterval(guardedHeartbeat, 600000); // 10 minutes interval
+
+        // Flush final session duration when user leaves or closes tab
+        const handleVisibilityChange = () => {
+            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+                heartbeat(user);
+            }
+        };
+        const handleBeforeUnload = () => {
+            heartbeat(user);
+        };
+
+        if (typeof window !== 'undefined') {
+            document.addEventListener('visibilitychange', handleVisibilityChange);
+            window.addEventListener('beforeunload', handleBeforeUnload);
+        }
+
         return () => {
             if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+            if (typeof window !== 'undefined') {
+                document.removeEventListener('visibilitychange', handleVisibilityChange);
+                window.removeEventListener('beforeunload', handleBeforeUnload);
+            }
         };
     }, [heartbeat, user]);
 

@@ -41,6 +41,10 @@ export async function GET(request: Request) {
                     tmdb_id: match.tmdb_id,
                     title: match.title,
                     release_year: match.release_year
+                }, {
+                    headers: {
+                        'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=172800'
+                    }
                 });
             }
         }

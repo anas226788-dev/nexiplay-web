@@ -96,6 +96,10 @@ export async function GET(req: Request) {
             success: true,
             total: stations.length,
             stations,
+        }, {
+            headers: {
+                'Cache-Control': 'public, s-maxage=1800, stale-while-revalidate=3600'
+            }
         });
     } catch (err: any) {
         console.error('[Radio API Error]', err);
