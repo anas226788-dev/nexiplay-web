@@ -136,6 +136,16 @@ function ServerSvgIcon({ id, isHindi, className = "w-4 h-4" }: { id: string; isH
         );
     }
 
+    // Nexi Deshi Server / DesiDubAnime
+    if (cleanId.startsWith('desidub') || cleanId.startsWith('multi_desidub')) {
+        return (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" stroke="#10b981" />
+                <polygon points="10 8 16 12 10 16 10 8" fill="#10b981" />
+            </svg>
+        );
+    }
+
     // CircleFTP / BDIX Speed
     if (cleanId === 'circleftp' || cleanId === 'multi_circleftp') {
         return (
@@ -940,6 +950,11 @@ function normalizePlayerUrl(url: string): string {
             if (id) {
                 return `/api/player/abyss?url=${encodeURIComponent(`https://player.abyssplayer.com/${id}`)}`;
             }
+        }
+
+        // 5. DesiDubAnime / Byse / Hanerix / Morencius / StreamP2P / Seekplayer
+        if (host.includes('bysetayico') || host.includes('morencius') || host.includes('hanerix') || host.includes('strp2p') || host.includes('seekplayer') || host.includes('rpmstream') || host.includes('upns.live')) {
+            return parsed.toString();
         }
     } catch {
         // Fallback to original
@@ -2447,7 +2462,13 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                 moviebox: 'MovieBox HD',
                 miruro: 'Miruro Anime',
                 aniclover: 'Aniclover (Sub/Dub)',
-                animekhor: 'AnimeKhor (Bangla/Hindi Dub)'
+                animekhor: 'AnimeKhor (Bangla/Hindi Dub)',
+                desidub: 'Nexi Deshi Server',
+                desidub_abyss: 'Nexi Deshi Server 1 (Abyss)',
+                desidub_filemoon: 'Nexi Deshi Server 2 (Filemoon)',
+                desidub_streamtape: 'Nexi Deshi Server 3 (Streamtape)',
+                desidub_earnvids: 'Nexi Deshi Server 4 (Earnvids)',
+                desidub_doodstream: 'Nexi Deshi Server 5 (Doodstream)'
             };
             const badges: Record<string, string> = {
                 doodstream: 'TURBO FAST',
@@ -2461,10 +2482,16 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                 moviebox: 'DIRECT HLS',
                 miruro: 'ANIME HD',
                 aniclover: 'ANIME API',
-                animekhor: 'BANGLA/HINDI'
+                animekhor: 'BANGLA/HINDI',
+                desidub: 'DESHI DUB',
+                desidub_abyss: 'DESHI FAST',
+                desidub_filemoon: 'DESHI HD',
+                desidub_streamtape: 'DESHI STREAM',
+                desidub_earnvids: 'DESHI ULTRA',
+                desidub_doodstream: 'DESHI TURBO'
             };
             const srvId = `multi_${serverKey}`;
-            const isHindi = ['rareanimes', 'animekhor', 'screenscape', 'multiembed', 'vixsrc', 'twoembed', 'anyembed', 'atlantic'].includes(serverKey.toLowerCase()) || serverKey.toLowerCase().includes('hindi');
+            const isHindi = ['rareanimes', 'animekhor', 'screenscape', 'multiembed', 'vixsrc', 'twoembed', 'anyembed', 'atlantic', 'desidub', 'desidub_abyss', 'desidub_filemoon', 'desidub_streamtape', 'desidub_earnvids', 'desidub_doodstream'].includes(serverKey.toLowerCase()) || serverKey.toLowerCase().includes('hindi') || serverKey.toLowerCase().includes('desidub');
             list.push({
                 id: srvId,
                 name: serverNames[serverKey] || `${serverKey.toUpperCase()} Server`,
@@ -2533,7 +2560,13 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                 moviebox: 'MovieBox HD',
                 miruro: 'Miruro Anime',
                 aniclover: 'Aniclover (Sub/Dub)',
-                animekhor: 'AnimeKhor (Bangla/Hindi Dub)'
+                animekhor: 'AnimeKhor (Bangla/Hindi Dub)',
+                desidub: 'Nexi Deshi Server',
+                desidub_abyss: 'Nexi Deshi Server 1 (Abyss)',
+                desidub_filemoon: 'Nexi Deshi Server 2 (Filemoon)',
+                desidub_streamtape: 'Nexi Deshi Server 3 (Streamtape)',
+                desidub_earnvids: 'Nexi Deshi Server 4 (Earnvids)',
+                desidub_doodstream: 'Nexi Deshi Server 5 (Doodstream)'
             };
             return serverNames[key] || `${key.toUpperCase()} (Multi)`;
         }
