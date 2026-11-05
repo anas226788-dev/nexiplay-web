@@ -10,38 +10,91 @@ import { supabase } from '@/lib/supabase';
  */
 export function SocialBarAd() {
     const [scriptUrl, setScriptUrl] = useState<string | null>(null);
+    const [inlineCode, setInlineCode] = useState<string | null>(null);
 
     useEffect(() => {
-        supabase
-            .from('ads')
-            .select('script_code')
-            .eq('placement', 'social_bar')
-            .eq('is_active', true)
-            .limit(1)
-            .maybeSingle()
-            .then(({ data }) => {
-                if (data?.script_code) {
-                    const srcMatch = data.script_code.match(/src=["']([^"']+)["']/);
-                    if (srcMatch) {
-                        setScriptUrl(srcMatch[1]);
-                    }
+        let isMounted = true;
+
+        async function fetchSocialBarAd() {
+            try {
+                const { data, error } = await supabase
+                    .from('ads')
+                    .select('script_code, device_target')
+                    .eq('placement', 'social_bar')
+                    .eq('is_active', true)
+                    .limit(1)
+                    .maybeSingle();
+
+                if (!isMounted || error || !data?.script_code) return;
+
+                // Check device targeting
+                if (data.device_target && data.device_target !== 'both') {
+                    const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+                    if (data.device_target === 'mobile' && !isMobile) return;
+                    if (data.device_target === 'desktop' && isMobile) return;
                 }
-            });
+
+                const raw = data.script_code.trim();
+
+                // 1. Try matching src attribute: <script ... src="https://...">
+                const srcMatch = raw.match(/src\s*=\s*["']([^"']+)["']/i);
+                if (srcMatch && srcMatch[1]) {
+                    let url = srcMatch[1].trim();
+                    if (url.startsWith('//')) url = 'https:' + url;
+                    setScriptUrl(url);
+                    return;
+                }
+
+                // 2. Direct script URL pasted without tags
+                if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('//')) {
+                    let url = raw;
+                    if (url.startsWith('//')) url = 'https:' + url;
+                    setScriptUrl(url);
+                    return;
+                }
+
+                // 3. Inline script code
+                const contentMatch = raw.match(/<script[^>]*>([\s\S]*?)<\/script>/i);
+                const code = (contentMatch ? contentMatch[1] : raw).trim();
+                if (code) {
+                    setInlineCode(code);
+                }
+            } catch (err) {
+                console.warn('[SocialBarAd] Supabase fetch error:', err);
+            }
+        }
+
+        fetchSocialBarAd();
+
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
-    if (!scriptUrl) return null;
+    if (scriptUrl) {
+        return (
+            <Script
+                src={scriptUrl}
+                strategy="afterInteractive"
+                onLoad={() => console.log('[SocialBarAd] Script loaded via next/script')}
+                onError={() => {
+                    console.warn('[SocialBarAd] Script blocked by client adblocker or network error');
+                }}
+            />
+        );
+    }
 
-    return (
-        <Script
-            src={scriptUrl}
-            strategy="afterInteractive"
-            onLoad={() => console.log('[SocialBarAd] Script loaded via next/script')}
-            onError={() => {
-                // Warning only - prevents Next.js dev overlay from crashing when adblockers block the script
-                console.warn('[SocialBarAd] Script failed or was blocked by client adblocker');
-            }}
-        />
-    );
+    if (inlineCode) {
+        return (
+            <Script
+                id="social-bar-inline"
+                strategy="afterInteractive"
+                dangerouslySetInnerHTML={{ __html: inlineCode }}
+            />
+        );
+    }
+
+    return null;
 }
 
 /**
