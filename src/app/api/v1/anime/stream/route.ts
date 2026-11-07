@@ -254,7 +254,7 @@ export async function GET(request: NextRequest) {
             if (extracted.embedUrl) {
                 resolvedTargetUrl = extracted.embedUrl;
                 resolvedFormat = 'embed';
-            } else if (episode?.streaming_url_toonplay) {
+            } else if (episode?.streaming_url_toonplay && !episode.streaming_url_toonplay.includes('streamindia.co.in') && !episode.streaming_url_toonplay.includes('groovy.monster')) {
                 resolvedTargetUrl = episode.streaming_url_toonplay;
                 resolvedFormat = 'toonplay';
             } else if (episode?.streaming_url_animerulz) {
