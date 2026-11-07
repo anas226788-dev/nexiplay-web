@@ -107,7 +107,8 @@ export async function GET(request: NextRequest) {
         if (id) {
             const { data } = await supabase.from('movies').select('*').eq('id', id).maybeSingle();
             movie = data;
-        } else if (slug) {
+        }
+        if (!movie && slug) {
             const { data } = await supabase.from('movies').select('*').eq('slug', slug).maybeSingle();
             movie = data;
             if (!movie) {
