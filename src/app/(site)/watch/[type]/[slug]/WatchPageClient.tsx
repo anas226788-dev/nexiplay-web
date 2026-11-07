@@ -2224,8 +2224,23 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
     };
 
     const episodeMultiStreams = parseStreamingUrlJson(isSeriesOrAnime ? (activeEpisode?.streaming_url ?? activeEpisodeStreams?.streaming_url) : movie.streaming_url);
+    const configuredMultiStreams = getConfiguredMultiStreams();
+
+    // Auto-enable Nexi Deshi Live Servers for Anime on demand
+    const desidubLiveStreams: Record<string, string> = {};
+    if (movie.type === 'anime' || isSeriesOrAnime) {
+        const liveDesiBase = `/embed/desidub?id=${encodeURIComponent(movie.id)}&slug=${encodeURIComponent(movie.slug || '')}&title=${encodeURIComponent(movie.title || '')}&season=${currentSeasonNum}&episode=${currentEpisodeNum}&apiKey=nxp_live_nexiplay_official_core_prod`;
+        desidubLiveStreams['desidub'] = `${liveDesiBase}&server=desidub`;
+        desidubLiveStreams['desidub_abyss'] = `${liveDesiBase}&server=desidub_abyss`;
+        desidubLiveStreams['desidub_filemoon'] = `${liveDesiBase}&server=desidub_filemoon`;
+        desidubLiveStreams['desidub_streamtape'] = `${liveDesiBase}&server=desidub_streamtape`;
+        desidubLiveStreams['desidub_earnvids'] = `${liveDesiBase}&server=desidub_earnvids`;
+        desidubLiveStreams['desidub_doodstream'] = `${liveDesiBase}&server=desidub_doodstream`;
+    }
+
     const multiStreams = {
-        ...getConfiguredMultiStreams(),
+        ...desidubLiveStreams,
+        ...configuredMultiStreams,
         ...episodeMultiStreams
     };
 
@@ -2338,6 +2353,9 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
             const key = activeServerId.replace('multi_', '');
             if (key === 'rareanimes') {
                 return `/embed/rr?id=${encodeURIComponent(movie.id)}&slug=${encodeURIComponent(movie.slug || '')}&season=${currentSeasonNum}&episode=${currentEpisodeNum}&apiKey=nxp_live_nexiplay_official_core_prod`;
+            }
+            if (key.startsWith('desidub')) {
+                return `/embed/desidub?id=${encodeURIComponent(movie.id)}&slug=${encodeURIComponent(movie.slug || '')}&title=${encodeURIComponent(movie.title || '')}&season=${currentSeasonNum}&episode=${currentEpisodeNum}&server=${key}&apiKey=nxp_live_nexiplay_official_core_prod`;
             }
             return normalizePlayerUrl(multiStreams[key] || '');
         }
@@ -2686,6 +2704,10 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
                     data.event === 'PLAYER_ERROR' ||
                     data.status === 'error' ||
                     data?.error;
+                if (data?.type === 'SWITCH_SERVER' && data?.serverId) {
+                    setActiveServerId(data.serverId);
+                    return;
+                }
                 if (isErr && activeServerId) {
                     console.warn('[Nexiplay AutoSwitch] Detected error from embed player:', data);
                     handleNextServer(activeServerId);
