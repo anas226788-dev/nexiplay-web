@@ -9,10 +9,13 @@ interface WatchlistButtonProps {
     movieId: string;
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default function WatchlistButton({ movieId }: WatchlistButtonProps) {
     const { user, loading } = useAuth();
     const router = useRouter();
     const [watchlistId, setWatchlistId] = useState<string | null>(null);
+    const [resolvedId, setResolvedId] = useState<string>(movieId);
     const [checking, setChecking] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
 
@@ -26,11 +29,30 @@ export default function WatchlistButton({ movieId }: WatchlistButtonProps) {
 
         async function checkWatchlist() {
             try {
+                let targetId = movieId;
+                if (!UUID_REGEX.test(movieId)) {
+                    const tmdbId = movieId.startsWith('tmdb-') ? movieId.replace('tmdb-', '').trim() : movieId;
+                    const { data: dbMovie } = await supabase
+                        .from('movies')
+                        .select('id')
+                        .eq('tmdb_id', tmdbId)
+                        .maybeSingle();
+
+                    if (dbMovie?.id) {
+                        targetId = dbMovie.id;
+                        setResolvedId(dbMovie.id);
+                    } else {
+                        setWatchlistId(null);
+                        setChecking(false);
+                        return;
+                    }
+                }
+
                 const { data, error } = await supabase
                     .from('user_watchlist')
                     .select('id')
                     .eq('user_id', currentUser!.id)
-                    .eq('movie_id', movieId)
+                    .eq('movie_id', targetId)
                     .maybeSingle();
                 
                 if (!error && data) {
@@ -67,12 +89,29 @@ export default function WatchlistButton({ movieId }: WatchlistButtonProps) {
                     throw error;
                 }
             } else {
+                let targetId = resolvedId;
+                if (!UUID_REGEX.test(targetId)) {
+                    const tmdbId = targetId.startsWith('tmdb-') ? targetId.replace('tmdb-', '').trim() : targetId;
+                    const { data: dbMovie } = await supabase
+                        .from('movies')
+                        .select('id')
+                        .eq('tmdb_id', tmdbId)
+                        .maybeSingle();
+
+                    if (dbMovie?.id) {
+                        targetId = dbMovie.id;
+                        setResolvedId(dbMovie.id);
+                    } else {
+                        throw new Error('This title must be synced to the catalog before saving to watchlist.');
+                    }
+                }
+
                 // Add to watchlist
                 const { data, error } = await supabase
                     .from('user_watchlist')
                     .insert({
                         user_id: user.id,
-                        movie_id: movieId
+                        movie_id: targetId
                     })
                     .select('id')
                     .single();
