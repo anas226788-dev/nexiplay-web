@@ -31,6 +31,35 @@ function cleanString(str: string): string {
         .replace(/[^a-z0-9]/g, '');
 }
 
+function cleanTitleToSlug(s: string): string {
+    const t = (s || '')
+        .replace(/\(.*?\)/g, '')
+        .replace(/\[.*?\]/g, '')
+        .replace(/Season\s*\d+/gi, '')
+        .replace(/[^a-zA-Z0-9\s-]/g, '')
+        .trim();
+    return t.replace(/\s+/g, '-').toLowerCase().replace(/-+/g, '-').replace(/^-|-$/g, '');
+}
+
+async function getRomajiTitle(englishTitle: string): Promise<string | null> {
+    try {
+        const res = await fetch('https://graphql.anilist.co', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0' },
+            body: JSON.stringify({
+                query: 'query ($q: String) { Media(search: $q, type: ANIME) { title { romaji } } }',
+                variables: { q: englishTitle }
+            }),
+            signal: AbortSignal.timeout(4000)
+        });
+        if (res.ok) {
+            const data = await res.json();
+            return data?.data?.Media?.title?.romaji || null;
+        }
+    } catch {}
+    return null;
+}
+
 /**
  * Searches DesiDubAnime for the anime post matching title or slug
  */
@@ -44,43 +73,78 @@ export async function searchDesiDubAnime(title: string, slug?: string, seasonNum
             .replace(/\./g, ' ')
             .trim();
 
-        const searchUrl = `https://www.desidubanime.me/wp-json/wp/v2/anime?search=${encodeURIComponent(cleanTitle)}&per_page=10`;
-        const res = await fetch(searchUrl, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-                'Referer': 'https://www.desidubanime.me/'
-            },
-            signal: AbortSignal.timeout(8000)
-        });
+        const searchCandidates: string[] = [cleanTitle];
+        if (slug) {
+            const cleanSlug = slug.replace(/-/g, ' ').trim();
+            if (cleanSlug && !searchCandidates.includes(cleanSlug)) searchCandidates.push(cleanSlug);
+        }
 
-        if (!res.ok) return null;
-        const animes = (await res.json()) as any[];
-        if (!Array.isArray(animes) || animes.length === 0) return null;
+        // Fetch Romaji title from AniList for English titles (e.g. Slime -> Tensei Shitara Slime Datta Ken)
+        const romaji = await getRomajiTitle(cleanTitle);
+        if (romaji && !searchCandidates.includes(romaji)) {
+            searchCandidates.push(romaji);
+        }
+
+        // Keyword fallback (e.g. "Slime")
+        const stopwords = new Set(['that', 'time', 'got', 'this', 'with', 'from', 'anime', 'season', 'series', 'the', 'and', 'for', 'you']);
+        const keywords = cleanTitle.split(/\s+/).filter(w => w.length >= 4 && !stopwords.has(w.toLowerCase()));
+        if (keywords.length > 0) {
+            const kw = keywords[keywords.length - 1]; // e.g. "Slime"
+            if (!searchCandidates.includes(kw)) searchCandidates.push(kw);
+        }
+
+        let animes: any[] = [];
+        for (const term of searchCandidates) {
+            const searchUrl = `https://www.desidubanime.me/wp-json/wp/v2/anime?search=${encodeURIComponent(term)}&per_page=10`;
+            try {
+                const res = await fetch(searchUrl, {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+                        'Referer': 'https://www.desidubanime.me/'
+                    },
+                    signal: AbortSignal.timeout(6000)
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (Array.isArray(data) && data.length > 0) {
+                        animes = data;
+                        break;
+                    }
+                }
+            } catch {}
+        }
+
+        if (animes.length === 0) return null;
 
         const targetTitleClean = cleanString(cleanTitle);
         const targetSlugClean = cleanString(slug || cleanTitle);
 
         const seasonMarker = `season-${seasonNum}`;
         const seasonMarker2 = `${seasonNum}nd-season`;
+        const seasonMarker2Short = `${seasonNum}nd-sea`;
         const seasonMarker3 = `${seasonNum}rd-season`;
+        const seasonMarker3Short = `${seasonNum}rd-sea`;
         const seasonMarker4 = `${seasonNum}th-season`;
+        const seasonMarker4Short = `${seasonNum}th-sea`;
 
         let matched = null;
         if (seasonNum > 1) {
             matched = animes.find(a => {
                 const s = (a.slug || '').toLowerCase();
                 const t = (a.title?.rendered || '').toLowerCase();
-                return s.includes(seasonMarker) || s.includes(seasonMarker2) || s.includes(seasonMarker3) || s.includes(seasonMarker4) ||
+                return s.includes(seasonMarker) || s.includes(seasonMarker2) || s.includes(seasonMarker2Short) ||
+                       s.includes(seasonMarker3) || s.includes(seasonMarker3Short) ||
+                       s.includes(seasonMarker4) || s.includes(seasonMarker4Short) ||
                        t.includes(`season ${seasonNum}`) || t.includes(`${seasonNum}nd season`) || t.includes(`${seasonNum}rd season`);
             });
         } else {
             // Season 1: prefer items WITHOUT season 2, 3, 4, movie, or items with season-1
             matched = animes.find(a => {
                 const s = (a.slug || '').toLowerCase();
-                return (s.includes('season-1') || s.includes('1st-season')) && !s.includes('movie');
+                return (s.includes('season-1') || s.includes('1st-season') || s.includes('1st-sea')) && !s.includes('movie');
             }) || animes.find(a => {
                 const s = (a.slug || '').toLowerCase();
-                return !s.includes('season-') && !s.includes('2nd-') && !s.includes('3rd-') && !s.includes('movie');
+                return !s.includes('season-') && !s.includes('2nd-') && !s.includes('3rd-') && !s.includes('4th-') && !s.includes('movie');
             });
         }
 
@@ -138,8 +202,11 @@ export async function extractDesiDubStream(
         }
 
         // Step 2: Determine episode watch URL
-        // DesiDub watch URL convention: https://www.desidubanime.me/watch/{slug}-episode-{epNum}/
+        const titleSlug = cleanTitleToSlug(anime.title);
         const candidateWatchUrls = [
+            `https://www.desidubanime.me/watch/${titleSlug}-episode-${epNum}/`,
+            `https://www.desidubanime.me/watch/${titleSlug}-season-${seasonNum}-episode-${epNum}/`,
+            `https://www.desidubanime.me/watch/${titleSlug}-${epNum}/`,
             `https://www.desidubanime.me/watch/${anime.slug}-episode-${epNum}/`,
             `https://www.desidubanime.me/watch/${anime.slug}-${epNum}/`,
             `https://www.desidubanime.me/watch/${anime.slug}-season-${seasonNum}-episode-${epNum}/`
@@ -148,7 +215,7 @@ export async function extractDesiDubStream(
         let targetWatchUrl: string | null = null;
         let epHtml = '';
 
-        // Try candidate 1 directly (fastest)
+        // Try candidates directly
         for (const candidate of candidateWatchUrls) {
             try {
                 const testRes = await fetch(candidate, {
@@ -170,7 +237,7 @@ export async function extractDesiDubStream(
         }
 
         // If direct candidate didn't match, fetch anime page to parse watch links
-        if (!targetWatchUrl) {
+        if (!targetWatchUrl && anime.link) {
             try {
                 const animeRes = await fetch(anime.link, {
                     headers: {
@@ -184,6 +251,7 @@ export async function extractDesiDubStream(
                     const watchMatches = [...animeHtml.matchAll(/href=["'](https?:\/\/(?:www\.)?desidubanime\.me\/watch\/[^"']+)["']/gi)].map(m => m[1]);
                     const uniqueWatchUrls = [...new Set(watchMatches)];
 
+                    // Check exact episode in page
                     const matchedEp = uniqueWatchUrls.find(u => {
                         const m = u.match(/episode-(\d+)/i) || u.match(/ep-(\d+)/i) || u.match(/-(\d+)\/?$/);
                         return m && parseInt(m[1], 10) === epNum;
@@ -200,6 +268,31 @@ export async function extractDesiDubStream(
                         });
                         if (epRes.ok) {
                             epHtml = await epRes.text();
+                        }
+                    } else if (uniqueWatchUrls.length > 0) {
+                        // Reconstruct slug pattern from any existing watch URL (handles paginated episodes 1-14)
+                        const sample = uniqueWatchUrls[0];
+                        const baseSlug = sample
+                            .replace(/^https?:\/\/[^\/]+\/watch\//i, '')
+                            .replace(/-episode-\d+.*$/i, '')
+                            .replace(/-\d+\/?$/i, '')
+                            .replace(/\/$/, '');
+                        if (baseSlug) {
+                            const reconstructed = `https://www.desidubanime.me/watch/${baseSlug}-episode-${epNum}/`;
+                            const rRes = await fetch(reconstructed, {
+                                headers: {
+                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+                                    'Referer': anime.link
+                                },
+                                signal: AbortSignal.timeout(6000)
+                            });
+                            if (rRes.ok) {
+                                const rHtml = await rRes.text();
+                                if (rHtml.includes('<iframe')) {
+                                    targetWatchUrl = reconstructed;
+                                    epHtml = rHtml;
+                                }
+                            }
                         }
                     }
                 }
