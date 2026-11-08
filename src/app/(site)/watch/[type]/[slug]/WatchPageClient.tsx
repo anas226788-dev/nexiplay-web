@@ -2230,6 +2230,7 @@ export default function WatchPageClient({ movie, seasons = [], type, slug }: Wat
     const desidubLiveStreams: Record<string, string> = {};
     if (movie.type === 'anime' || isSeriesOrAnime) {
         const liveDesiBase = `/embed/desidub?id=${encodeURIComponent(movie.id)}&slug=${encodeURIComponent(movie.slug || '')}&title=${encodeURIComponent(movie.title || '')}&season=${currentSeasonNum}&episode=${currentEpisodeNum}&apiKey=nxp_live_nexiplay_official_core_prod`;
+        desidubLiveStreams['rareanimes'] = `/embed/rr?id=${encodeURIComponent(movie.id)}&slug=${encodeURIComponent(movie.slug || '')}&season=${currentSeasonNum}&episode=${currentEpisodeNum}&apiKey=nxp_live_nexiplay_official_core_prod`;
         desidubLiveStreams['desidub'] = `${liveDesiBase}&server=desidub`;
         desidubLiveStreams['desidub_abyss'] = `${liveDesiBase}&server=desidub_abyss`;
         desidubLiveStreams['desidub_filemoon'] = `${liveDesiBase}&server=desidub_filemoon`;

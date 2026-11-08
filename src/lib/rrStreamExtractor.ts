@@ -96,14 +96,15 @@ export async function liveSearchRareAnimesPost(title: string, seasonNum: number 
         const cleanTitle = title
             .replace(/\([^)]*\)/g, '')
             .replace(/Season\s*\d+(?:-\d+)?/gi, '')
+            .replace(/Hindi(?:\s*Dub(?:bed)?)?/gi, '')
+            .replace(/Dual\s*Audio/gi, '')
             .trim();
-        const query = `${cleanTitle} Season ${seasonNum}`;
-        const searchUrl = `https://www.rareanimes.mov/?s=${encodeURIComponent(query)}`;
+        const searchUrl = `https://www.rareanimes.fans/?s=${encodeURIComponent(cleanTitle)}`;
         
         const res = await fetch(searchUrl, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                'Referer': 'https://rareanimes.net/'
+                'Referer': 'https://www.rareanimes.fans/'
             },
             signal: AbortSignal.timeout(8000)
         });
@@ -118,7 +119,7 @@ export async function liveSearchRareAnimesPost(title: string, seasonNum: number 
         while ((m = articleRegex.exec(html)) !== null) {
             const href = m[1].trim();
             const linkText = m[2].replace(/<[^>]+>/g, '').trim().toLowerCase();
-            if (href.includes('/category/') || href.includes('/tag/') || href.includes('/page/') || href === 'https://www.rareanimes.fans/') {
+            if (href.includes('/category/') || href.includes('/tag/') || href.includes('/page/') || href === 'https://www.rareanimes.fans/' || href === 'https://rareanimes.fans/') {
                 continue;
             }
 

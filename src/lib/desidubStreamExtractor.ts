@@ -34,12 +34,14 @@ function cleanString(str: string): string {
 /**
  * Searches DesiDubAnime for the anime post matching title or slug
  */
-export async function searchDesiDubAnime(title: string, slug?: string): Promise<{ id: number; slug: string; link: string; title: string } | null> {
+export async function searchDesiDubAnime(title: string, slug?: string, seasonNum: number = 1): Promise<{ id: number; slug: string; link: string; title: string } | null> {
     try {
         const cleanTitle = (title || '')
             .replace(/\([^)]*\)/g, '')
-            .replace(/Season\s*\d+(?:-\d+)?/gi, '')
+            .replace(/\[[^\]]*\]/g, '')
+            .replace(/Season\s*\d+(?:-\d+)?(?:\.)?/gi, '')
             .replace(/-\d{4}$/, '')
+            .replace(/\./g, ' ')
             .trim();
 
         const searchUrl = `https://www.desidubanime.me/wp-json/wp/v2/anime?search=${encodeURIComponent(cleanTitle)}&per_page=10`;
@@ -58,17 +60,39 @@ export async function searchDesiDubAnime(title: string, slug?: string): Promise<
         const targetTitleClean = cleanString(cleanTitle);
         const targetSlugClean = cleanString(slug || cleanTitle);
 
-        // Best match priority:
-        // 1. Exact slug match
-        let matched = animes.find(a => cleanString(a.slug) === targetSlugClean || cleanString(a.slug) === targetTitleClean);
-        // 2. Title match
+        const seasonMarker = `season-${seasonNum}`;
+        const seasonMarker2 = `${seasonNum}nd-season`;
+        const seasonMarker3 = `${seasonNum}rd-season`;
+        const seasonMarker4 = `${seasonNum}th-season`;
+
+        let matched = null;
+        if (seasonNum > 1) {
+            matched = animes.find(a => {
+                const s = (a.slug || '').toLowerCase();
+                const t = (a.title?.rendered || '').toLowerCase();
+                return s.includes(seasonMarker) || s.includes(seasonMarker2) || s.includes(seasonMarker3) || s.includes(seasonMarker4) ||
+                       t.includes(`season ${seasonNum}`) || t.includes(`${seasonNum}nd season`) || t.includes(`${seasonNum}rd season`);
+            });
+        } else {
+            // Season 1: prefer items WITHOUT season 2, 3, 4, movie, or items with season-1
+            matched = animes.find(a => {
+                const s = (a.slug || '').toLowerCase();
+                return (s.includes('season-1') || s.includes('1st-season')) && !s.includes('movie');
+            }) || animes.find(a => {
+                const s = (a.slug || '').toLowerCase();
+                return !s.includes('season-') && !s.includes('2nd-') && !s.includes('3rd-') && !s.includes('movie');
+            });
+        }
+
+        if (!matched) {
+            matched = animes.find(a => cleanString(a.slug) === targetSlugClean || cleanString(a.slug) === targetTitleClean);
+        }
         if (!matched) {
             matched = animes.find(a => {
                 const aTitle = cleanString(a.title?.rendered || '');
                 return aTitle.includes(targetTitleClean) || targetTitleClean.includes(aTitle);
             });
         }
-        // 3. Fallback to first item if it contains words
         if (!matched && animes.length > 0) {
             matched = animes[0];
         }
@@ -104,7 +128,7 @@ export async function extractDesiDubStream(
 
     try {
         // Step 1: Find anime
-        const anime = await searchDesiDubAnime(title, slug);
+        const anime = await searchDesiDubAnime(title, slug, seasonNum);
         if (!anime) {
             return {
                 success: false,
@@ -117,7 +141,8 @@ export async function extractDesiDubStream(
         // DesiDub watch URL convention: https://www.desidubanime.me/watch/{slug}-episode-{epNum}/
         const candidateWatchUrls = [
             `https://www.desidubanime.me/watch/${anime.slug}-episode-${epNum}/`,
-            `https://www.desidubanime.me/watch/${anime.slug}-${epNum}/`
+            `https://www.desidubanime.me/watch/${anime.slug}-${epNum}/`,
+            `https://www.desidubanime.me/watch/${anime.slug}-season-${seasonNum}-episode-${epNum}/`
         ];
 
         let targetWatchUrl: string | null = null;
