@@ -124,6 +124,64 @@ async function resolveVaultDownload(
         clearTimeout(timeout);
     }
 
+    // 3. Fallback: Check ToonPlay live download scraper if VidVault has no direct link
+    if (directTargetUrl === directFallback && (mediaType === 'anime' || title || isTv)) {
+        try {
+            const lookupTitle = title || '';
+            if (lookupTitle) {
+                const toonplayRes = await fetch(`https://toonplay.in/downloads/index.json`, {
+                    headers: { 'User-Agent': 'Mozilla/5.0' },
+                    signal: AbortSignal.timeout(6000),
+                });
+                if (toonplayRes.ok) {
+                    const toonData = await toonplayRes.json();
+                    const clean = (s: string) => s.replace(/[^a-zA-Z0-9\s]/g, '').toLowerCase().trim();
+                    const cleanTarget = clean(lookupTitle);
+                    const matched = (toonData.series || []).find((s: any) => {
+                        const ct = clean(s.meta?.title || s.slug || '');
+                        return ct.includes(cleanTarget) || cleanTarget.includes(ct);
+                    });
+                    if (matched?.slug) {
+                        const epRes = await fetch(`https://toonplay.in/downloads/${encodeURIComponent(matched.slug)}.json`, {
+                            headers: { 'User-Agent': 'Mozilla/5.0' },
+                            signal: AbortSignal.timeout(6000),
+                        });
+                        if (epRes.ok) {
+                            const epData = await epRes.json();
+                            const epNum = Number(episode || 1);
+                            const epList: any[] = epData.page?.episodes || [];
+                            const targetEp = epList.find((e: any) => e.episode === epNum) || epList[epNum - 1];
+                            if (targetEp) {
+                                const qualities = targetEp.qualities || [];
+                                const matchedQuality = qualities.find((q: any) => (q.quality || '').toLowerCase().includes(quality.toLowerCase())) || qualities[0];
+                                const links = matchedQuality?.links || {};
+                                const chosen = links.Hcloud || links.MEGA || links.GDF || links.Multi || links.Fprs;
+                                if (chosen) {
+                                    return {
+                                        success: true,
+                                        directAvailable: true,
+                                        source: 'toonplay',
+                                        url: chosen,
+                                        downloadUrl: chosen,
+                                        directUrl: chosen,
+                                        fileName,
+                                        quality: matchedQuality?.quality || quality,
+                                        mediaType,
+                                        id,
+                                        season,
+                                        episode,
+                                    };
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (tpErr) {
+            console.warn('[ToonPlay Download Fallback Warning]:', tpErr);
+        }
+    }
+
     const proxyDownloadUrl = `/api/download/file?url=${encodeURIComponent(directTargetUrl)}&filename=${encodeURIComponent(fileName)}`;
 
     return {
