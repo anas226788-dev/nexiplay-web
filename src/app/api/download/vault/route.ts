@@ -90,8 +90,68 @@ async function resolveVaultDownload(
         }
     }
 
-    // 2. ToonPlay Snapshot & Live Catalog (100% immune to Cloudflare 403 on Vercel)
-    if (mediaType === 'anime' || title || isTv) {
+    // 2. VidVault Direct Download (Attempt first for all media)
+    let vaultUrl = `https://vidvault.to/download-link/${isTv ? 'tv' : 'movie'}/${encodeURIComponent(id)}`;
+    if (isTv && season && episode) {
+        vaultUrl += `/${encodeURIComponent(season)}/${encodeURIComponent(episode)}`;
+    }
+    vaultUrl += `/${encodeURIComponent(quality)}`;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+
+    let vidvaultDirectUrl: string | null = null;
+    try {
+        const res = await fetch(vaultUrl, {
+            signal: controller.signal,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Referer': `https://vidvault.to/${isTv ? 'tv' : 'movie'}/${id}`,
+                'Accept': 'application/json, text/plain, */*',
+            },
+        });
+        clearTimeout(timeout);
+
+        if (res.ok) {
+            const data = await res.json().catch(() => ({}));
+            if (data && data.url && typeof data.url === 'string' && data.url.startsWith('http')) {
+                vidvaultDirectUrl = String(data.url);
+            }
+        }
+    } catch {
+        clearTimeout(timeout);
+    }
+
+    // 2a. If VidVault returned a working direct link, use it immediately
+    if (vidvaultDirectUrl) {
+        const proxyDownloadUrl = `/api/download/file?url=${encodeURIComponent(vidvaultDirectUrl)}&filename=${encodeURIComponent(fileName)}`;
+        return {
+            success: true,
+            directAvailable: true,
+            source: 'vidvault',
+            url: proxyDownloadUrl,
+            downloadUrl: proxyDownloadUrl,
+            directUrl: vidvaultDirectUrl,
+            fileName,
+            quality,
+            mediaType,
+            id,
+            season,
+            episode,
+        };
+    }
+
+    // 3. If VidVault didn't have it, check ToonPlay for Anime ONLY
+    const isAnime = mediaType === 'anime' || (!!title && (() => {
+        const clean = (s: string) => s.replace(/\(.*?\)/g, '').replace(/Season\s*[\d\s\-]+/gi, '').replace(/[^a-zA-Z0-9\s]/g, '').toLowerCase().trim();
+        const ct = clean(title);
+        return Object.values(toonplayCatalog).some((item: any) => {
+            const it = clean(item.meta?.title || item.slug || '');
+            return it && (it.includes(ct) || ct.includes(it));
+        });
+    })());
+
+    if (isAnime) {
         try {
             const lookupTitle = title || '';
             if (lookupTitle) {
@@ -103,7 +163,7 @@ async function resolveVaultDownload(
                 };
                 const cleanTarget = clean(lookupTitle);
 
-                // 2a. Check fast bundled snapshot (0ms, 100% immune to CF blocks)
+                // 3a. Check fast bundled snapshot (0ms, 100% immune to CF blocks)
                 let matchedSeries: any = null;
                 for (const item of Object.values(toonplayCatalog)) {
                     const ct = clean(item.meta?.title || item.slug || '');
@@ -113,7 +173,7 @@ async function resolveVaultDownload(
                     }
                 }
 
-                // 2b. If not in snapshot, try live fetch
+                // 3b. If not in snapshot, try live fetch
                 if (!matchedSeries) {
                     try {
                         const toonplayRes = await fetch(`https://toonplay.in/downloads/index.json`, {
@@ -175,57 +235,33 @@ async function resolveVaultDownload(
         } catch (tpErr) {
             console.warn('[ToonPlay Download Error]:', tpErr);
         }
+
+        return {
+            success: false,
+            error: 'Download link is currently unavailable for this anime episode. Please watch online.',
+        };
     }
 
-    // 3. VidVault Direct Download (only if it returns an active valid link; never fallback to blocked direct URLs)
-    let vaultUrl = `https://vidvault.to/download-link/${isTv ? 'tv' : 'movie'}/${encodeURIComponent(id)}`;
-    if (isTv && season && episode) {
-        vaultUrl += `/${encodeURIComponent(season)}/${encodeURIComponent(episode)}`;
-    }
-    vaultUrl += `/${encodeURIComponent(quality)}`;
+    // 4. For Movie and Series: Keep original VidVault direct fallback as before
+    const directFallback = isTv && season && episode
+        ? `https://vidvault.to/direct/tv/${id}/${season}/${episode}`
+        : `https://vidvault.to/direct/movie/${id}/0`;
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 6000);
-
-    try {
-        const res = await fetch(vaultUrl, {
-            signal: controller.signal,
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Referer': `https://vidvault.to/${isTv ? 'tv' : 'movie'}/${id}`,
-                'Accept': 'application/json, text/plain, */*',
-            },
-        });
-        clearTimeout(timeout);
-
-        if (res.ok) {
-            const data = await res.json().catch(() => ({}));
-            if (data && data.url && typeof data.url === 'string' && data.url.startsWith('http')) {
-                const directTargetUrl = String(data.url);
-                const proxyDownloadUrl = `/api/download/file?url=${encodeURIComponent(directTargetUrl)}&filename=${encodeURIComponent(fileName)}`;
-                return {
-                    success: true,
-                    directAvailable: true,
-                    source: 'vidvault',
-                    url: proxyDownloadUrl,
-                    downloadUrl: proxyDownloadUrl,
-                    directUrl: directTargetUrl,
-                    fileName,
-                    quality,
-                    mediaType,
-                    id,
-                    season,
-                    episode,
-                };
-            }
-        }
-    } catch {
-        clearTimeout(timeout);
-    }
+    const proxyDownloadUrl = `/api/download/file?url=${encodeURIComponent(directFallback)}&filename=${encodeURIComponent(fileName)}`;
 
     return {
-        success: false,
-        error: 'Download link is currently unavailable for this episode. Please watch online.',
+        success: true,
+        directAvailable: true,
+        source: 'vidvault',
+        url: proxyDownloadUrl,
+        downloadUrl: proxyDownloadUrl,
+        directUrl: directFallback,
+        fileName,
+        quality,
+        mediaType,
+        id,
+        season,
+        episode,
     };
 }
 
