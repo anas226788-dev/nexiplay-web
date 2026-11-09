@@ -135,7 +135,12 @@ async function resolveVaultDownload(
                 });
                 if (toonplayRes.ok) {
                     const toonData = await toonplayRes.json();
-                    const clean = (s: string) => s.replace(/[^a-zA-Z0-9\s]/g, '').toLowerCase().trim();
+                    const clean = (s: string) => {
+                        let res = s.replace(/\(.*?\)/g, '');
+                        res = res.replace(/Season\s*[\d\s\-]+/gi, '');
+                        res = res.replace(/[^a-zA-Z0-9\s]/g, '');
+                        return res.toLowerCase().trim();
+                    };
                     const cleanTarget = clean(lookupTitle);
                     const matched = (toonData.series || []).find((s: any) => {
                         const ct = clean(s.meta?.title || s.slug || '');
