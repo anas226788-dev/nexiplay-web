@@ -138,9 +138,13 @@ export async function GET(request: NextRequest) {
                             };
 
                             const dbServers: DesiDubServers = {
-                                desidub: wrapUrl(parsed.desidub_filemoon) || wrapUrl(parsed.desidub) || wrapUrl(parsed.desidub_abyss),
+                                desidub: wrapUrl(parsed.desidub_vidmoly) || wrapUrl(parsed.desidub_mirror) || wrapUrl(parsed.desidub) || wrapUrl(parsed.desidub_filemoon) || wrapUrl(parsed.desidub_abyss),
+                                desidub_vidmoly: wrapUrl(parsed.desidub_vidmoly),
+                                desidub_mirror: wrapUrl(parsed.desidub_mirror),
+                                desidub_ruby: wrapUrl(parsed.desidub_ruby),
+                                desidub_p2p: wrapUrl(parsed.desidub_p2p),
                                 desidub_abyss: wrapUrl(parsed.desidub_abyss),
-                                desidub_filemoon: wrapUrl(parsed.desidub_filemoon),
+                                desidub_filemoon: wrapUrl(parsed.desidub_filemoon) || wrapUrl(parsed.desidub_vidmoly) || wrapUrl(parsed.desidub_mirror),
                                 desidub_streamtape: wrapUrl(parsed.desidub_streamtape),
                                 desidub_earnvids: wrapUrl(parsed.desidub_earnvids),
                                 desidub_doodstream: wrapUrl(parsed.desidub_doodstream)

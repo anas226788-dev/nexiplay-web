@@ -1,5 +1,9 @@
 export interface DesiDubServers {
     desidub?: string;
+    desidub_vidmoly?: string;
+    desidub_mirror?: string;
+    desidub_ruby?: string;
+    desidub_p2p?: string;
     desidub_abyss?: string;
     desidub_filemoon?: string;
     desidub_streamtape?: string;
@@ -307,10 +311,116 @@ export async function extractDesiDubStream(
             };
         }
 
-        // Step 3: Extract iframe
+        // Step 3: Extract iframe and page-level embed servers
         const iframeMatch = epHtml.match(/<iframe[^>]+src=["']([^"']+)["']/i);
         const iframeSrc = iframeMatch ? iframeMatch[1] : null;
-        if (!iframeSrc) {
+
+        const serverMap: DesiDubServers = {};
+
+        // Extract native embed-id attributes directly from the watch page (base64 encoded)
+        const embedMatches = [...epHtml.matchAll(/embed-id=["']([^"']+)["']/gi)];
+        const pageServers: Record<string, string> = {};
+        for (const m of embedMatches) {
+            const raw = m[1];
+            const parts = raw.split(':');
+            if (parts.length >= 2) {
+                try {
+                    const label = Buffer.from(parts[0], 'base64').toString('utf8').trim().toLowerCase();
+                    let val = Buffer.from(parts[1], 'base64').toString('utf8').trim();
+                    const srcMatch = val.match(/src=["']([^"']+)["']/i);
+                    if (srcMatch) val = srcMatch[1];
+                    if (val) pageServers[label] = val;
+                } catch {}
+            }
+        }
+
+        // Map page-level verified servers
+        for (const [lbl, srvUrl] of Object.entries(pageServers)) {
+            const lower = srvUrl.toLowerCase();
+            if (lbl.includes('vmoly') || lower.includes('vidmoly')) {
+                serverMap.desidub_vidmoly = srvUrl;
+            } else if (lbl.includes('mirror') || lower.includes('filesforever')) {
+                serverMap.desidub_mirror = srvUrl;
+            } else if (lbl.includes('ruby') || lower.includes('nuvorel') || lower.includes('rubystm')) {
+                serverMap.desidub_ruby = srvUrl;
+            } else if (lbl.includes('p2p') || lower.includes('p2pplay') || lower.includes('rpmstream') || lower.includes('strp2p')) {
+                serverMap.desidub_p2p = srvUrl;
+            } else if (lbl.includes('abyss') || lower.includes('abyssplayer') || lower.includes('abyss.to')) {
+                serverMap.desidub_abyss = srvUrl;
+            }
+        }
+
+        if (iframeSrc && !serverMap.desidub_mirror && (iframeSrc.includes('filesforever') || iframeSrc.includes('embed'))) {
+            serverMap.desidub_mirror = iframeSrc;
+        }
+
+        // Step 4: Extract supplementary servers via embedhelper2.php
+        const targetSidSrc = iframeSrc || serverMap.desidub_mirror;
+        if (targetSidSrc && (targetSidSrc.includes('filesforever.link/embed/') || targetSidSrc.includes('pro.iqsmartgames.com/svid/'))) {
+            const sidMatch = targetSidSrc.match(/(?:embed|svid)\/([a-zA-Z0-9_-]+)/);
+            if (sidMatch) {
+                const sid = sidMatch[1];
+                try {
+                    const helperRes = await fetch('https://pro.iqsmartgames.com/embedhelper2.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+                            'Referer': `https://pro.iqsmartgames.com/svid/${sid}`,
+                            'Origin': 'https://pro.iqsmartgames.com'
+                        },
+                        body: new URLSearchParams({ sid, UserFavSite: '', currentDomain: '[]' }).toString(),
+                        signal: AbortSignal.timeout(6000)
+                    });
+
+                    if (helperRes.ok) {
+                        const data = await helperRes.json() as any;
+                        if (data?.mresult) {
+                            const decoded = Buffer.from(data.mresult, 'base64').toString('utf8');
+                            const ids = JSON.parse(decoded);
+                            const sources = data.sources || {};
+
+                            // Vidmoly / P2P mirrors if not already set from page
+                            if (!serverMap.desidub_p2p && ids.rpmshre && sources.rpmshre) {
+                                serverMap.desidub_p2p = `${sources.rpmshre.siteUrl}#${ids.rpmshre}`;
+                            } else if (!serverMap.desidub_p2p && ids.upnshr && sources.upnshr) {
+                                serverMap.desidub_p2p = `${sources.upnshr.siteUrl}#${ids.upnshr}`;
+                            }
+
+                            // Streamtape
+                            if (ids.strmtp && sources.strmtp) {
+                                const suffix = sources.strmtp.embed_suffix || '';
+                                serverMap.desidub_streamtape = `${sources.strmtp.siteUrl}${ids.strmtp}${suffix}`;
+                            }
+                            // Earnvids
+                            if (ids.flls && sources.flls) {
+                                serverMap.desidub_earnvids = `${sources.flls.siteUrl}${ids.flls}`;
+                            } else if (ids.smwh && sources.smwh) {
+                                serverMap.desidub_earnvids = `${sources.smwh.siteUrl}${ids.smwh}`;
+                            }
+                            // Doodstream
+                            if (ids.ddstm && sources.ddstm) {
+                                serverMap.desidub_doodstream = `${sources.ddstm.siteUrl}${ids.ddstm}`;
+                            }
+                            // Filemoon (as backup server)
+                            if (ids.flmn && sources.flmn) {
+                                serverMap.desidub_filemoon = `${sources.flmn.siteUrl}${ids.flmn}`;
+                            }
+                            // Abyss backup if not set
+                            if (!serverMap.desidub_abyss && ids.abys && sources.abys) {
+                                serverMap.desidub_abyss = `${sources.abys.siteUrl}${ids.abys}`;
+                            }
+                        }
+                    }
+                } catch {}
+            }
+        }
+
+        if (iframeSrc && !serverMap.desidub_mirror && !serverMap.desidub_vidmoly) {
+            serverMap.desidub_mirror = iframeSrc;
+        }
+
+        if (Object.keys(serverMap).length === 0 && !iframeSrc) {
             return {
                 success: false,
                 notFound: true,
@@ -318,69 +428,29 @@ export async function extractDesiDubStream(
             };
         }
 
-        const serverMap: DesiDubServers = {};
+        // Priority for primary Nexi Deshi Server:
+        // 1. Vidmoly (fastest clean player, direct HLS streams, 0 bot screens)
+        // 2. Mirror (official filesforever native player)
+        // 3. Ruby (nuvorel clean player)
+        // 4. Streamtape
+        // 5. Doodstream
+        // 6. P2P
+        // 7. Filemoon / Abyss
+        const primary = serverMap.desidub_vidmoly
+            || serverMap.desidub_mirror
+            || serverMap.desidub_ruby
+            || serverMap.desidub_streamtape
+            || serverMap.desidub_doodstream
+            || serverMap.desidub_p2p
+            || serverMap.desidub_filemoon
+            || serverMap.desidub_abyss
+            || iframeSrc!;
 
-        // Step 4: Extract 5 servers via embedhelper2.php
-        if (iframeSrc.includes('filesforever.link/embed/') || iframeSrc.includes('pro.iqsmartgames.com/svid/')) {
-            const sidMatch = iframeSrc.match(/(?:embed|svid)\/([a-zA-Z0-9_-]+)/);
-            if (sidMatch) {
-                const sid = sidMatch[1];
-                const helperRes = await fetch('https://pro.iqsmartgames.com/embedhelper2.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-                        'Referer': `https://pro.iqsmartgames.com/svid/${sid}`,
-                        'Origin': 'https://pro.iqsmartgames.com'
-                    },
-                    body: new URLSearchParams({ sid, UserFavSite: '', currentDomain: '[]' }).toString(),
-                    signal: AbortSignal.timeout(8000)
-                });
-
-                if (helperRes.ok) {
-                    const data = await helperRes.json() as any;
-                    if (data?.mresult) {
-                        const decoded = Buffer.from(data.mresult, 'base64').toString('utf8');
-                        const ids = JSON.parse(decoded);
-                        const sources = data.sources || {};
-
-                        // 1. Filemoon (Primary high-speed clean embed)
-                        if (ids.flmn && sources.flmn) {
-                            serverMap.desidub_filemoon = `${sources.flmn.siteUrl}${ids.flmn}`;
-                        }
-                        // 2. Abyss (Routed through Clean Proxy to prevent abyss.to marketing redirect)
-                        if (ids.abys && sources.abys) {
-                            const rawAbyss = `${sources.abys.siteUrl}${ids.abys}`;
-                            serverMap.desidub_abyss = `/api/player/abyss?url=${encodeURIComponent(rawAbyss)}`;
-                        }
-                        // 3. Streamtape
-                        if (ids.strmtp && sources.strmtp) {
-                            const suffix = sources.strmtp.embed_suffix || '';
-                            serverMap.desidub_streamtape = `${sources.strmtp.siteUrl}${ids.strmtp}${suffix}`;
-                        }
-                        // 4. Earnvids
-                        if (ids.flls && sources.flls) {
-                            serverMap.desidub_earnvids = `${sources.flls.siteUrl}${ids.flls}`;
-                        } else if (ids.smwh && sources.smwh) {
-                            serverMap.desidub_earnvids = `${sources.smwh.siteUrl}${ids.smwh}`;
-                        }
-                        // 5. Doodstream
-                        if (ids.ddstm && sources.ddstm) {
-                            serverMap.desidub_doodstream = `${sources.ddstm.siteUrl}${ids.ddstm}`;
-                        }
-                    }
-                }
-            }
-        }
-
-        if (iframeSrc.includes('abyssplayer.com') || iframeSrc.includes('abyss.to') || iframeSrc.includes('short.ink')) {
-            const parts = iframeSrc.split('/').filter(Boolean);
-            const id = parts[parts.length - 1];
-            serverMap.desidub_abyss = `/api/player/abyss?url=${encodeURIComponent(`https://player.abyssplayer.com/${id}`)}`;
-        }
-
-        const primary = serverMap.desidub_filemoon || serverMap.desidub_abyss || serverMap.desidub_earnvids || serverMap.desidub_streamtape || serverMap.desidub_doodstream || iframeSrc;
         serverMap.desidub = primary;
+        // Keep backward compat: if someone requests desidub_filemoon and it's missing or dead, fall back to vidmoly/mirror
+        if (!serverMap.desidub_filemoon) {
+            serverMap.desidub_filemoon = serverMap.desidub_vidmoly || serverMap.desidub_mirror || primary;
+        }
 
         const result: DesiDubStreamResult = {
             success: true,
