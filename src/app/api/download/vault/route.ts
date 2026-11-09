@@ -90,36 +90,43 @@ async function resolveVaultDownload(
         }
     }
 
-    // 2. VidVault Direct Download (Attempt first for all media)
-    let vaultUrl = `https://vidvault.to/download-link/${isTv ? 'tv' : 'movie'}/${encodeURIComponent(id)}`;
-    if (isTv && season && episode) {
-        vaultUrl += `/${encodeURIComponent(season)}/${encodeURIComponent(episode)}`;
-    }
-    vaultUrl += `/${encodeURIComponent(quality)}`;
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 6000);
-
+    // 2. VidVault Direct Download (Attempt requested quality, then fallback qualities)
+    const qualitiesToTry = [quality, ...['720p', '1080p', '480p'].filter(q => q.toLowerCase() !== quality.toLowerCase())];
     let vidvaultDirectUrl: string | null = null;
-    try {
-        const res = await fetch(vaultUrl, {
-            signal: controller.signal,
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Referer': `https://vidvault.to/${isTv ? 'tv' : 'movie'}/${id}`,
-                'Accept': 'application/json, text/plain, */*',
-            },
-        });
-        clearTimeout(timeout);
+    let resolvedQuality: string = quality;
 
-        if (res.ok) {
-            const data = await res.json().catch(() => ({}));
-            if (data && data.url && typeof data.url === 'string' && data.url.startsWith('http')) {
-                vidvaultDirectUrl = String(data.url);
-            }
+    for (const qTry of qualitiesToTry) {
+        let vaultUrl = `https://vidvault.to/download-link/${isTv ? 'tv' : 'movie'}/${encodeURIComponent(id)}`;
+        if (isTv && season && episode) {
+            vaultUrl += `/${encodeURIComponent(season)}/${encodeURIComponent(episode)}`;
         }
-    } catch {
-        clearTimeout(timeout);
+        vaultUrl += `/${encodeURIComponent(qTry)}`;
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 4000);
+
+        try {
+            const res = await fetch(vaultUrl, {
+                signal: controller.signal,
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Referer': `https://vidvault.to/${isTv ? 'tv' : 'movie'}/${id}`,
+                    'Accept': 'application/json, text/plain, */*',
+                },
+            });
+            clearTimeout(timeout);
+
+            if (res.ok) {
+                const data = await res.json().catch(() => ({}));
+                if (data && data.url && typeof data.url === 'string' && data.url.startsWith('http')) {
+                    vidvaultDirectUrl = String(data.url);
+                    resolvedQuality = qTry;
+                    break;
+                }
+            }
+        } catch {
+            clearTimeout(timeout);
+        }
     }
 
     // 2a. If VidVault returned a working direct link, use it immediately
@@ -133,7 +140,7 @@ async function resolveVaultDownload(
             downloadUrl: proxyDownloadUrl,
             directUrl: vidvaultDirectUrl,
             fileName,
-            quality,
+            quality: resolvedQuality,
             mediaType,
             id,
             season,
@@ -242,26 +249,10 @@ async function resolveVaultDownload(
         };
     }
 
-    // 4. For Movie and Series: Keep original VidVault direct fallback as before
-    const directFallback = isTv && season && episode
-        ? `https://vidvault.to/direct/tv/${id}/${season}/${episode}`
-        : `https://vidvault.to/direct/movie/${id}/0`;
-
-    const proxyDownloadUrl = `/api/download/file?url=${encodeURIComponent(directFallback)}&filename=${encodeURIComponent(fileName)}`;
-
+    // 4. For Movie and Series: If VidVault has no working file after checking all qualities
     return {
-        success: true,
-        directAvailable: true,
-        source: 'vidvault',
-        url: proxyDownloadUrl,
-        downloadUrl: proxyDownloadUrl,
-        directUrl: directFallback,
-        fileName,
-        quality,
-        mediaType,
-        id,
-        season,
-        episode,
+        success: false,
+        error: 'Direct download link is currently not available on VidVault for this title. Please try another quality or watch online.',
     };
 }
 
