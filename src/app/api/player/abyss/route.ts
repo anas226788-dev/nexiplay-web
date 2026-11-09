@@ -44,10 +44,15 @@ export async function GET(request: NextRequest) {
             html = html.replace(/<head[^>]*>/i, '<head><base href="https://player.abyssplayer.com/">');
         }
 
-        // Neutralize anti-iframe / frame-busting redirect checks
-        html = html.replace(/top\.location\s*==\s*self\.location/g, 'false');
-        html = html.replace(/top\.location/g, 'self.location');
-        html = html.replace(/window\.top/g, 'window.self');
+        // Neutralize anti-iframe / frame-busting redirect checks permanently
+        html = html.replace(/window\.location\s*=\s*["']https:\/\/abyss\.to["'];?/gi, '');
+        html = html.replace(/document\.location\s*=\s*["']https:\/\/abyss\.to["'];?/gi, '');
+        html = html.replace(/window\.location\.replace\(["']https:\/\/abyss\.to["']\);?/gi, '');
+        html = html.replace(/top\.location\s*==\s*self\.location/gi, 'false');
+        html = html.replace(/top\.location/gi, 'self.location');
+        html = html.replace(/window\.top/gi, 'window.self');
+        html = html.replace(/track\.window\s*>=\s*2/g, 'false');
+        html = html.replace(/Due to certain reasons \(AdBlock\/Sandbox\)[\s\S]*?try again\./gi, '');
 
         // Neutralize transparent ad click overlay
         html = html.replace(/id=["']overlay["']/g, 'id="overlay_clean" style="display:none!important;pointer-events:none!important;visibility:hidden!important;"');

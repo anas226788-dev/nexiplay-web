@@ -344,13 +344,14 @@ export async function extractDesiDubStream(
                         const ids = JSON.parse(decoded);
                         const sources = data.sources || {};
 
-                        // 1. Abyss
-                        if (ids.abys && sources.abys) {
-                            serverMap.desidub_abyss = `${sources.abys.siteUrl}${ids.abys}`;
-                        }
-                        // 2. Filemoon
+                        // 1. Filemoon (Primary high-speed clean embed)
                         if (ids.flmn && sources.flmn) {
                             serverMap.desidub_filemoon = `${sources.flmn.siteUrl}${ids.flmn}`;
+                        }
+                        // 2. Abyss (Routed through Clean Proxy to prevent abyss.to marketing redirect)
+                        if (ids.abys && sources.abys) {
+                            const rawAbyss = `${sources.abys.siteUrl}${ids.abys}`;
+                            serverMap.desidub_abyss = `/api/player/abyss?url=${encodeURIComponent(rawAbyss)}`;
                         }
                         // 3. Streamtape
                         if (ids.strmtp && sources.strmtp) {
@@ -375,10 +376,10 @@ export async function extractDesiDubStream(
         if (iframeSrc.includes('abyssplayer.com') || iframeSrc.includes('abyss.to') || iframeSrc.includes('short.ink')) {
             const parts = iframeSrc.split('/').filter(Boolean);
             const id = parts[parts.length - 1];
-            serverMap.desidub_abyss = `https://player.abyssplayer.com/${id}`;
+            serverMap.desidub_abyss = `/api/player/abyss?url=${encodeURIComponent(`https://player.abyssplayer.com/${id}`)}`;
         }
 
-        const primary = serverMap.desidub_abyss || serverMap.desidub_filemoon || serverMap.desidub_streamtape || serverMap.desidub_earnvids || serverMap.desidub_doodstream || iframeSrc;
+        const primary = serverMap.desidub_filemoon || serverMap.desidub_abyss || serverMap.desidub_earnvids || serverMap.desidub_streamtape || serverMap.desidub_doodstream || iframeSrc;
         serverMap.desidub = primary;
 
         const result: DesiDubStreamResult = {

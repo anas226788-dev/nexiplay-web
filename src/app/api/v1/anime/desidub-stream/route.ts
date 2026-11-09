@@ -122,13 +122,28 @@ export async function GET(request: NextRequest) {
                         const parsed = parseJsonStreams(episode.streaming_url);
                         const hasDesi = Object.keys(parsed).some(k => k.startsWith('desidub'));
                         if (hasDesi) {
+                            const origin = request.nextUrl.origin || 'https://nexiplay.vercel.app';
+                            const wrapUrl = (url?: string): string | undefined => {
+                                if (!url) return undefined;
+                                let u = url.trim();
+                                if (u.includes('abyssplayer.com') || u.includes('abyss.to') || u.includes('short.ink')) {
+                                    if (!u.includes('/api/player/abyss')) {
+                                        u = `/api/player/abyss?url=${encodeURIComponent(u)}`;
+                                    }
+                                }
+                                if (u.startsWith('/')) {
+                                    return `${origin}${u}`;
+                                }
+                                return u;
+                            };
+
                             const dbServers: DesiDubServers = {
-                                desidub: parsed.desidub || parsed.desidub_abyss || parsed.desidub_filemoon,
-                                desidub_abyss: parsed.desidub_abyss,
-                                desidub_filemoon: parsed.desidub_filemoon,
-                                desidub_streamtape: parsed.desidub_streamtape,
-                                desidub_earnvids: parsed.desidub_earnvids,
-                                desidub_doodstream: parsed.desidub_doodstream
+                                desidub: wrapUrl(parsed.desidub_filemoon) || wrapUrl(parsed.desidub) || wrapUrl(parsed.desidub_abyss),
+                                desidub_abyss: wrapUrl(parsed.desidub_abyss),
+                                desidub_filemoon: wrapUrl(parsed.desidub_filemoon),
+                                desidub_streamtape: wrapUrl(parsed.desidub_streamtape),
+                                desidub_earnvids: wrapUrl(parsed.desidub_earnvids),
+                                desidub_doodstream: wrapUrl(parsed.desidub_doodstream)
                             };
 
                             const target = (dbServers as any)[requestedServer] || dbServers.desidub || Object.values(dbServers)[0];
@@ -175,8 +190,29 @@ export async function GET(request: NextRequest) {
     }
 
     // Select requested server or primary
-    const servers = extracted.servers;
-    const targetUrl = (servers as any)[requestedServer] || servers.desidub || extracted.primaryUrl;
+    const origin = request.nextUrl.origin || 'https://nexiplay.vercel.app';
+    const makeAbsolute = (url?: string): string => {
+        if (!url) return '';
+        let u = url.trim();
+        if (u.includes('abyssplayer.com') || u.includes('abyss.to') || u.includes('short.ink')) {
+            if (!u.includes('/api/player/abyss')) {
+                u = `/api/player/abyss?url=${encodeURIComponent(u)}`;
+            }
+        }
+        if (u.startsWith('/')) {
+            return `${origin}${u}`;
+        }
+        return u;
+    };
+
+    const servers: Record<string, string> = {};
+    for (const [k, v] of Object.entries(extracted.servers)) {
+        if (typeof v === 'string') {
+            servers[k] = makeAbsolute(v);
+        }
+    }
+
+    const targetUrl = servers[requestedServer] || servers.desidub || makeAbsolute(extracted.primaryUrl);
 
     return NextResponse.json(
         {
@@ -187,7 +223,7 @@ export async function GET(request: NextRequest) {
             server: requestedServer,
             playbackUrl: targetUrl,
             embedUrl: targetUrl,
-            servers: extracted.servers,
+            servers,
             source: 'live_desidub'
         },
         { headers: { 'Access-Control-Allow-Origin': '*' } }
