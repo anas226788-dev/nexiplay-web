@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import toonplayCatalogRaw from '@/lib/toonplay_catalog.json';
+
+const toonplayCatalog = toonplayCatalogRaw as Record<string, any>;
 
 export const dynamic = 'force-dynamic';
 
@@ -87,7 +90,94 @@ async function resolveVaultDownload(
         }
     }
 
-    // 2. VidVault Direct Download
+    // 2. ToonPlay Snapshot & Live Catalog (100% immune to Cloudflare 403 on Vercel)
+    if (mediaType === 'anime' || title || isTv) {
+        try {
+            const lookupTitle = title || '';
+            if (lookupTitle) {
+                const clean = (s: string) => {
+                    let res = s.replace(/\(.*?\)/g, '');
+                    res = res.replace(/Season\s*[\d\s\-]+/gi, '');
+                    res = res.replace(/[^a-zA-Z0-9\s]/g, '');
+                    return res.toLowerCase().trim();
+                };
+                const cleanTarget = clean(lookupTitle);
+
+                // 2a. Check fast bundled snapshot (0ms, 100% immune to CF blocks)
+                let matchedSeries: any = null;
+                for (const item of Object.values(toonplayCatalog)) {
+                    const ct = clean(item.meta?.title || item.slug || '');
+                    if (ct && (ct.includes(cleanTarget) || cleanTarget.includes(ct))) {
+                        matchedSeries = item;
+                        break;
+                    }
+                }
+
+                // 2b. If not in snapshot, try live fetch
+                if (!matchedSeries) {
+                    try {
+                        const toonplayRes = await fetch(`https://toonplay.in/downloads/index.json`, {
+                            headers: { 'User-Agent': 'Mozilla/5.0' },
+                            signal: AbortSignal.timeout(5000),
+                        });
+                        if (toonplayRes.ok) {
+                            const toonData = await toonplayRes.json();
+                            const matched = (toonData.series || []).find((s: any) => {
+                                const ct = clean(s.meta?.title || s.slug || '');
+                                return ct && (ct.includes(cleanTarget) || cleanTarget.includes(ct));
+                            });
+                            if (matched?.slug) {
+                                const epRes = await fetch(`https://toonplay.in/downloads/${encodeURIComponent(matched.slug)}.json`, {
+                                    headers: { 'User-Agent': 'Mozilla/5.0' },
+                                    signal: AbortSignal.timeout(5000),
+                                });
+                                if (epRes.ok) {
+                                    const epData = await epRes.json();
+                                    matchedSeries = {
+                                        slug: matched.slug,
+                                        meta: matched.meta,
+                                        episodes: epData.page?.episodes || []
+                                    };
+                                }
+                            }
+                        }
+                    } catch {}
+                }
+
+                if (matchedSeries) {
+                    const epNum = Number(episode || 1);
+                    const epList: any[] = matchedSeries.episodes || [];
+                    const targetEp = epList.find((e: any) => e.episode === epNum) || epList[epNum - 1];
+                    if (targetEp) {
+                        const qualities = targetEp.qualities || [];
+                        const matchedQuality = qualities.find((q: any) => (q.quality || '').toLowerCase().includes(quality.toLowerCase())) || qualities[0];
+                        const links = matchedQuality?.links || {};
+                        const chosen = links.Hcloud || links.MEGA || links.GDF || links.Multi || links.Fprs;
+                        if (chosen) {
+                            return {
+                                success: true,
+                                directAvailable: true,
+                                source: 'toonplay',
+                                url: chosen,
+                                downloadUrl: chosen,
+                                directUrl: chosen,
+                                fileName,
+                                quality: matchedQuality?.quality || quality,
+                                mediaType,
+                                id,
+                                season,
+                                episode,
+                            };
+                        }
+                    }
+                }
+            }
+        } catch (tpErr) {
+            console.warn('[ToonPlay Download Error]:', tpErr);
+        }
+    }
+
+    // 3. VidVault Direct Download (only if it returns an active valid link; never fallback to blocked direct URLs)
     let vaultUrl = `https://vidvault.to/download-link/${isTv ? 'tv' : 'movie'}/${encodeURIComponent(id)}`;
     if (isTv && season && episode) {
         vaultUrl += `/${encodeURIComponent(season)}/${encodeURIComponent(episode)}`;
@@ -95,13 +185,7 @@ async function resolveVaultDownload(
     vaultUrl += `/${encodeURIComponent(quality)}`;
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 7000);
-
-    const directFallback = isTv && season && episode
-        ? `https://vidvault.to/direct/tv/${id}/${season}/${episode}`
-        : `https://vidvault.to/direct/movie/${id}/0`;
-
-    let directTargetUrl = directFallback;
+    const timeout = setTimeout(() => controller.abort(), 6000);
 
     try {
         const res = await fetch(vaultUrl, {
@@ -117,91 +201,31 @@ async function resolveVaultDownload(
         if (res.ok) {
             const data = await res.json().catch(() => ({}));
             if (data && data.url && typeof data.url === 'string' && data.url.startsWith('http')) {
-                directTargetUrl = String(data.url);
+                const directTargetUrl = String(data.url);
+                const proxyDownloadUrl = `/api/download/file?url=${encodeURIComponent(directTargetUrl)}&filename=${encodeURIComponent(fileName)}`;
+                return {
+                    success: true,
+                    directAvailable: true,
+                    source: 'vidvault',
+                    url: proxyDownloadUrl,
+                    downloadUrl: proxyDownloadUrl,
+                    directUrl: directTargetUrl,
+                    fileName,
+                    quality,
+                    mediaType,
+                    id,
+                    season,
+                    episode,
+                };
             }
         }
     } catch {
         clearTimeout(timeout);
     }
 
-    // 3. Fallback: Check ToonPlay live download scraper if VidVault has no direct link
-    if (directTargetUrl === directFallback && (mediaType === 'anime' || title || isTv)) {
-        try {
-            const lookupTitle = title || '';
-            if (lookupTitle) {
-                const toonplayRes = await fetch(`https://toonplay.in/downloads/index.json`, {
-                    headers: { 'User-Agent': 'Mozilla/5.0' },
-                    signal: AbortSignal.timeout(6000),
-                });
-                if (toonplayRes.ok) {
-                    const toonData = await toonplayRes.json();
-                    const clean = (s: string) => {
-                        let res = s.replace(/\(.*?\)/g, '');
-                        res = res.replace(/Season\s*[\d\s\-]+/gi, '');
-                        res = res.replace(/[^a-zA-Z0-9\s]/g, '');
-                        return res.toLowerCase().trim();
-                    };
-                    const cleanTarget = clean(lookupTitle);
-                    const matched = (toonData.series || []).find((s: any) => {
-                        const ct = clean(s.meta?.title || s.slug || '');
-                        return ct.includes(cleanTarget) || cleanTarget.includes(ct);
-                    });
-                    if (matched?.slug) {
-                        const epRes = await fetch(`https://toonplay.in/downloads/${encodeURIComponent(matched.slug)}.json`, {
-                            headers: { 'User-Agent': 'Mozilla/5.0' },
-                            signal: AbortSignal.timeout(6000),
-                        });
-                        if (epRes.ok) {
-                            const epData = await epRes.json();
-                            const epNum = Number(episode || 1);
-                            const epList: any[] = epData.page?.episodes || [];
-                            const targetEp = epList.find((e: any) => e.episode === epNum) || epList[epNum - 1];
-                            if (targetEp) {
-                                const qualities = targetEp.qualities || [];
-                                const matchedQuality = qualities.find((q: any) => (q.quality || '').toLowerCase().includes(quality.toLowerCase())) || qualities[0];
-                                const links = matchedQuality?.links || {};
-                                const chosen = links.Hcloud || links.MEGA || links.GDF || links.Multi || links.Fprs;
-                                if (chosen) {
-                                    return {
-                                        success: true,
-                                        directAvailable: true,
-                                        source: 'toonplay',
-                                        url: chosen,
-                                        downloadUrl: chosen,
-                                        directUrl: chosen,
-                                        fileName,
-                                        quality: matchedQuality?.quality || quality,
-                                        mediaType,
-                                        id,
-                                        season,
-                                        episode,
-                                    };
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        } catch (tpErr) {
-            console.warn('[ToonPlay Download Fallback Warning]:', tpErr);
-        }
-    }
-
-    const proxyDownloadUrl = `/api/download/file?url=${encodeURIComponent(directTargetUrl)}&filename=${encodeURIComponent(fileName)}`;
-
     return {
-        success: true,
-        directAvailable: true,
-        source: 'vidvault',
-        url: proxyDownloadUrl,
-        downloadUrl: proxyDownloadUrl,
-        directUrl: directTargetUrl,
-        fileName,
-        quality,
-        mediaType,
-        id,
-        season,
-        episode,
+        success: false,
+        error: 'Download link is currently unavailable for this episode. Please watch online.',
     };
 }
 

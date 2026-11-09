@@ -1,4 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import toonplayCatalogRaw from '@/lib/toonplay_catalog.json';
+
+const toonplayCatalog = toonplayCatalogRaw as Record<string, any>;
+const bundledSeries = Object.values(toonplayCatalog).map((item: any) => ({
+    slug: item.slug,
+    meta: item.meta,
+}));
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -36,18 +43,23 @@ async function getManifest(): Promise<any[]> {
     if (manifestCache && now < manifestCache.expiresAt) {
         return manifestCache.series;
     }
-    const res = await fetch('https://toonplay.in/downloads/index.json', {
-        headers: HEADERS,
-        signal: AbortSignal.timeout(10000),
-        cache: 'no-store'
-    });
-    if (!res.ok) {
-        throw new Error(`Failed to fetch ToonPlay manifest (${res.status})`);
+    try {
+        const res = await fetch('https://toonplay.in/downloads/index.json', {
+            headers: HEADERS,
+            signal: AbortSignal.timeout(6000),
+            cache: 'no-store'
+        });
+        if (res.ok) {
+            const json = await res.json();
+            const series = Array.isArray(json.series) && json.series.length > 0 ? json.series : bundledSeries;
+            manifestCache = { series, expiresAt: now + 5 * 60 * 1000 };
+            return series;
+        }
+    } catch (e) {
+        console.warn('[ToonPlay Manifest Network Warning - Using Bundled Snapshot]:', e);
     }
-    const json = await res.json();
-    const series = Array.isArray(json.series) ? json.series : [];
-    manifestCache = { series, expiresAt: now + 5 * 60 * 1000 }; // 5 min cache
-    return series;
+    manifestCache = { series: bundledSeries, expiresAt: now + 5 * 60 * 1000 };
+    return bundledSeries;
 }
 
 export async function GET(request: NextRequest) {
@@ -100,16 +112,27 @@ export async function GET(request: NextRequest) {
         // 2. If matched in Download Center, fetch the episode download details
         if (matchedSeries) {
             const targetSlug = matchedSeries.slug;
-            const seriesUrl = `https://toonplay.in/downloads/${encodeURIComponent(targetSlug)}.json`;
-            const seriesRes = await fetch(seriesUrl, {
-                headers: HEADERS,
-                signal: AbortSignal.timeout(10000),
-                cache: 'no-store'
-            });
+            let epList: any[] = toonplayCatalog[targetSlug]?.episodes || [];
 
-            if (seriesRes.ok) {
-                const seriesData = await seriesRes.json();
-                const epList: any[] = seriesData.page?.episodes || [];
+            if (epList.length === 0) {
+                try {
+                    const seriesUrl = `https://toonplay.in/downloads/${encodeURIComponent(targetSlug)}.json`;
+                    const seriesRes = await fetch(seriesUrl, {
+                        headers: HEADERS,
+                        signal: AbortSignal.timeout(6000),
+                        cache: 'no-store'
+                    });
+
+                    if (seriesRes.ok) {
+                        const seriesData = await seriesRes.json();
+                        epList = seriesData.page?.episodes || [];
+                    }
+                } catch (e) {
+                    console.warn('[ToonPlay Episode Fetch Warning]:', e);
+                }
+            }
+
+            if (epList.length > 0) {
                 const targetEp = epList.find((e: any) => e.episode === episode) || epList[episode - 1];
 
                 if (targetEp) {
