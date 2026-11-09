@@ -18,6 +18,7 @@ export function isAntiSandboxUrl(url?: string | null, serverId?: string | null):
     // Only pre-sanitized same-origin server proxies that already have 100% of ad scripts removed
     // may skip the popup-blocking sandbox if needed. All external servers MUST remain sandboxed.
     if (lowerUrl.startsWith('/api/player/voe?')) return true;
+    if (lowerUrl.startsWith('/embed/')) return true;
     if (lowerUrl.startsWith('/api/player/')) return false;
     const lowerId = (serverId || '').toLowerCase();
     return ANTI_SANDBOX_HOSTS.some(h => lowerUrl.includes(h) || lowerId.includes(h));

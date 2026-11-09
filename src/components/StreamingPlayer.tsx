@@ -519,6 +519,7 @@ function getYouTubeVideoId(urlOrId: string): string | null {
 function normalizePlayerUrl(url: string): string {
     const cleanUrl = (url || '').trim();
     if (!cleanUrl) return '';
+    if (cleanUrl.startsWith('/')) return cleanUrl;
 
     const youtubeId = getYouTubeVideoId(cleanUrl);
     if (youtubeId) {
@@ -825,11 +826,58 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
     };
 
     // Available Servers list
-    const availableServers = SERVERS.filter(srv => {
-        if (srv.animeOnly && movie.type !== 'anime') return false;
-        if (srv.movieOnly && isSeriesOrAnime) return false;
-        return true;
-    });
+    const availableServers = useMemo(() => {
+        const list: Server[] = [...SERVERS];
+        if (movie.type === 'anime') {
+            const encTitle = encodeURIComponent(movie.title || '');
+            const encSlug = encodeURIComponent(movie.slug || '');
+            const encId = encodeURIComponent(movie.id || '');
+            const desiServers: Server[] = [
+                {
+                    id: 'desidub',
+                    name: 'Nexi Deshi Server',
+                    icon: '🇧🇩',
+                    isHindi: true,
+                    badge: 'DESHI DUB',
+                    animeOnly: true,
+                    getUrl: (_id, _t, _i, _m, s, e) => `/embed/desidub?id=${encId}&slug=${encSlug}&title=${encTitle}&season=${s || 1}&episode=${e || 1}&server=desidub`
+                },
+                {
+                    id: 'desidub_filemoon',
+                    name: 'Nexi Deshi Server 2 (Filemoon)',
+                    icon: '⚡',
+                    isHindi: true,
+                    badge: 'DESHI HD',
+                    animeOnly: true,
+                    getUrl: (_id, _t, _i, _m, s, e) => `/embed/desidub?id=${encId}&slug=${encSlug}&title=${encTitle}&season=${s || 1}&episode=${e || 1}&server=desidub_filemoon`
+                },
+                {
+                    id: 'desidub_abyss',
+                    name: 'Nexi Deshi Server 1 (Abyss)',
+                    icon: '🌐',
+                    isHindi: true,
+                    badge: 'DESHI FAST',
+                    animeOnly: true,
+                    getUrl: (_id, _t, _i, _m, s, e) => `/embed/desidub?id=${encId}&slug=${encSlug}&title=${encTitle}&season=${s || 1}&episode=${e || 1}&server=desidub_abyss`
+                },
+                {
+                    id: 'desidub_streamtape',
+                    name: 'Nexi Deshi Server 3 (Streamtape)',
+                    icon: '🎬',
+                    isHindi: true,
+                    badge: 'DESHI STREAM',
+                    animeOnly: true,
+                    getUrl: (_id, _t, _i, _m, s, e) => `/embed/desidub?id=${encId}&slug=${encSlug}&title=${encTitle}&season=${s || 1}&episode=${e || 1}&server=desidub_streamtape`
+                }
+            ];
+            list.unshift(...desiServers);
+        }
+        return list.filter(srv => {
+            if (srv.animeOnly && movie.type !== 'anime') return false;
+            if (srv.movieOnly && isSeriesOrAnime) return false;
+            return true;
+        });
+    }, [movie.type, movie.title, movie.slug, movie.id, isSeriesOrAnime]);
 
     // Auto-select server on mount or when custom link changes
     useEffect(() => {
@@ -855,7 +903,7 @@ export default function StreamingPlayer({ movie, seasons = [] }: StreamingPlayer
                 }
             }
         }
-    }, [customUrl, movie.id, currentEpisodeNum, currentSeasonNum, adSettings, scraperServers]);
+    }, [customUrl, movie.id, currentEpisodeNum, currentSeasonNum, adSettings, scraperServers, availableServers]);
 
     // Resolve embed URL for scrapers that need it (ToonStream, AnimeWorld)
     const resolveScraperEmbed = useCallback(async (rawUrl: string) => {
