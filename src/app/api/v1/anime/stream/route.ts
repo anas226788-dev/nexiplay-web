@@ -195,13 +195,14 @@ export async function GET(request: NextRequest) {
                     if (rrConfig) {
                         const epKey = `${seasonNum}_${epNum}`;
                         const seasonKey = String(seasonNum);
+                        const paddedSeasonKey = seasonKey.padStart(2, '0');
                         const firstAvailableSeasonUrl = rrConfig.urls && typeof rrConfig.urls === 'object'
                             ? (Object.values(rrConfig.urls).find((u: any) => typeof u === 'string' && u.trim().length > 0) as string | undefined)
                             : undefined;
                         rrStreamUrl = rrConfig.mode === 'episode'
                             ? rrConfig.episodeUrls?.[epKey]
                             : rrConfig.mode === 'separate'
-                                ? (rrConfig.urls?.[seasonKey] || rrConfig.url || firstAvailableSeasonUrl || '')
+                                ? (rrConfig.urls?.[seasonKey] || rrConfig.urls?.[paddedSeasonKey] || rrConfig.url || firstAvailableSeasonUrl || '')
                                 : rrConfig.url;
                     }
                 }
@@ -210,6 +211,15 @@ export async function GET(request: NextRequest) {
             // Direct fallback to movie scraper_url if configured for rareanimes
             if (!rrStreamUrl && (movie.scraper_source === 'rareanimes' || movie.scraper_source === 'multi')) {
                 rrStreamUrl = movie.scraper_url || '';
+            }
+
+            // If rrStreamUrl is a RareAnimes post URL for a different season (e.g. season-17 when requesting season 18),
+            // rewrite the season number in the URL to match the requested seasonNum
+            if (rrStreamUrl && (rrStreamUrl.includes('rareanimes.') || rrStreamUrl.includes('raretoons.'))) {
+                const urlSeasonMatch = rrStreamUrl.match(/season-0*(\d+)\b/i);
+                if (urlSeasonMatch && parseInt(urlSeasonMatch[1], 10) !== seasonNum) {
+                    rrStreamUrl = rrStreamUrl.replace(/season-0*\d+\b/i, `season-${seasonNum}`);
+                }
             }
         } else {
             // Single content (Movie)
@@ -223,17 +233,25 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        // If rrStreamUrl is a page URL and epNum is an absolute continuous number (e.g. 372),
-        // determine the relative episode index within the season (e.g. 11)
+        // If rrStreamUrl is a page URL and epNum is an absolute continuous number (e.g. 376 in Season 18 starting at 373),
+        // determine the exact relative episode number within the season (e.g. 376 - 373 + 1 = 4)
         let resolvedEpNum = epNum;
         if (targetSeasonId && (!rrStreamUrl.includes('/embed/') && !rrStreamUrl.includes('.m3u8'))) {
-            const { count } = await supabase
+            const { data: seasonEps } = await supabase
                 .from('episodes')
-                .select('*', { count: 'exact', head: true })
+                .select('episode_number')
                 .eq('season_id', targetSeasonId)
-                .lte('episode_number', epNum);
-            if (count && count > 0) {
-                resolvedEpNum = count;
+                .order('episode_number', { ascending: true });
+            if (seasonEps && seasonEps.length > 0) {
+                const minEp = seasonEps[0].episode_number;
+                if (minEp > 1 && epNum >= minEp) {
+                    resolvedEpNum = epNum - minEp + 1;
+                } else {
+                    const idx = seasonEps.findIndex((e: any) => e.episode_number === epNum);
+                    if (idx >= 0) {
+                        resolvedEpNum = idx + 1;
+                    }
+                }
             }
         }
 

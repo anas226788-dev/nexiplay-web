@@ -34,6 +34,17 @@ function getUpdateBadge(item: UpdateItem): string {
     return 'NEW RELEASE';
 }
 
+function resolveUpdateHref(item: UpdateItem): string {
+    const raw = (item.slug || '').trim();
+    if (!raw) return '/';
+    const withoutLeading = raw.replace(/^\/+/, '');
+    if (withoutLeading.startsWith('movie/') || withoutLeading.startsWith('series/') || withoutLeading.startsWith('anime/') || withoutLeading.startsWith('watch/')) {
+        return `/${withoutLeading}`;
+    }
+    const cleanType = (item.content_type || 'anime').toLowerCase();
+    return `/${cleanType}/${withoutLeading}`;
+}
+
 export default function LatestUpdates({ updates, adLink }: LatestUpdatesProps) {
     const router = useRouter();
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -137,11 +148,13 @@ export default function LatestUpdates({ updates, adLink }: LatestUpdatesProps) {
                     onScroll={checkScroll}
                     className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory"
                 >
-                    {updates.map((item, index) => (
+                    {updates.map((item, index) => {
+                        const targetHref = resolveUpdateHref(item);
+                        return (
                         <a
                             key={item.id}
-                            href={item.slug}
-                            onClick={(e) => handleCardClick(e, item.slug)}
+                            href={targetHref}
+                            onClick={(e) => handleCardClick(e, targetHref)}
                             className="flex-shrink-0 w-[140px] sm:w-[160px] group animate-fade-in snap-start cursor-pointer"
                             style={{ animationDelay: `${index * 40}ms` }}
                         >
@@ -205,7 +218,8 @@ export default function LatestUpdates({ updates, adLink }: LatestUpdatesProps) {
                                 </h3>
                             </div>
                         </a>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
         </section>

@@ -188,57 +188,92 @@ export async function extractRRStream(
 
     try {
         let currentTarget = cleanUrl;
+        let matchedExactEpisodeFromPost = false;
 
         // 1. If it's a rareanimes blog post, find the episode zipper link
         if (currentTarget.includes('rareanimes.') || currentTarget.includes('raretoons.') || (!currentTarget.includes('codedew.com/zipper') && !currentTarget.includes('razorshell.space'))) {
-            try {
-                const postRes = await fetch(currentTarget, {
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                        'Referer': 'https://rareanimes.net/'
-                    },
-                    signal: AbortSignal.timeout(8000)
-                });
+            const postCandidates: string[] = [];
+            const urlSeasonMatch = currentTarget.match(/season-0*(\d+)\b/i);
+            if (urlSeasonMatch && parseInt(urlSeasonMatch[1], 10) !== seasonNum) {
+                postCandidates.push(currentTarget.replace(/season-0*\d+\b/i, `season-${seasonNum}`));
+                const paddedSeason = String(seasonNum).padStart(2, '0');
+                if (paddedSeason !== String(seasonNum)) {
+                    postCandidates.push(currentTarget.replace(/season-0*\d+\b/i, `season-${paddedSeason}`));
+                }
+            }
+            postCandidates.push(currentTarget);
 
-                if (postRes.ok) {
-                    const postHtml = await postRes.text();
-                    const epNumStr = String(epNum);
-                    const padded = epNumStr.padStart(2, '0');
-                    const epHeaderRegex = new RegExp(`(?:Episode|Ep\\.?)\\s*(?:0*${epNumStr}|${padded})\\b`, 'gi');
-                    let matchedZipper: string | null = null;
-                    let em: RegExpExecArray | null;
-                    while ((em = epHeaderRegex.exec(postHtml)) !== null) {
-                        const subHtml = postHtml.substring(em.index, Math.min(postHtml.length, em.index + 3500));
-                        const picked = pickBestZipperFromHtml(subHtml);
-                        if (picked) {
-                            matchedZipper = picked;
+            for (const candidatePostUrl of Array.from(new Set(postCandidates))) {
+                try {
+                    const postRes = await fetch(candidatePostUrl, {
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                            'Referer': 'https://rareanimes.net/'
+                        },
+                        signal: AbortSignal.timeout(8000)
+                    });
+
+                    if (postRes.ok) {
+                        const postHtml = await postRes.text();
+                        const epNumStr = String(epNum);
+                        const padded = epNumStr.padStart(2, '0');
+                        const epHeaderRegex = new RegExp(`(?:Episode|Ep\\.?)\\s*(?:0*${epNumStr}|${padded})\\b`, 'gi');
+                        const anyEpHeaderRegex = /(?:Episode|Ep\.?)\s*0*(\d+)\b/gi;
+                        let matchedZipper: string | null = null;
+                        let em: RegExpExecArray | null;
+                        while ((em = epHeaderRegex.exec(postHtml)) !== null) {
+                            const prefix = postHtml.substring(Math.max(0, em.index - 20), em.index).toLowerCase();
+                            if (prefix.includes('href=') || prefix.includes('url=')) continue;
+
+                            const maxWindowEnd = Math.min(postHtml.length, em.index + 2500);
+                            let windowEnd = maxWindowEnd;
+                            anyEpHeaderRegex.lastIndex = em.index + em[0].length;
+                            let nextEpMatch: RegExpExecArray | null;
+                            while ((nextEpMatch = anyEpHeaderRegex.exec(postHtml)) !== null) {
+                                if (nextEpMatch.index >= maxWindowEnd) break;
+                                const nextPrefix = postHtml.substring(Math.max(0, nextEpMatch.index - 20), nextEpMatch.index).toLowerCase();
+                                if (nextPrefix.includes('href=') || nextPrefix.includes('url=')) continue;
+                                const nextNum = parseInt(nextEpMatch[1], 10);
+                                if (nextNum !== epNum) {
+                                    windowEnd = nextEpMatch.index;
+                                    break;
+                                }
+                            }
+
+                            const subHtml = postHtml.substring(em.index, windowEnd);
+                            const picked = pickBestZipperFromHtml(subHtml);
+                            if (picked) {
+                                matchedZipper = picked;
+                                matchedExactEpisodeFromPost = true;
+                                break;
+                            }
+                        }
+
+                        if (!matchedZipper) {
+                            matchedZipper = pickBestZipperFromHtml(postHtml);
+                        }
+
+                        if (!matchedZipper) {
+                            const firstZip = postHtml.match(/href=["'](https?:\/\/[^"']*codedew\.com\/zipper\/[^"']*)["']/i);
+                            if (firstZip) {
+                                matchedZipper = firstZip[1].replace(/&amp;/g, '&');
+                            }
+                        }
+
+                        if (matchedZipper) {
+                            currentTarget = matchedZipper;
                             break;
                         }
                     }
-
-                    if (!matchedZipper) {
-                        matchedZipper = pickBestZipperFromHtml(postHtml);
-                    }
-
-                    if (!matchedZipper) {
-                        const firstZip = postHtml.match(/href=["'](https?:\/\/[^"']*codedew\.com\/zipper\/[^"']*)["']/i);
-                        if (firstZip) {
-                            matchedZipper = firstZip[1].replace(/&amp;/g, '&');
-                        }
-                    }
-
-                    if (matchedZipper) {
-                        currentTarget = matchedZipper;
-                    }
+                } catch (err: any) {
+                    console.warn('[RR Extractor Post Resolve Warning]:', err.message);
                 }
-            } catch (err: any) {
-                console.warn('[RR Extractor Post Resolve Warning]:', err.message);
             }
         }
 
         // 2. Unwrap codedew zipper if present
         let playerEmbedUrl = currentTarget;
-        if (currentTarget.includes('codedew.com/zipper') || currentTarget.includes('/zipper/')) {
+        if (currentTarget.includes('codedew.com/zipper') || currentTarget.includes('/zipper/') || currentTarget.includes('streambeta')) {
             try {
                 const zipperRes = await fetch(currentTarget, {
                     headers: {
@@ -288,13 +323,20 @@ export async function extractRRStream(
                         }
                     }
 
-                    const exactMatch = epObjects.find(o => o.s === seasonNum && o.e === epNum)
-                        || epObjects.find(o => o.e === epNum);
-
-                    if (exactMatch) {
-                        playerEmbedUrl = `https://${baseEmbedHost}/embed/${exactMatch.id}`;
-                    } else if (firstIframe) {
+                    const exactSeasonMatch = epObjects.find(o => o.s === seasonNum && o.e === epNum);
+                    if (exactSeasonMatch) {
+                        playerEmbedUrl = `https://${baseEmbedHost}/embed/${exactSeasonMatch.id}`;
+                    } else if (matchedExactEpisodeFromPost && firstIframe) {
+                        // When zipper was already picked from the exact Episode block of the target season's post,
+                        // its primary iframe IS the exact episode — do not let a wrong season's relatedData entry override it!
                         playerEmbedUrl = firstIframe;
+                    } else {
+                        const anySeasonMatch = epObjects.find(o => o.e === epNum);
+                        if (anySeasonMatch) {
+                            playerEmbedUrl = `https://${baseEmbedHost}/embed/${anySeasonMatch.id}`;
+                        } else if (firstIframe) {
+                            playerEmbedUrl = firstIframe;
+                        }
                     }
                 }
             } catch (err: any) {

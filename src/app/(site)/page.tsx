@@ -75,12 +75,17 @@ async function getHomeContent(page: number) {
     const homeSectionsPromise = page === 1
         ? Promise.all([
             supabase.from('movies').select(sliderFields).eq('is_trending', true).order('trending_rank', { ascending: true }).limit(10),
-            supabase.from('updates').select('*').eq('is_active', true).order('updated_at', { ascending: false }).limit(10),
+            supabase.from('updates').select('*').eq('is_active', true).order('updated_at', { ascending: false }).limit(20),
             supabase.from('app_settings').select('latest_update_click_ad_link').eq('id', 1).single(),
             supabase.from('upcoming').select('*').order('release_date', { ascending: true }).limit(10),
             getCategoryWithPinned('movie'),
             getCategoryWithPinned('series'),
             getCategoryWithPinned('anime'),
+            supabase
+                .from('episodes')
+                .select('id, episode_number, created_at, seasons!inner(season_number, movie_id, movies!inner(id, title, slug, poster_url, type, is_adult))')
+                .order('created_at', { ascending: false })
+                .limit(25),
         ] as const)
         : Promise.resolve(null);
 
@@ -168,7 +173,7 @@ async function getHomeContent(page: number) {
 
     // 2. Read the already-fetched page-one sections.
     if (homeSections) {
-        const [trendingRes, updatesRes, settingsRes, upcomingRes, movList, serList, aniList] = homeSections;
+        const [trendingRes, updatesRes, settingsRes, upcomingRes, movList, serList, aniList, recentEpisodesRes] = homeSections;
         trendingMovies = (trendingRes.data as Movie[]) || [];
         if (trendingMovies.length < 5 && page1TmdbMovies.length > 0) {
             const existingTrendingIds = new Set(trendingMovies.map(m => m.id));
@@ -178,13 +183,52 @@ async function getHomeContent(page: number) {
             trendingMovies = [...trendingMovies, ...extraTrending];
         }
 
-        latestUpdates = updatesRes.data || [];
-        // If updates table has few items, supplement with recent database releases
-        if (latestUpdates.length < 6 && regularLatest.length > 0) {
-            const existingUpdateIds = new Set(latestUpdates.map(u => u.content_id));
+        const episodeUpdates = ((recentEpisodesRes?.data as any[]) || [])
+            .map((ep: any) => {
+                const season = Array.isArray(ep.seasons) ? ep.seasons[0] : ep.seasons;
+                const movie = season ? (Array.isArray(season.movies) ? season.movies[0] : season.movies) : null;
+                if (!movie?.id || !movie?.title || !movie?.slug) return null;
+                const cleanType = (movie.type || 'anime').toLowerCase();
+                const cleanSlug = String(movie.slug).replace(/^\/+/, '').split('/').pop() || movie.slug;
+                return {
+                    id: `ep_${ep.id}`,
+                    content_id: movie.id,
+                    title: movie.title,
+                    poster_url: movie.poster_url,
+                    slug: `/${cleanType}/${cleanSlug}`,
+                    content_type: cleanType,
+                    update_type: 'episode' as const,
+                    season_number: season.season_number || 1,
+                    episode_number: ep.episode_number,
+                    created_at: ep.created_at,
+                    updated_at: ep.created_at,
+                    is_active: true,
+                };
+            })
+            .filter(Boolean);
+
+        const combinedUpdates = [...episodeUpdates, ...(updatesRes.data || [])].sort((a: any, b: any) => {
+            const timeA = new Date(a.updated_at || a.created_at || 0).getTime();
+            const timeB = new Date(b.updated_at || b.created_at || 0).getTime();
+            return timeB - timeA;
+        });
+
+        const seenUpdateContentKeys = new Set<string>();
+        latestUpdates = [];
+        for (const item of combinedUpdates) {
+            const cleanSlug = String(item.slug || '').replace(/^\/+/, '').split('/').pop()?.toLowerCase() || '';
+            const key = item.content_id || cleanSlug || item.id;
+            if (!key || seenUpdateContentKeys.has(key)) continue;
+            seenUpdateContentKeys.add(key);
+            latestUpdates.push(item);
+            if (latestUpdates.length >= 16) break;
+        }
+
+        // Supplement with recent database releases if needed
+        if (latestUpdates.length < 10 && regularLatest.length > 0) {
             const extraUpdates = regularLatest
-                .filter(m => !existingUpdateIds.has(m.id))
-                .slice(0, 8 - latestUpdates.length)
+                .filter(m => !seenUpdateContentKeys.has(m.id) && !seenUpdateContentKeys.has(m.slug.toLowerCase()))
+                .slice(0, 12 - latestUpdates.length)
                 .map(m => ({
                     id: m.id,
                     content_id: m.id,
@@ -199,7 +243,11 @@ async function getHomeContent(page: number) {
                     updated_at: m.created_at,
                     is_active: true
                 }));
-            latestUpdates = [...latestUpdates, ...extraUpdates];
+            latestUpdates = [...latestUpdates, ...extraUpdates].sort((a: any, b: any) => {
+                const timeA = new Date(a.updated_at || a.created_at || 0).getTime();
+                const timeB = new Date(b.updated_at || b.created_at || 0).getTime();
+                return timeB - timeA;
+            });
         }
 
         latestUpdateAdLink = settingsRes.data?.latest_update_click_ad_link || '';
