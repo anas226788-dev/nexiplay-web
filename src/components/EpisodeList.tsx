@@ -8,6 +8,7 @@ import { useTutorial } from '@/context/TutorialContext';
 import { useAuth } from '@/context/AuthContext';
 import AdVerificationPopup from './AdVerificationPopup';
 import { checkDownloadVerified, saveDownloadVerification, consumePendingVerificationFromUrl } from '@/lib/verification';
+import { resolveClientDirectDownload } from '@/lib/clientDirectResolver';
 
 interface EpisodeListProps {
     seasons: Season[];
@@ -129,6 +130,30 @@ export default function EpisodeList({
         setFastLoadingKey(key);
         try {
             const targetId = tmdbId || imdbId || contentId;
+
+            // 1. Try 100% Client-Side Direct Resolver first (Zero DB & Zero Vercel load)
+            const clientDirect = await resolveClientDirectDownload({
+                type: contentType === 'anime' ? 'anime' : 'tv',
+                id: targetId,
+                title: contentTitle,
+                season: seasonNum,
+                episode: episodeNum,
+                quality,
+            });
+
+            if (clientDirect?.success && clientDirect.url) {
+                const a = document.createElement('a');
+                a.href = clientDirect.url;
+                a.download = clientDirect.fileName;
+                a.target = '_blank';
+                a.rel = 'noopener noreferrer';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                return;
+            }
+
+            // 2. Fallback to Edge-Cached Vault Resolver
             const res = await fetch('/api/download/vault', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

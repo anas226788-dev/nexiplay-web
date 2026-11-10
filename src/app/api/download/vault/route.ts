@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import toonplayCatalogRaw from '@/lib/toonplay_catalog.json';
+import { resolveClientDirectDownload } from '@/lib/clientDirectResolver';
 
 const toonplayCatalog = toonplayCatalogRaw as Record<string, any>;
 
@@ -20,8 +21,9 @@ async function resolveVaultDownload(
         .trim();
     const fileName = `${baseTitle || 'media'}_${quality}.mkv`;
 
-    // 1. Check if database has active manual links in Supabase
-    if (isSupabaseConfigured) {
+    // 1. Only query Supabase if title was NOT provided (prevents redundant DB load when client already checked download_links)
+    let resolvedTitle = title;
+    if (!resolvedTitle && isSupabaseConfigured) {
         try {
             const { data: movie } = await supabase
                 .from('movies')
@@ -30,6 +32,7 @@ async function resolveVaultDownload(
                 .maybeSingle();
 
             if (movie) {
+                resolvedTitle = movie.title || undefined;
                 if (isTv && season && episode) {
                     const { data: seasons } = await supabase
                         .from('seasons')
@@ -56,6 +59,7 @@ async function resolveVaultDownload(
                                     source: 'database',
                                     url: directUrl,
                                     downloadUrl: directUrl,
+                                    directUrl,
                                     fileName,
                                     quality,
                                     mediaType,
@@ -77,6 +81,7 @@ async function resolveVaultDownload(
                             source: 'database',
                             url: directUrl,
                             downloadUrl: directUrl,
+                            directUrl,
                             fileName,
                             quality,
                             mediaType,
@@ -90,12 +95,45 @@ async function resolveVaultDownload(
         }
     }
 
-    // 2. VidVault Direct Download (Attempt requested quality, then fallback qualities)
+    // 2. Multi-Provider Direct CDN Resolver (4khdHub / MovieBox Web / HdHub4u — works for Anime, Series & Movies)
+    if (resolvedTitle) {
+        try {
+            const directCloud = await resolveClientDirectDownload({
+                type: mediaType,
+                id,
+                title: resolvedTitle,
+                season: season ? Number(season) : undefined,
+                episode: episode ? Number(episode) : undefined,
+                quality,
+            });
+            if (directCloud?.success && directCloud.url) {
+                return {
+                    success: true,
+                    directAvailable: true,
+                    source: directCloud.source,
+                    url: directCloud.url,
+                    downloadUrl: directCloud.url,
+                    directUrl: directCloud.url,
+                    fileName: directCloud.fileName || fileName,
+                    quality: directCloud.quality || quality,
+                    mediaType,
+                    id,
+                    season,
+                    episode,
+                };
+            }
+        } catch (cloudErr) {
+            console.warn('[Multi-Provider Direct Resolver Warning]:', cloudErr);
+        }
+    }
+
+    // 3. VidVault Direct Download (Only if id is numeric TMDB ID or IMDb tt-ID, skip if UUID)
+    const isValidVaultId = /^\d+$/.test(String(id)) || /^tt\d+$/i.test(String(id));
     const qualitiesToTry = [quality, ...['720p', '1080p', '480p'].filter(q => q.toLowerCase() !== quality.toLowerCase())];
     let vidvaultDirectUrl: string | null = null;
     let resolvedQuality: string = quality;
 
-    for (const qTry of qualitiesToTry) {
+    for (const qTry of isValidVaultId ? qualitiesToTry : []) {
         let vaultUrl = `https://vidvault.to/download-link/${isTv ? 'tv' : 'movie'}/${encodeURIComponent(id)}`;
         if (isTv && season && episode) {
             vaultUrl += `/${encodeURIComponent(season)}/${encodeURIComponent(episode)}`;
@@ -129,15 +167,14 @@ async function resolveVaultDownload(
         }
     }
 
-    // 2a. If VidVault returned a working direct link, use it immediately
+    // 3a. If VidVault returned a working direct link, return the direct worker URL (0 Vercel bandwidth proxy)
     if (vidvaultDirectUrl) {
-        const proxyDownloadUrl = `/api/download/file?url=${encodeURIComponent(vidvaultDirectUrl)}&filename=${encodeURIComponent(fileName)}`;
         return {
             success: true,
             directAvailable: true,
             source: 'vidvault',
-            url: proxyDownloadUrl,
-            downloadUrl: proxyDownloadUrl,
+            url: vidvaultDirectUrl,
+            downloadUrl: vidvaultDirectUrl,
             directUrl: vidvaultDirectUrl,
             fileName,
             quality: resolvedQuality,
@@ -148,10 +185,10 @@ async function resolveVaultDownload(
         };
     }
 
-    // 3. If VidVault didn't have it, check ToonPlay for Anime ONLY
-    const isAnime = mediaType === 'anime' || (!!title && (() => {
+    // 4. If VidVault didn't have it, check ToonPlay for Anime ONLY
+    const isAnime = mediaType === 'anime' || (!!resolvedTitle && (() => {
         const clean = (s: string) => s.replace(/\(.*?\)/g, '').replace(/Season\s*[\d\s\-]+/gi, '').replace(/[^a-zA-Z0-9\s]/g, '').toLowerCase().trim();
-        const ct = clean(title);
+        const ct = clean(resolvedTitle);
         return Object.values(toonplayCatalog).some((item: any) => {
             const it = clean(item.meta?.title || item.slug || '');
             return it && (it.includes(ct) || ct.includes(it));
@@ -160,7 +197,7 @@ async function resolveVaultDownload(
 
     if (isAnime) {
         try {
-            const lookupTitle = title || '';
+            const lookupTitle = resolvedTitle || '';
             if (lookupTitle) {
                 const clean = (s: string) => {
                     let res = s.replace(/\(.*?\)/g, '');
@@ -280,7 +317,11 @@ export async function GET(request: NextRequest) {
         quality,
         title
     );
-    return NextResponse.json(result);
+    return NextResponse.json(result, {
+        headers: result.success
+            ? { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400' }
+            : { 'Cache-Control': 'no-store' },
+    });
 }
 
 export async function POST(request: NextRequest) {
@@ -308,7 +349,11 @@ export async function POST(request: NextRequest) {
             quality,
             title
         );
-        return NextResponse.json(result);
+        return NextResponse.json(result, {
+            headers: result.success
+                ? { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400' }
+                : { 'Cache-Control': 'no-store' },
+        });
     } catch (e: any) {
         return NextResponse.json(
             { success: false, error: e.message || 'Internal error' },

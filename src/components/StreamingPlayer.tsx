@@ -419,6 +419,34 @@ const BUILT_IN_SERVERS: Server[] = [
                 ? `https://anyembed.xyz/embed/tmdb-tv-${targetId}-${s}-${e}`
                 : `https://anyembed.xyz/embed/tmdb-movie-${targetId}`;
         }
+    },
+    {
+        id: 'autoembed_pro',
+        name: 'AutoEmbed Pro (Multi-Audio)',
+        icon: '🎧',
+        isHindi: true,
+        badge: 'MULTI-AUDIO',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://autoembed.me/embed/tv/${targetId}/${s}/${e}`
+                : `https://autoembed.me/embed/movie/${targetId}`;
+        }
+    },
+    {
+        id: 'smashystream',
+        name: 'SmashyStream (Multi-Audio)',
+        icon: '⚡',
+        isHindi: true,
+        badge: 'MULTI-AUDIO',
+        getUrl: (id, tmdb, imdb, mal, s, e) => {
+            const targetId = tmdb || imdb || id;
+            if (!targetId) return null;
+            return s !== undefined && e !== undefined
+                ? `https://player.smashy.stream/tv/${targetId}?s=${s}&e=${e}`
+                : `https://player.smashy.stream/movie/${targetId}`;
+        }
     }
 ];
 
