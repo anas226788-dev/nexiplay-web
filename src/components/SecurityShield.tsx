@@ -14,6 +14,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 export default function SecurityShield() {
     const [shieldAlert, setShieldAlert] = useState<string | null>(null);
     const [botBlocked, setBotBlocked] = useState<boolean>(false);
+    const [devToolsLocked, setDevToolsLocked] = useState<boolean>(false);
     const alertTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Show temporary floating security notice
@@ -53,129 +54,207 @@ export default function SecurityShield() {
 
         if (detectAutomation()) return;
 
+        // Helper to stop event completely
+        const blockEvent = (e: Event, notice?: string) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof (e as any).stopImmediatePropagation === 'function') {
+                (e as any).stopImmediatePropagation();
+            }
+            if (notice) triggerSecurityNotice(notice);
+            return false;
+        };
+
         // ----------------------------------------------------
-        // 2. Keyboard Shortcut Lockdown (F12, Inspect, View-Source, Save)
+        // 2. Comprehensive Keyboard Shortcut Lockdown
+        //    (F12, Inspect, Console, View-Source, Save, Print, ContextMenu key)
+        //    Checks both e.key and physical e.code so non-English keyboards (e.g. Bangla)
+        //    or CapsLock cannot bypass shortcut detection.
         // ----------------------------------------------------
         const handleKeyDown = (e: KeyboardEvent) => {
             const isCtrlOrMeta = e.ctrlKey || e.metaKey;
-            const key = e.key?.toLowerCase();
+            const isAltOrOption = e.altKey;
+            const key = e.key?.toLowerCase() || '';
+            const code = e.code || '';
             const keyCode = e.keyCode || e.which;
 
             // F12 - DevTools
-            if (key === 'f12' || keyCode === 123) {
-                e.preventDefault();
-                e.stopPropagation();
-                triggerSecurityNotice('🔒 Developer tools are locked for security');
-                return false;
+            if (key === 'f12' || code === 'F12' || keyCode === 123) {
+                return blockEvent(e, '🔒 Developer tools are locked for security');
+            }
+
+            // ContextMenu key or Shift+F10 (keyboard right-click equivalent)
+            if (
+                key === 'contextmenu' ||
+                code === 'ContextMenu' ||
+                keyCode === 93 ||
+                (e.shiftKey && (key === 'f10' || code === 'F10' || keyCode === 121))
+            ) {
+                return blockEvent(e, '🔒 Context menu is restricted');
             }
 
             if (isCtrlOrMeta) {
-                // Ctrl+Shift+I (Inspect), Ctrl+Shift+J (Console), Ctrl+Shift+C (Element Selector), Ctrl+Shift+K (Firefox)
-                if (e.shiftKey && (key === 'i' || key === 'j' || key === 'c' || key === 'k')) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    triggerSecurityNotice('🔒 Code inspection is restricted');
-                    return false;
+                const isInspectCode =
+                    key === 'i' || code === 'KeyI' || keyCode === 73 ||
+                    key === 'j' || code === 'KeyJ' || keyCode === 74 ||
+                    key === 'c' || code === 'KeyC' || keyCode === 67 ||
+                    key === 'k' || code === 'KeyK' || keyCode === 75 ||
+                    key === 'e' || code === 'KeyE' || keyCode === 69 ||
+                    key === 'm' || code === 'KeyM' || keyCode === 77;
+
+                // Windows/Linux: Ctrl+Shift+I/J/C/K/E/M | macOS: Cmd+Option+I/J/C/K/E/M or Cmd+Shift+I/J/C
+                if ((e.shiftKey || isAltOrOption) && isInspectCode) {
+                    return blockEvent(e, '🔒 Code inspection is restricted');
                 }
 
-                // Ctrl+U (View Source)
-                if (key === 'u' || keyCode === 85) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    triggerSecurityNotice('🔒 Page source is encrypted & protected');
-                    return false;
+                // Ctrl+U / Cmd+U / Cmd+Option+U (View Source)
+                if (key === 'u' || code === 'KeyU' || keyCode === 85) {
+                    return blockEvent(e, '🔒 Page source is encrypted & protected');
                 }
 
-                // Ctrl+S (Save Page HTML dump)
-                if (key === 's' || keyCode === 83) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    triggerSecurityNotice('🔒 Content saving is disabled');
-                    return false;
+                // Ctrl+S / Cmd+S (Save Page HTML dump)
+                if (key === 's' || code === 'KeyS' || keyCode === 83) {
+                    return blockEvent(e, '🔒 Content saving is disabled');
                 }
 
-                // Ctrl+P (Print to PDF / Scraping)
-                if (key === 'p' || keyCode === 80) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    triggerSecurityNotice('🔒 Printing is restricted');
-                    return false;
+                // Ctrl+P / Cmd+P (Print to PDF / Scraping)
+                if (key === 'p' || code === 'KeyP' || keyCode === 80) {
+                    return blockEvent(e, '🔒 Printing is restricted');
                 }
             }
         };
 
         // ----------------------------------------------------
-        // 3. Right-Click Context Menu Protection (Allow inside inputs)
+        // 3. Strict Right-Click Context Menu Lockdown Everywhere
+        //    (Blocks Inspect on inputs, search bars, images, videos, and entire DOM)
         // ----------------------------------------------------
         const handleContextMenu = (e: MouseEvent) => {
-            const target = e.target as HTMLElement | null;
-            if (target) {
-                const tagName = target.tagName?.toUpperCase();
-                const isInput = tagName === 'INPUT' || tagName === 'TEXTAREA' || target.isContentEditable;
-                // Allow right click if user is pasting into a search bar or text input
-                if (isInput) return;
-            }
+            return blockEvent(e, '🔒 Right-click & Inspect are disabled');
+        };
 
-            e.preventDefault();
-            triggerSecurityNotice('🔒 Right-click inspection is protected');
+        const handleDragStart = (e: DragEvent) => {
+            const target = e.target as HTMLElement | null;
+            const tag = target?.tagName?.toUpperCase();
+            if (tag === 'IMG' || tag === 'VIDEO' || tag === 'A') {
+                e.preventDefault();
+            }
         };
 
         // ----------------------------------------------------
         // 4. Console Sanitization & Hacker Warning Banner
         // ----------------------------------------------------
-        try {
-            console.log(
-                '%c🛑 NEXIPLAY SECURITY SHIELD ACTIVE %c\nUnauthorized source extraction, network reverse-engineering, or automated scraping is strictly prohibited under DMCA & Cyber Security Regulations.\nAll session signatures are actively monitored.',
-                'background: #1A0B2E; color: #FF0055; font-size: 20px; font-weight: 900; padding: 12px 18px; border-radius: 8px; border: 2px solid #FF0055;',
-                'color: #A78BFA; font-size: 13px; font-weight: 600; line-height: 1.6; margin-top: 8px;'
-            );
+        const printSecurityBanner = () => {
+            try {
+                console.log(
+                    '%c🛑 NEXIPLAY SECURITY SHIELD ACTIVE %c\nUnauthorized source extraction, network reverse-engineering, or automated scraping is strictly prohibited under DMCA & Cyber Security Regulations.\nAll session signatures are actively monitored.',
+                    'background: #1A0B2E; color: #FF0055; font-size: 20px; font-weight: 900; padding: 12px 18px; border-radius: 8px; border: 2px solid #FF0055;',
+                    'color: #A78BFA; font-size: 13px; font-weight: 600; line-height: 1.6; margin-top: 8px;'
+                );
 
-            // In production, silence verbose logging to prevent leaking internal variables or tokens
-            if (process.env.NODE_ENV === 'production') {
-                const noop = () => {};
-                console.debug = noop;
-                console.dir = noop;
-                console.table = noop;
+                if (process.env.NODE_ENV === 'production') {
+                    const noop = () => {};
+                    console.debug = noop;
+                    console.dir = noop;
+                    console.table = noop;
+                }
+            } catch (_) {
+                // ignore console errors
             }
-        } catch (_) {
-            // ignore console errors
-        }
+        };
+        printSecurityBanner();
 
         // ----------------------------------------------------
-        // 5. Anti-DevTools Debugger Trap (Desktop Only)
+        // 5. Multi-Vector Anti-DevTools Detection & Active Lockout
+        //    Works on all Windows/Mac/Linux desktops & laptops (even touchscreen PCs)
+        //    and catches both docked and undocked/menu-opened DevTools.
         // ----------------------------------------------------
-        const isMobileOrTouch = window.innerWidth <= 1024 || 'ontouchstart' in window || (navigator.maxTouchPoints && navigator.maxTouchPoints > 0);
-        let devToolsOpen = false;
-        let devToolsTimer: any = null;
+        const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+            navigator.userAgent || ''
+        );
 
-        if (!isMobileOrTouch) {
-            const checkDevTools = () => {
-                const widthThreshold = window.outerWidth - window.innerWidth > 160;
-                const heightThreshold = window.outerHeight - window.innerHeight > 160;
+        const pauseActiveMedia = () => {
+            try {
+                document.querySelectorAll('video, audio').forEach((media) => {
+                    const el = media as HTMLMediaElement;
+                    if (!el.paused) el.pause();
+                });
+            } catch (_) {}
+        };
 
-                if (widthThreshold || heightThreshold) {
-                    if (!devToolsOpen) {
-                        devToolsOpen = true;
+        const checkDevTools = () => {
+            let detected = false;
+
+            // Vector A: Docked DevTools window size delta on desktop/laptop browsers
+            if (!isMobileDevice && window.outerWidth > 0 && window.outerHeight > 0) {
+                const dpr = window.devicePixelRatio || 1;
+                const widthDiff = Math.min(
+                    window.outerWidth - window.innerWidth,
+                    window.outerWidth - Math.round(window.innerWidth * dpr)
+                );
+                const heightDiff = Math.min(
+                    window.outerHeight - window.innerHeight,
+                    window.outerHeight - Math.round(window.innerHeight * dpr)
+                );
+
+                if (widthDiff > 160 || heightDiff > 160) {
+                    detected = true;
+                }
+            }
+
+            // Vector B: Debugger execution timing trap (catches undocked DevTools & Browser Menu -> Developer Tools)
+            const t0 = performance.now();
+            try {
+                const freeze = Function('debugger');
+                freeze();
+            } catch (_) {}
+            const t1 = performance.now();
+            if (t1 - t0 > 100) {
+                detected = true;
+            }
+
+            // Vector C: Legacy Firebug / DevTools extension hook
+            if ((window as any).Firebug?.chrome?.isInitialized) {
+                detected = true;
+            }
+
+            if (detected) {
+                setDevToolsLocked((prev) => {
+                    if (!prev) {
+                        pauseActiveMedia();
                         try {
-                            const freeze = Function('debugger');
-                            freeze();
+                            console.clear();
+                            printSecurityBanner();
                         } catch (_) {}
                     }
-                } else {
-                    devToolsOpen = false;
-                }
-            };
-            devToolsTimer = setInterval(checkDevTools, 4000);
-        }
+                    return true;
+                });
+            } else {
+                setDevToolsLocked((prev) => (prev ? false : prev));
+            }
+        };
 
-        // Attach global listeners with capture phase for maximum authority
-        window.addEventListener('keydown', handleKeyDown, true);
-        window.addEventListener('contextmenu', handleContextMenu, true);
+        const devToolsTimer = setInterval(checkDevTools, 800);
+
+        // Attach global listeners in capture phase on both window and document
+        window.addEventListener('keydown', handleKeyDown, { capture: true });
+        document.addEventListener('keydown', handleKeyDown, { capture: true });
+        window.addEventListener('contextmenu', handleContextMenu, { capture: true });
+        document.addEventListener('contextmenu', handleContextMenu, { capture: true });
+        window.addEventListener('dragstart', handleDragStart, { capture: true });
+        window.addEventListener('resize', checkDevTools);
+
+        // Run initial check shortly after mount
+        const initialCheckTimeout = setTimeout(checkDevTools, 300);
 
         return () => {
-            window.removeEventListener('keydown', handleKeyDown, true);
-            window.removeEventListener('contextmenu', handleContextMenu, true);
+            window.removeEventListener('keydown', handleKeyDown, { capture: true });
+            document.removeEventListener('keydown', handleKeyDown, { capture: true });
+            window.removeEventListener('contextmenu', handleContextMenu, { capture: true });
+            document.removeEventListener('contextmenu', handleContextMenu, { capture: true });
+            window.removeEventListener('dragstart', handleDragStart, { capture: true });
+            window.removeEventListener('resize', checkDevTools);
             clearInterval(devToolsTimer);
+            clearTimeout(initialCheckTimeout);
             if (alertTimeoutRef.current) clearTimeout(alertTimeoutRef.current);
         };
     }, [triggerSecurityNotice]);
@@ -197,6 +276,28 @@ export default function SecurityShield() {
                 </p>
                 <div className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-mono text-gray-400">
                     Incident ID: {Math.random().toString(36).substring(2, 10).toUpperCase()} • Protocol: SHIELD-V4
+                </div>
+            </div>
+        );
+    }
+
+    // ----------------------------------------------------
+    // Active DevTools Lockout Screen (If opened via browser menu or shortcut before page load)
+    // ----------------------------------------------------
+    if (devToolsLocked) {
+        return (
+            <div className="fixed inset-0 z-[999999] bg-[#07050B]/98 backdrop-blur-3xl text-white flex flex-col items-center justify-center p-6 text-center select-none">
+                <div className="w-20 h-20 rounded-3xl bg-violet-500/15 border border-violet-500/40 flex items-center justify-center text-4xl mb-6 shadow-[0_0_50px_rgba(139,92,246,0.35)]">
+                    🔒
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-black text-violet-300 mb-2">
+                    Developer Tools Detected
+                </h1>
+                <p className="text-sm text-gray-300 max-w-md leading-relaxed mb-6">
+                    For content security and stream protection, Nexiplay cannot be accessed while browser Developer Tools or Inspect Element is open. Please close Developer Tools to continue watching immediately.
+                </p>
+                <div className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-mono text-violet-300/80">
+                    NEXIPLAY SHIELD-V5 • AUTO-RESUMES WHEN DEVTOOLS IS CLOSED
                 </div>
             </div>
         );
