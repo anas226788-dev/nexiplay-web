@@ -291,7 +291,7 @@ export async function fetchTmdbLatestTrending(page = 1): Promise<{ results: Movi
         const mediaType = item.media_type || 'movie';
         if (mediaType === 'person') continue;
 
-        const isAnime = (item.genre_ids?.includes(16) && item.original_language === 'ja') || false;
+        const isAnime = (item.genre_ids?.includes(16) && ['ja', 'zh', 'ko'].includes((item.original_language || '').toLowerCase())) || false;
         const type: 'movie' | 'series' | 'anime' = isAnime ? 'anime' : mediaType === 'tv' ? 'series' : 'movie';
 
         results.push(tmdbToMovie(item, type));
@@ -323,7 +323,7 @@ export async function searchTmdb(query: string, media: 'movie' | 'tv' | 'multi' 
         const mediaType = item.media_type || (media === 'tv' ? 'tv' : 'movie');
         if (mediaType === 'person') continue;
 
-        const isAnime = (item.genre_ids?.includes(16) && item.original_language === 'ja') || false;
+        const isAnime = (item.genre_ids?.includes(16) && ['ja', 'zh', 'ko'].includes((item.original_language || '').toLowerCase())) || false;
         const type: 'movie' | 'series' | 'anime' = isAnime ? 'anime' : mediaType === 'tv' ? 'series' : 'movie';
 
         movies.push(tmdbToMovie(item, type));
@@ -373,7 +373,7 @@ export function tmdbDetailToMovie(detail: TmdbDetailItem, media: 'movie' | 'tv')
     seasons: Season[];
     cast: string;
 } {
-    const isAnime = (detail.genres?.some(g => g.id === 16) && detail.original_language === 'ja') || false;
+    const isAnime = (detail.genres?.some(g => g.id === 16) && ['ja', 'zh', 'ko'].includes((detail.original_language || '').toLowerCase())) || false;
     const type: 'movie' | 'series' | 'anime' = isAnime ? 'anime' : media === 'tv' ? 'series' : 'movie';
 
     const base = tmdbToMovie(detail, type);
@@ -477,7 +477,7 @@ export async function fetchTmdbByMoodGenres(
 
         return data.results.map(item => {
             const itemType: 'movie' | 'series' | 'anime' =
-                isAnime ? 'anime' : (item.genre_ids?.includes(16) && item.original_language === 'ja') ? 'anime' : media === 'tv' ? 'series' : 'movie';
+                isAnime ? 'anime' : (item.genre_ids?.includes(16) && ['ja', 'zh', 'ko'].includes((item.original_language || '').toLowerCase())) ? 'anime' : media === 'tv' ? 'series' : 'movie';
             const movie = tmdbToMovie(item, itemType);
             const mappedGenres = (item.genre_ids || [])
                 .map(id => TMDB_GENRE_ID_TO_SLUG[id])

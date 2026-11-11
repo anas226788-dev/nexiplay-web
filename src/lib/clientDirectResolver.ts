@@ -7,6 +7,12 @@
 
 const PARX_API_BASE = 'https://parxstream.vercel.app/api';
 
+let parxBlockedUntil = 0;
+
+function isParxAvailable(): boolean {
+    return Date.now() >= parxBlockedUntil;
+}
+
 export interface DirectDownloadParams {
     type?: string;
     id?: string | number | null;
@@ -67,6 +73,9 @@ function isTitleMatch(candidateTitle: string, targetTitle: string): boolean {
 }
 
 async function fetchJsonWithTimeout<T = any>(url: string, timeoutMs = 9000): Promise<T | null> {
+    if (url.startsWith(PARX_API_BASE) && !isParxAvailable()) {
+        return null;
+    }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
@@ -77,6 +86,10 @@ async function fetchJsonWithTimeout<T = any>(url: string, timeoutMs = 9000): Pro
                 Accept: 'application/json',
             },
         });
+        if (url.startsWith(PARX_API_BASE) && (res.status === 402 || res.status === 403)) {
+            parxBlockedUntil = Date.now() + 30 * 60 * 1000;
+            return null;
+        }
         if (!res.ok) return null;
         return (await res.json()) as T;
     } catch {

@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import toonplayCatalogRaw from '@/lib/toonplay_catalog.json';
 import { resolveClientDirectDownload } from '@/lib/clientDirectResolver';
+import {
+    resolveAnimeHeavenDownload,
+    resolveAnimeSaltDownload,
+} from '@/lib/animeDownloadResolver';
 
 const toonplayCatalog = toonplayCatalogRaw as Record<string, any>;
 
@@ -194,6 +198,65 @@ async function resolveVaultDownload(
             return it && (it.includes(ct) || ct.includes(it));
         });
     })());
+
+    // 4. If VidVault didn't have it, check Live Anime Resolvers (AnimeHeaven Direct MP4, AnimeSalt Live API, & ToonPlay Catalog)
+    // Always try Anime resolvers for explicit anime OR any TV/Series/Animation show when VidVault 404s (covers Donghua & Korean animation)
+    const epNum = Number(episode || 1);
+    const sNum = Number(season || 1);
+    const preferLightCloudFirst = quality === '480p' || quality === '360p';
+
+    if (resolvedTitle && (isAnime || isTv)) {
+        try {
+            const livePrimary = preferLightCloudFirst
+                ? (await resolveAnimeSaltDownload({
+                      title: resolvedTitle,
+                      isTv,
+                      season: sNum,
+                      episode: epNum,
+                      quality,
+                  })) ||
+                  (await resolveAnimeHeavenDownload({
+                      title: resolvedTitle,
+                      isTv,
+                      season: sNum,
+                      episode: epNum,
+                      quality,
+                  }))
+                : (await resolveAnimeHeavenDownload({
+                      title: resolvedTitle,
+                      isTv,
+                      season: sNum,
+                      episode: epNum,
+                      quality,
+                  })) ||
+                  (await resolveAnimeSaltDownload({
+                      title: resolvedTitle,
+                      isTv,
+                      season: sNum,
+                      episode: epNum,
+                      quality,
+                  }));
+
+            if (livePrimary?.success && livePrimary.url) {
+                return {
+                    success: true,
+                    directAvailable: true,
+                    source: livePrimary.source,
+                    url: livePrimary.url,
+                    downloadUrl: livePrimary.url,
+                    directUrl: livePrimary.directUrl,
+                    fileName: livePrimary.fileName,
+                    quality: livePrimary.quality || quality,
+                    mediaType,
+                    id,
+                    season,
+                    episode,
+                };
+            }
+        } catch (liveAnimeErr) {
+            console.warn('[Live Anime Download Warning]:', liveAnimeErr);
+        }
+    }
 
     if (isAnime) {
         try {

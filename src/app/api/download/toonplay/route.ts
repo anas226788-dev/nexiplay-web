@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import toonplayCatalogRaw from '@/lib/toonplay_catalog.json';
+import {
+    resolveAnimeHeavenDownload,
+    resolveAnimeSaltDownload,
+} from '@/lib/animeDownloadResolver';
 
 const toonplayCatalog = toonplayCatalogRaw as Record<string, any>;
 const bundledSeries = Object.values(toonplayCatalog).map((item: any) => ({
@@ -181,76 +185,77 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        // 3. Fallback: Search AnimeSalt/ToonPlay directly for title and fetch episode download
-        const searchQ = (title || slug).replace(/\(.*?\)/g, '').trim();
-        const searchRes = await fetch(`https://animesalt.streamindia.co.in/api/search?q=${encodeURIComponent(searchQ)}&page=1`, {
-            headers: HEADERS,
-            signal: AbortSignal.timeout(10000)
+        // 3. Fallback: Smart AnimeSalt/ToonPlay Search + Episode Download (avoids picking "LEGO" or "Movie 0")
+        const lookupTitle = title || slug;
+        const saltRes = await resolveAnimeSaltDownload({
+            title: lookupTitle,
+            isTv: true,
+            season,
+            episode,
+            quality: '720p',
         });
 
-        if (searchRes.ok) {
-            const searchData = await searchRes.json();
-            const items: any[] = searchData.data || [];
-            if (items.length > 0) {
-                const animeId = items[0].id;
-                const infoRes = await fetch(`https://animesalt.streamindia.co.in/api/info?id=${encodeURIComponent(animeId)}`, {
-                    headers: HEADERS,
-                    signal: AbortSignal.timeout(10000)
-                });
+        if (saltRes?.success && Array.isArray(saltRes.qualities) && saltRes.qualities.length > 0) {
+            const payload = {
+                title: saltRes.matchedTitle || title,
+                season,
+                episode,
+                source: 'toonplay_api',
+                qualities: saltRes.qualities,
+            };
 
-                if (infoRes.ok) {
-                    const infoData = await infoRes.json();
-                    const seasonsList: any[] = infoData.anime?.seasonsList || [];
-                    const targetSeason = seasonsList.find((s: any) => parseInt(s.season, 10) === season) || seasonsList[0];
-                    const episodes: any[] = targetSeason?.episodes || [];
-                    const targetEp = episodes.find((e: any) => e.number === episode) || episodes[episode - 1];
+            downloadCache.set(cacheKey, { data: payload, expiresAt: Date.now() + 30 * 60 * 1000 });
 
-                    if (targetEp?.id) {
-                        const dlRes = await fetch(`https://animesalt.streamindia.co.in/api/toonplay/download?id=${encodeURIComponent(targetEp.id)}`, {
-                            headers: HEADERS,
-                            signal: AbortSignal.timeout(10000)
-                        });
-
-                        if (dlRes.ok) {
-                            const dlData = await dlRes.json();
-                            const downloads: any[] = dlData.downloads || [];
-                            if (downloads.length > 0) {
-                                const qualities = downloads.map((d: any) => ({
-                                    quality: d.quality?.toLowerCase() || '720p',
-                                    qualityLabel: d.quality || 'HD',
-                                    size: d.size || null,
-                                    links: {
-                                        mega: d.link, // Direct 302 Mega.nz redirect
-                                        server: d.server,
-                                        lang: d.lang
-                                    }
-                                }));
-
-                                const payload = {
-                                    title: infoData.anime?.title || title,
-                                    season,
-                                    episode,
-                                    source: 'toonplay_api',
-                                    qualities
-                                };
-
-                                downloadCache.set(cacheKey, { data: payload, expiresAt: Date.now() + 30 * 60 * 1000 });
-
-                                return NextResponse.json({
-                                    success: true,
-                                    cached: false,
-                                    ...payload
-                                }, {
-                                    headers: {
-                                        'Access-Control-Allow-Origin': '*',
-                                        'Cache-Control': 'public, max-age=1800'
-                                    }
-                                });
-                            }
-                        }
-                    }
+            return NextResponse.json({
+                success: true,
+                cached: false,
+                ...payload
+            }, {
+                headers: {
+                    'Access-Control-Allow-Origin': '*',
+                    'Cache-Control': 'public, max-age=1800'
                 }
-            }
+            });
+        }
+
+        // 4. Fallback: AnimeHeaven Direct MP4 CDN
+        const heavenRes = await resolveAnimeHeavenDownload({
+            title: lookupTitle,
+            isTv: true,
+            season,
+            episode,
+            quality: '1080p',
+        });
+        if (heavenRes?.success && heavenRes.url) {
+            const payload = {
+                title: heavenRes.matchedTitle || title,
+                season,
+                episode,
+                source: 'animeheaven_direct',
+                qualities: [
+                    {
+                        quality: '1080p',
+                        qualityLabel: '1080p Direct MP4',
+                        size: null,
+                        links: {
+                            direct: heavenRes.url,
+                            mega: heavenRes.url,
+                            server: 'AnimeHeaven Direct MP4',
+                        },
+                    },
+                ],
+            };
+            downloadCache.set(cacheKey, { data: payload, expiresAt: Date.now() + 30 * 60 * 1000 });
+            return NextResponse.json({
+                success: true,
+                cached: false,
+                ...payload,
+            }, {
+                headers: {
+                    'Access-Control-Allow-Origin': '*',
+                    'Cache-Control': 'public, max-age=1800'
+                }
+            });
         }
 
         return NextResponse.json({
