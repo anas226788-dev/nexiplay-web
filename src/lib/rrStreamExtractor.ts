@@ -192,16 +192,23 @@ export async function extractRRStream(
 
         // 1. If it's a rareanimes blog post, find the episode zipper link
         if (currentTarget.includes('rareanimes.') || currentTarget.includes('raretoons.') || (!currentTarget.includes('codedew.com/zipper') && !currentTarget.includes('razorshell.space'))) {
-            const postCandidates: string[] = [];
+            const baseCandidates: string[] = [];
             const urlSeasonMatch = currentTarget.match(/season-0*(\d+)\b/i);
             if (urlSeasonMatch && parseInt(urlSeasonMatch[1], 10) !== seasonNum) {
-                postCandidates.push(currentTarget.replace(/season-0*\d+\b/i, `season-${seasonNum}`));
+                baseCandidates.push(currentTarget.replace(/season-0*\d+\b/i, `season-${seasonNum}`));
                 const paddedSeason = String(seasonNum).padStart(2, '0');
                 if (paddedSeason !== String(seasonNum)) {
-                    postCandidates.push(currentTarget.replace(/season-0*\d+\b/i, `season-${paddedSeason}`));
+                    baseCandidates.push(currentTarget.replace(/season-0*\d+\b/i, `season-${paddedSeason}`));
                 }
             }
-            postCandidates.push(currentTarget);
+            baseCandidates.push(currentTarget);
+            const postCandidates: string[] = [];
+            for (const u of baseCandidates) {
+                if (/rareanimes\.net/i.test(u)) {
+                    postCandidates.push(u.replace(/https?:\/\/(?:www\.)?rareanimes\.net/i, 'https://www.rareanimes.fans'));
+                }
+                postCandidates.push(u);
+            }
 
             for (const candidatePostUrl of Array.from(new Set(postCandidates))) {
                 try {
