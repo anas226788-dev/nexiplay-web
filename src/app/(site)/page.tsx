@@ -75,7 +75,7 @@ async function getHomeContent(page: number) {
     const homeSectionsPromise = page === 1
         ? Promise.all([
             supabase.from('movies').select(sliderFields).eq('is_trending', true).order('trending_rank', { ascending: true }).limit(10),
-            supabase.from('updates').select('*').eq('is_active', true).order('updated_at', { ascending: false }).limit(20),
+            supabase.from('updates').select('*').eq('is_active', true).order('updated_at', { ascending: false, nullsFirst: false }).limit(30),
             supabase.from('app_settings').select('latest_update_click_ad_link').eq('id', 1).single(),
             supabase.from('upcoming').select('*').order('release_date', { ascending: true }).limit(10),
             getCategoryWithPinned('movie'),
@@ -207,9 +207,9 @@ async function getHomeContent(page: number) {
             })
             .filter(Boolean);
 
-        const combinedUpdates = [...episodeUpdates, ...(updatesRes.data || [])].sort((a: any, b: any) => {
-            const timeA = new Date(a.updated_at || a.created_at || 0).getTime();
-            const timeB = new Date(b.updated_at || b.created_at || 0).getTime();
+        const combinedUpdates = [...(updatesRes.data || []), ...episodeUpdates].sort((a: any, b: any) => {
+            const timeA = new Date(a.updated_at || a.created_at || 0).getTime() || 0;
+            const timeB = new Date(b.updated_at || b.created_at || 0).getTime() || 0;
             return timeB - timeA;
         });
 
@@ -217,9 +217,16 @@ async function getHomeContent(page: number) {
         latestUpdates = [];
         for (const item of combinedUpdates) {
             const cleanSlug = String(item.slug || '').replace(/^\/+/, '').split('/').pop()?.toLowerCase() || '';
-            const key = item.content_id || cleanSlug || item.id;
-            if (!key || seenUpdateContentKeys.has(key)) continue;
-            seenUpdateContentKeys.add(key);
+            const contentIdKey = item.content_id ? `id:${item.content_id}` : '';
+            const slugKey = cleanSlug ? `slug:${cleanSlug}` : '';
+            const primaryKey = contentIdKey || slugKey || item.id;
+            if (!primaryKey) continue;
+            if ((contentIdKey && seenUpdateContentKeys.has(contentIdKey)) || (slugKey && seenUpdateContentKeys.has(slugKey))) {
+                continue;
+            }
+            if (contentIdKey) seenUpdateContentKeys.add(contentIdKey);
+            if (slugKey) seenUpdateContentKeys.add(slugKey);
+            seenUpdateContentKeys.add(item.id);
             latestUpdates.push(item);
             if (latestUpdates.length >= 16) break;
         }
@@ -227,7 +234,7 @@ async function getHomeContent(page: number) {
         // Supplement with recent database releases if needed
         if (latestUpdates.length < 10 && regularLatest.length > 0) {
             const extraUpdates = regularLatest
-                .filter(m => !seenUpdateContentKeys.has(m.id) && !seenUpdateContentKeys.has(m.slug.toLowerCase()))
+                .filter(m => !seenUpdateContentKeys.has(`id:${m.id}`) && !seenUpdateContentKeys.has(`slug:${m.slug.toLowerCase()}`))
                 .slice(0, 12 - latestUpdates.length)
                 .map(m => ({
                     id: m.id,
